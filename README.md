@@ -3,7 +3,9 @@
 - Automatically Provision VMs in Proxmox Virtual Environment
 - Allow clients to view/manage VMs using WHMCS Client Area
 
-The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced and removed the licensing requirement. We're slowly overhauling the Module to suit our internal needs.
+The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced and removed the licensing requirement. 
+
+We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
 **System Requirements:**
 
