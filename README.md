@@ -1,9 +1,9 @@
 # Proxmox VE for WHMCS (Module) Provision & Manage
 
-- Automatically Provision VMs in Proxmox Virtual Environment
+- Automatically Provision VMs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/)
 - Allow clients to view/manage VMs using WHMCS Client Area
 
-The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced and removed the licensing requirement. 
+The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement. 
 
 We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
