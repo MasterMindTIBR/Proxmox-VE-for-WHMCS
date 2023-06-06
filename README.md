@@ -22,7 +22,7 @@ We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host]
 **Documentation & Resources:**
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
-- TightVNC: https://www.tightvnc.com/doc/java/README.txt
+- TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
 - NoVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 
