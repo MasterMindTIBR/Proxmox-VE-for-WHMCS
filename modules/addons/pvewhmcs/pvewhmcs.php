@@ -84,14 +84,14 @@
 			{
 				update_kvm_plan() ;
 			}
-			if (isset($_POST['updateopenvzplan']))
+			if (isset($_POST['updatelxcplan']))
 			{
-				update_openvz_plan() ;
+				update_lxc_plan() ;
 			}
 
-			if (isset($_POST['addnewopenvzplan']))
+			if (isset($_POST['addnewlxcplan']))
 			{
-				save_openvz_plan() ;
+				save_lxc_plan() ;
 			}
 
 		echo '
@@ -103,8 +103,8 @@
 						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
 							<i class="fa fa-plus-square"></i>&nbsp; Add new KVM plan
 						</a>
-						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_openvz_plan">
-							<i class="fa fa-plus-square"></i>&nbsp; Add new OpenVZ plan
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
+							<i class="fa fa-plus-square"></i>&nbsp; Add new LXC plan
 						</a>
 					</div>
 			';
@@ -116,7 +116,7 @@
 						if ($_GET['vmtype']=='kvm')
 							kvm_plan_edit($_GET['id']) ;
 						else
-							openvz_plan_edit($_GET['id']) ;
+							lxc_plan_edit($_GET['id']) ;
 					}
 
 					if($_GET['action']=='removeplan') {
@@ -124,8 +124,8 @@
 					}
 
 
-					if ($_GET['action']=='add_openvz_plan') {
-						openvz_plan_add() ;
+					if ($_GET['action']=='add_lxc_plan') {
+						lxc_plan_add() ;
 					}
 
 					if ($_GET['action']=='planlist') {
@@ -350,7 +350,7 @@
 							<option value="w2k">Windows 2000</option>
 							<option value="other">Other</option>
 						</select>
-						Virtual Machine Guest type (OpenVZ or KVM).
+						Virtual Machine Guest type (LXC or KVM).
 					</td>
 				</tr>
 				<tr>
@@ -613,7 +613,7 @@
 						    <option value="w2k" ' . ($plan->ostype == "w2k" ? "selected" : "") . '>Windows 2000</option>
 						    <option value="other" ' . ($plan->ostype == "other" ? "selected" : "") . '>Other</option>
 						</select>
-						Virtual Machine Guest type (OpenVZ or KVM).
+						Virtual Machine Guest type (LXC or KVM).
 					</td>
 				</tr>
 				<tr>
@@ -849,8 +849,8 @@
 	}
 
 
-	/* adding an OpenVZ plan */
-	function openvz_plan_add() {
+	/* adding an LXC plan */
+	function lxc_plan_add() {
 		echo '
 			<form method="post">
 			<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -936,15 +936,15 @@
 			</table>
 
 			<div class="btn-container">
-				<input type="submit" class="btn btn-primary" value="Save Changes" name="addnewopenvzplan" id="addnewopenvzplan">
+				<input type="submit" class="btn btn-primary" value="Save Changes" name="addnewlxcplan" id="addnewlxcplan">
 				<input type="reset" class="btn btn-default" value="Cancel Changes">
 			</div>
 			</form>
 			';
 	}
 
-	/* editing an OpenVZ plan */
-	function openvz_plan_edit($id) {
+	/* editing an LXC plan */
+	function lxc_plan_edit($id) {
 		$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 		if (empty($plan)) {
 			echo 'Plan Not found' ;
@@ -1039,7 +1039,7 @@
 			</table>
 
 			<div class="btn-container">
-				<input type="submit" class="btn btn-primary" value="Save Changes" name="updateopenvzplan" id="updateopenvzplan">
+				<input type="submit" class="btn btn-primary" value="Save Changes" name="updatelxcplan" id="updatelxcplan">
 				<input type="reset" class="btn btn-default" value="Cancel Changes">
 			</div>
 			</form>
@@ -1131,7 +1131,7 @@
 		$_SESSION['pvewhmcs']['infomsg']['title']='Plan Deleted.' ;
 		$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
 	}
-	function save_openvz_plan() {
+	function save_lxc_plan() {
 		try {
 			Capsule::connection()->transaction(
 				function ($connectionManager)
@@ -1140,7 +1140,7 @@
 					$connectionManager->table('mod_pvewhmcs_plans')->insert(
 						[
 							'title' => $_POST['title'],
-							'vmtype' => 'openvz',
+							'vmtype' => 'lxc',
 							'cores' => $_POST['cores'],
 							'cpulimit' => $_POST['cpulimit'],
 							'cpuunits' => $_POST['cpuunits'],
@@ -1157,21 +1157,21 @@
 					);
 				}
 			);
-			$_SESSION['pvewhmcs']['infomsg']['title']='New OpenVZ Plan added.' ;
-			$_SESSION['pvewhmcs']['infomsg']['message']='Saved the OpenVZ Plan successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='New LXC Plan added.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='Saved the LXC Plan successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
 		}
 	}
 
-	function update_openvz_plan() {
+	function update_lxc_plan() {
 		Capsule::table('mod_pvewhmcs_plans')
 					->where('id', $_GET['id'])
 					->update(
 						[
 							'title' => $_POST['title'],
-							'vmtype' => 'openvz',
+							'vmtype' => 'lxc',
 							'cores' => $_POST['cores'],
 							'cpulimit' => $_POST['cpulimit'],
 							'cpuunits' => $_POST['cpuunits'],
@@ -1186,7 +1186,7 @@
 							'onboot' => $_POST['onboot'],
 						]
 					);
-		$_SESSION['pvewhmcs']['infomsg']['title']='OpenVZ Plan updated.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='LXC Plan updated.' ;
 		$_SESSION['pvewhmcs']['infomsg']['message']='Updated the KVM Plan successfully. (Updating plans will not effect on current VMs.)' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
@@ -1225,7 +1225,7 @@
 					</td>
 				</tr>
 			</table>
-			<input type="submit" class="btn btn-primary" name="newIPpool" value="save"/>
+			<input type="submit" class="btn btn-primary" name="newIPpool" value="Save"/>
 		</form>
 		';
 	}
@@ -1285,7 +1285,7 @@
 					</td>
 				</tr>
 			</table>
-			<input type="submit" name="assignIP2pool" value="save"/>
+			<input type="submit" name="assignIP2pool" value="Save"/>
 			</form>';
 		if (isset($_POST['assignIP2pool'])) {
 			// check if single IP address

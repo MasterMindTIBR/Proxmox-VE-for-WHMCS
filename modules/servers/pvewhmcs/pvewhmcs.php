@@ -73,7 +73,7 @@ function pvewhmcs_ConfigOptions()
 			"FriendlyName" => "Plan",
 			"Type" => "dropdown",
 			'Options' => $plans ,
-			"Description" => "KVM/OpenVZ : Plan Name"
+			"Description" => "KVM/LXC : Plan Name"
 		),
 		"IPPool" => array(
 			"FriendlyName" => "IP Pool",
@@ -131,7 +131,7 @@ function pvewhmcs_CreateAccount($params) {
 
 	} else {
 		$vm_settings['vmid']=($params["serviceid"])+100;
-		if ($plan->vmtype=='openvz') {
+		if ($plan->vmtype=='lxc') {
 			$vm_settings['ostemplate']='local:vztmpl/'.$params['customfields']['Template'] ;
 			$vm_settings['swap']=$plan->swap ;
 			$vm_settings['rootfs']=$plan->disk ;
