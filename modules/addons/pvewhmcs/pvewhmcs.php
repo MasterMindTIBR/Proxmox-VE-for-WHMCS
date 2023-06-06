@@ -399,12 +399,6 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">I/O - Priority</td>
-					<td class="fieldarea">
-						<input type="text" size="8" name="iopriority" id="iopriority" value="4">
-					</td>
-				</tr>
-				<tr>
 					<td class="fieldlabel">Disk - Format</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskformat">
@@ -667,12 +661,6 @@
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
 						Disk space in Gigabytes e.g 1024 = 1TB
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">I/O - Priority</td>
-					<td class="fieldarea">
-						<input type="text" size="8" name="iopriority" id="iopriority" value="'.$plan->iopriority.'">
 					</td>
 				</tr>
 				<tr>
@@ -1007,7 +995,6 @@
 							'memory' => $_POST['memory'],
 							'swap' => $_POST['swap'],
 							'disk' => $_POST['disk'],
-							'iopriority' => $_POST['iopriority'],
 							'diskformat' => $_POST['diskformat'],
 							'diskcache' => $_POST['diskcache'],
 							'disktype' => $_POST['disktype'],
@@ -1047,7 +1034,6 @@
 							'memory' => $_POST['memory'],
 							'swap' => $_POST['swap'],
 							'disk' => $_POST['disk'],
-							'iopriority' => $_POST['iopriority'],
 							'diskformat' => $_POST['diskformat'],
 							'diskcache' => $_POST['diskcache'],
 							'disktype' => $_POST['disktype'],
