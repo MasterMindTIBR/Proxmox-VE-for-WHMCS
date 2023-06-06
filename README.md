@@ -9,13 +9,24 @@ We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host]
 
 **System Requirements:**
 
-- WHMCS 6.x (pending testing with 8.x)
-- PHP 7.x (pending testing with 8.x)
-- Proxmox VE 5/6 (" " with PVE 7.x)
+- WHMCS 8.x stable
+- PHP 8.x stable
+- Proxmox VE 7
 
-**Libraries/Dependencies:**
+**Libraries & Dependencies:**
 
-- [CpuID/pve2-api-php-client](https://github.com/CpuID/pve2-api-php-client)
+- [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (pending update)
+- [TightTNC vncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
+- [NoVNC HTML5 Viewer](https://github.com/novnc/noVNC) (pending update)
+
+**Documentation & Resources:**
+
+- Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
+- TightVNC: https://www.tightvnc.com/doc/java/README.txt
+- NoVNC: https://github.com/novnc/noVNC/wiki
+- WHMCS: https://developers.whmcs.com/
+
+**Problems & Contributions**
 
 If you have any problems with the Module, please raise an [Issue](https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/issues).
 
