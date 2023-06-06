@@ -1,8 +1,8 @@
 <?php
-if (file_exists('../modules/addons/pve-whmcs/proxmox.php'))
-	require_once('../modules/addons/pve-whmcs/proxmox.php');
+if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
+	require_once('../modules/addons/pvewhmcs/proxmox.php');
 else
-	require_once('modules/addons/pve-whmcs/proxmox.php');
+	require_once('modules/addons/pvewhmcs/proxmox.php');
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 
@@ -496,8 +496,8 @@ function get_server_pass_from_whmcs($enc_pass){
 
 function pvewhmcs_ClientAreaCustomButtonArray() {
     $buttonarray = array(
-	 "<img src='./modules/servers/pve-whmcs/img/tigervnc.png'/> Tiger VNC (JAVA)" => "javaVNC",
-	 "<img src='./modules/servers/pve-whmcs/img/novnc.png'/> NoVNC" => "noVNC",
+	 "<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> Tiger VNC (JAVA)" => "javaVNC",
+	 "<img src='./modules/servers/pvewhmcs/img/novnc.png'/> NoVNC" => "noVNC",
 	 "<i class='fa fa-2x fa-plug'></i> Start" => "vmStart",
 	 "<i class='fa fa-2x fa-power-off'></i> Shutdown" => "vmShutdown",
 	 "<i class='fa fa-2x fa-stop'></i>  Stop" => "vmStop",
@@ -671,10 +671,10 @@ function pvewhmcs_noVNC($params) {
 		$path = 'api2/json/websocket?port=' . $vm_vncproxy['port'] . '&user=' . $serverusername . '@pam' . '&vmid=' . ($params['serviceid']+100) . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
 
 
-		$url='./modules/servers/pve-whmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
+		$url='./modules/servers/pvewhmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
 		echo '<script>window.open("'.$url.'")</script>';
 
-		//echo '<script>window.open("./modules/servers/pve-whmcs/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
+		//echo '<script>window.open("./modules/servers/pvewhmcs/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
 	}
 }
 
@@ -701,7 +701,7 @@ function pvewhmcs_javaVNC($params){
 		$javaVNCparams[3]=$vm_vncproxy['user'] ;
 		$javaVNCparams[4]=$vm_vncproxy['ticket'] ;
 
-		echo '<script>window.open("modules/servers/pve-whmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
+		echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
 		return true ;
 	}
 	return false;

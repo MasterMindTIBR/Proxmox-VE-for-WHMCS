@@ -1,6 +1,6 @@
 <?php
 	use Illuminate\Database\Capsule\Manager as Capsule;
-	define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pve-whmcs' );
+	define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
 	require_once('proxmox.php');
 	function pvewhmcs_config() {
 		$configarray = array(
@@ -14,7 +14,7 @@
 	}
 	function pvewhmcs_activate() {
 
-		$sql = file_get_contents('../modules/addons/pve-whmcs/db.sql');
+		$sql = file_get_contents(ROOTDIR.'/modules/addons/pvewhmcs/db.sql');
 		if (!$sql) {
 			return array('status'=>'error','description'=>'The db.sql file not found.');
 		}
@@ -67,8 +67,8 @@
 			<div id="clienttabs">
 				<ul class="nav nav-tabs admin-tabs">
 					<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM Plans</a></li>
-					<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP pools</a></li>
-					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">PVE for WHMCS License</a></li>
+					<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
+					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">Software License</a></li>
 				</ul>
 			</div>
 			<div class="tab-content admin-tabs">
@@ -285,7 +285,7 @@
 				// 		die("Invalid Response");
 				// 		break;
 				// }
-				echo ('<b style="color:green">PVE for WHMCS is now Open-source and free to use.</b>');
+				echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!<br>https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</b>');
 			echo '
 				</div>
 			';
@@ -1198,7 +1198,7 @@
 
 	// add IP address/subnet to Pool
 	function add_ip_2_pool() {
-		require_once('../modules/addons/pve-whmcs/Ipv4/Subnet.php');
+		require_once('../modules/addons/pvewhmcs/Ipv4/Subnet.php');
 		echo '<form method="post">
 			<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 				<tr>

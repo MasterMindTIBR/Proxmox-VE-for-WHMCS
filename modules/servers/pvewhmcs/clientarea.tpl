@@ -6,24 +6,24 @@
 			<div class="col col-md-3">
 				<div class="row">
 					<div class="col col-md-12">
-						<img src="{$WEB_ROOT}./modules/servers/pve-whmcs/img/{$vm_config['vtype']}.png"/>
+						<img src="{$WEB_ROOT}./modules/servers/pvewhmcs/img/{$vm_config['vtype']}.png"/>
 					</div>
 				</div>			
 				<div class="row">
 					<div class="col col-md-12">
-						<img src="{$WEB_ROOT}./modules/servers/pve-whmcs/img/os/{$vm_config['ostype']}.png"/>
+						<img src="{$WEB_ROOT}./modules/servers/pvewhmcs/img/os/{$vm_config['ostype']}.png"/>
 					</div>
 				</div>
 			</div>
 			<div class="col col-md-2">
-				<img src="{$WEB_ROOT}./modules/servers/pve-whmcs/img/{$vm_status['status']}.png"/><br/>
+				<img src="{$WEB_ROOT}./modules/servers/pvewhmcs/img/{$vm_status['status']}.png"/><br/>
 				{$vm_status['status']}<br/>
 				Up Time:&nbsp;{$vm_status['uptime']}
 				
 			</div>
 			<div class="col col-md-7">
 				<div class="row">
-					<script src="{$WEB_ROOT}/modules/servers/pve-whmcs/js/CircularLoader.js"></script>
+					<script src="{$WEB_ROOT}/modules/servers/pvewhmcs/js/CircularLoader.js"></script>
 					<div class="col col-md-3" style="height:106px;">
 						<div id="c1" class="circle" data-percent="{$vm_status['cpu']}">CPU</div>
 					</div>
