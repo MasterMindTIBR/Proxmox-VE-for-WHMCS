@@ -357,7 +357,7 @@
 					<td class="fieldlabel">CPU - Emulation</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="cpuemu">
-							<option value="host">Host</option>
+							<option value="host">(Host) Host</option>
 							<option value="kvm32">(QEMU) kvm32</option>
 							<option value="kvm64" selected="">(QEMU) kvm64</option>
 							<option value="max">(QEMU) Max</option>
@@ -601,17 +601,17 @@
 					<td class="fieldlabel">OS Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="ostype">
-							<option value="w2k" '. ($plan->ostype=="w2k" ? "selected" : "").'>Windows 2000</option>
-							<option value="wxp" '. ($plan->ostype=="wxp" ? "selected" : "").'>Windows XP</option>
-							<option value="w2k3" '. ($plan->ostype=="w2k3" ? "selected" : "").'>Windows server 2003</option>
-							<option value="w2k8" '. ($plan->ostype=="w2k8" ? "selected" : "").'>Windows server 2008</option>
-							<option value="wvista" '. ($plan->ostype=="wvista" ? "selected" : "").'>Windows Vista</option>
-							<option value="win7" '. ($plan->ostype=="win7" ? "selected" : "").'>Windows 7</option>
-							<option value="win8" '. ($plan->ostype=="win8" ? "selected" : "").'>Windows 8</option>
-							<option value="126" '. ($plan->ostype=="126" ? "selected" : "").'>Linux 4.X/3.X/2.6 Kernel</option>
-							<option value="124" '. ($plan->ostype=="124" ? "selected" : "").'>Linux 2.4 Kernel</option>
-							<option value="solaris" '. ($plan->ostype=="solaris" ? "selected" : "").'>Solaris Kernel</option>
-							<option value="other" '. ($plan->ostype=="w2k" ? "other" : "").'>Other</option>
+						    <option value="l26" ' . ($plan->ostype == "l26" ? "selected" : "") . '>Linux 6.x - 2.6 Kernel</option>
+						    <option value="l24" ' . ($plan->ostype == "l24" ? "selected" : "") . '>Linux 2.4 Kernel</option>
+						    <option value="solaris" ' . ($plan->ostype == "solaris" ? "selected" : "") . '>Solaris Kernel</option>
+						    <option value="win11" ' . ($plan->ostype == "win11" ? "selected" : "") . '>Windows 11 / 2022</option>
+						    <option value="win10" ' . ($plan->ostype == "win10" ? "selected" : "") . '>Windows 10 / 2016 / 2019</option>
+						    <option value="win8" ' . ($plan->ostype == "win8" ? "selected" : "") . '>Windows 8.x / 2012 / 2012r2</option>
+						    <option value="win7" ' . ($plan->ostype == "win7" ? "selected" : "") . '>Windows 7 / 2008r2</option>
+						    <option value="wvista" ' . ($plan->ostype == "wvista" ? "selected" : "") . '>Windows Vista / 2008</option>
+						    <option value="wxp" ' . ($plan->ostype == "wxp" ? "selected" : "") . '>Windows XP / 2003</option>
+						    <option value="w2k" ' . ($plan->ostype == "w2k" ? "selected" : "") . '>Windows 2000</option>
+						    <option value="other" ' . ($plan->ostype == "other" ? "selected" : "") . '>Other</option>
 						</select>
 						Virtual Machine Guest type (OpenVZ or KVM).
 					</td>
@@ -620,97 +620,126 @@
 					<td class="fieldlabel">CPU emulation</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="cpuemu">
-							<option value="486" '. ($plan->cpuemu=="486" ? "selected" : "").'>486</option>
-							<option value="athlon" '. ($plan->cpuemu=="athlon" ? "selected" : "").'>Athlon</option>
-							<option value="pentium" '. ($plan->cpuemu=="pentium" ? "selected" : "").'>Pentium</option>
-							<option value="pentium2" '. ($plan->cpuemu=="pentium2" ? "selected" : "").'>Pentium II</option>
-							<option value="pentium3" '. ($plan->cpuemu=="pentium3" ? "selected" : "").'>Pentium III</option>
-							<option value="coreduo" '. ($plan->cpuemu=="coreduo" ? "selected" : "").'>Core duo</option>
-							<option value="core2duo" '. ($plan->cpuemu=="core2duo" ? "selected" : "").'>Core 2 duo</option>
-							<option value="kvm32" '. ($plan->cpuemu=="kvm32" ? "selected" : "").'>kvm32</option>
-							<option value="kvm64" '. ($plan->cpuemu=="kvm64" ? "selected" : "").'>kvm64</option>
-							<option value="qemu32" '. ($plan->cpuemu=="qemu32" ? "selected" : "").'>qemu32</option>
-							<option value="qemu64" '. ($plan->cpuemu=="qemu64" ? "selected" : "").'>qemu64</option>
-							<option value="phenom" '. ($plan->cpuemu=="phenom" ? "selected" : "").'>Phenom</option>
-							<option value="Conroe" '. ($plan->cpuemu=="Conroe" ? "selected" : "").'>Conroe</option>
-							<option value="Penryn" '. ($plan->cpuemu=="Penryn" ? "selected" : "").'>Penryn</option>
-							<option value="Nehalem" '. ($plan->cpuemu=="Nehalem" ? "selected" : "").'>Nehalem</option>
-							<option value="Westmere" '. ($plan->cpuemu=="Westmere" ? "selected" : "").'>Westmere</option>
-							<option value="SandyBridge" '. ($plan->cpuemu=="SandyBridge" ? "selected" : "").'>SandyBridge</option>
-							<option value="IvyBridge" '. ($plan->cpuemu=="IvyBridge" ? "selected" : "").'>IvyBridge</option>
-							<option value="Haswell" '. ($plan->cpuemu=="Haswell" ? "selected" : "").'>Haswell</option>
-							<option value="Broadwell" '. ($plan->cpuemu=="Broadwell" ? "selected" : "").'>Broadwell</option>
-							<option value="Opteron_G1" '. ($plan->cpuemu=="Opteron_G1" ? "selected" : "").'>Opteron G1</option>
-							<option value="Opteron_G2" '. ($plan->cpuemu=="Opteron_G2" ? "selected" : "").'>Opteron G2</option>
-							<option value="Opteron_G3" '. ($plan->cpuemu=="Opteron_G3" ? "selected" : "").'>Opteron G3</option>
-							<option value="Opteron_G4" '. ($plan->cpuemu=="Opteron_G4" ? "selected" : "").'>Opteron G4</option>
-							<option value="host" '. ($plan->cpuemu=="host" ? "selected" : "").'>Host</option>
+						    <option value="host" ' . ($plan->cpuemu == "host" ? "selected" : "") . '>Host</option>
+						    <option value="kvm32" ' . ($plan->cpuemu == "kvm32" ? "selected" : "") . '>(QEMU) kvm32</option>
+						    <option value="kvm64" ' . ($plan->cpuemu == "kvm64" ? "selected" : "") . '>(QEMU) kvm64</option>
+						    <option value="max" ' . ($plan->cpuemu == "max" ? "selected" : "") . '>(QEMU) Max</option>
+						    <option value="qemu32" ' . ($plan->cpuemu == "qemu32" ? "selected" : "") . '>(QEMU) qemu32</option>
+						    <option value="qemu64" ' . ($plan->cpuemu == "qemu64" ? "selected" : "") . '>(QEMU) qemu64</option>
+						    <option value="486" ' . ($plan->cpuemu == "486" ? "selected" : "") . '>(Intel) 486</option>
+						    <option value="Broadwell" ' . ($plan->cpuemu == "Broadwell" ? "selected" : "") . '>(Intel) Broadwell</option>
+						    <option value="Broadwell-IBRS" ' . ($plan->cpuemu == "Broadwell-IBRS" ? "selected" : "") . '>(Intel) Broadwell-IBRS</option>
+						    <option value="Broadwell-noTSX" ' . ($plan->cpuemu == "Broadwell-noTSX" ? "selected" : "") . '>(Intel) Broadwell-noTSX</option>
+						    <option value="Broadwell-noTSX-IBRS" ' . ($plan->cpuemu == "Broadwell-noTSX-IBRS" ? "selected" : "") . '>(Intel) Broadwell-noTSX-IBRS</option>
+						    <option value="Cascadelake-Server" ' . ($plan->cpuemu == "Cascadelake-Server" ? "selected" : "") . '>(Intel) Cascadelake-Server</option>
+						    <option value="Cascadelake-Server-noTSX" ' . ($plan->cpuemu == "Cascadelake-Server-noTSX" ? "selected" : "") . '>(Intel) Cascadelake-Server-noTSX</option>
+						    <option value="Conroe" ' . ($plan->cpuemu == "Conroe" ? "selected" : "") . '>(Intel) Conroe</option>
+						    <option value="Haswell" ' . ($plan->cpuemu == "Haswell" ? "selected" : "") . '>(Intel) Haswell</option>
+						    <option value="Haswell-IBRS" ' . ($plan->cpuemu == "Haswell-IBRS" ? "selected" : "") . '>(Intel) Haswell-IBRS</option>
+						    <option value="Haswell-noTSX" ' . ($plan->cpuemu == "Haswell-noTSX" ? "selected" : "") . '>(Intel) Haswell-noTSX</option>
+						    <option value="Haswell-noTSX-IBRS" ' . ($plan->cpuemu == "Haswell-noTSX-IBRS" ? "selected" : "") . '>(Intel) Haswell-noTSX-IBRS</option>
+						    <option value="Icelake-Client" ' . ($plan->cpuemu == "Icelake-Client" ? "selected" : "") . '>(Intel) Icelake-Client</option>
+						    <option value="Icelake-Client-noTSX" ' . ($plan->cpuemu == "Icelake-Client-noTSX" ? "selected" : "") . '>(Intel) Icelake-Client-noTSX</option>
+						    <option value="Icelake-Server" ' . ($plan->cpuemu == "Icelake-Server" ? "selected" : "") . '>(Intel) Icelake-Server</option>
+						    <option value="Icelake-Server-noTSX" ' . ($plan->cpuemu == "Icelake-Server-noTSX" ? "selected" : "") . '>(Intel) Icelake-Server-noTSX</option>
+						    <option value="IvyBridge" ' . ($plan->cpuemu == "IvyBridge" ? "selected" : "") . '>(Intel) IvyBridge</option>
+						    <option value="IvyBridge-IBRS" ' . ($plan->cpuemu == "IvyBridge-IBRS" ? "selected" : "") . '>(Intel) IvyBridge-IBRS</option>
+						    <option value="KnightsMill" ' . ($plan->cpuemu == "KnightsMill" ? "selected" : "") . '>(Intel) KnightsMill</option>
+						    <option value="Nehalem" ' . ($plan->cpuemu == "Nehalem" ? "selected" : "") . '>(Intel) Nehalem</option>
+						    <option value="Nehalem-IBRS" ' . ($plan->cpuemu == "Nehalem-IBRS" ? "selected" : "") . '>(Intel) Nehalem-IBRS</option>
+						    <option value="Penryn" ' . ($plan->cpuemu == "Penryn" ? "selected" : "") . '>(Intel) Penryn</option>
+						    <option value="SandyBridge" ' . ($plan->cpuemu == "SandyBridge" ? "selected" : "") . '>(Intel) SandyBridge</option>
+						    <option value="SandyBridge-IBRS" ' . ($plan->cpuemu == "SandyBridge-IBRS" ? "selected" : "") . '>(Intel) SandyBridge-IBRS</option>
+						    <option value="Skylake-Client" ' . ($plan->cpuemu == "Skylake-Client" ? "selected" : "") . '>(Intel) Skylake-Client</option>
+						    <option value="Skylake-Client-IBRS" ' . ($plan->cpuemu == "Skylake-Client-IBRS" ? "selected" : "") . '>(Intel) Skylake-Client-IBRS</option>
+						    <option value="Skylake-Client-noTSX-IBRS" ' . ($plan->cpuemu == "Skylake-Client-noTSX-IBRS" ? "selected" : "") . '>(Intel) Skylake-Client-noTSX-IBRS</option>
+						    <option value="Skylake-Server" ' . ($plan->cpuemu == "Skylake-Server" ? "selected" : "") . '>(Intel) Skylake-Server</option>
+						    <option value="Skylake-Server-IBRS" ' . ($plan->cpuemu == "Skylake-Server-IBRS" ? "selected" : "") . '>(Intel) Skylake-Server-IBRS</option>
+						    <option value="Skylake-Server-noTSX-IBRS" ' . ($plan->cpuemu == "Skylake-Server-noTSX-IBRS" ? "selected" : "") . '>(Intel) Skylake-Server-noTSX-IBRS</option>
+						    <option value="Westmere" ' . ($plan->cpuemu == "Westmere" ? "selected" : "") . '>(Intel) Westmere</option>
+						    <option value="Westmere-IBRS" ' . ($plan->cpuemu == "Westmere-IBRS" ? "selected" : "") . '>(Intel) Westmere-IBRS</option>
+						    <option value="pentium" ' . ($plan->cpuemu == "pentium" ? "selected" : "") . '>(Intel) Pentium I</option>
+						    <option value="pentium2" ' . ($plan->cpuemu == "pentium2" ? "selected" : "") . '>(Intel) Pentium II</option>
+						    <option value="pentium3" ' . ($plan->cpuemu == "pentium3" ? "selected" : "") . '>(Intel) Pentium III</option>
+						    <option value="coreduo" ' . ($plan->cpuemu == "coreduo" ? "selected" : "") . '>(Intel) Core Duo</option>
+						    <option value="core2duo" ' . ($plan->cpuemu == "core2duo" ? "selected" : "") . '>(Intel) Core 2 Duo</option>
+						    <option value="athlon" ' . ($plan->cpuemu == "athlon" ? "selected" : "") . '>(AMD) Athlon</option>
+						    <option value="phenom" ' . ($plan->cpuemu == "phenom" ? "selected" : "") . '>(AMD) Phenom</option>
+						    <option value="EPYC" ' . ($plan->cpuemu == "EPYC" ? "selected" : "") . '>(AMD) EPYC</option>
+						    <option value="EPYC-IBPB" ' . ($plan->cpuemu == "EPYC-IBPB" ? "selected" : "") . '>(AMD) EPYC-IBPB</option>
+						    <option value="EPYC-Milan" ' . ($plan->cpuemu == "EPYC-Milan" ? "selected" : "") . '>(AMD) EPYC-Milan</option>
+						    <option value="EPYC-Rome" ' . ($plan->cpuemu == "EPYC-Rome" ? "selected" : "") . '>(AMD) EPYC-Rome</option>
+						    <option value="Opteron_G1" ' . ($plan->cpuemu == "Opteron_G1" ? "selected" : "") . '>(AMD) Opteron_G1</option>
+						    <option value="Opteron_G2" ' . ($plan->cpuemu == "Opteron_G2" ? "selected" : "") . '>(AMD) Opteron_G2</option>
+						    <option value="Opteron_G3" ' . ($plan->cpuemu == "Opteron_G3" ? "selected" : "") . '>(AMD) Opteron_G3</option>
+						    <option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
+						    <option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 						</select>
 						CPU emulation type. Default is KVM64
 					</td>
 				</tr>
 
 				<tr>
-					<td class="fieldlabel">CPU</td>
+					<td class="fieldlabel">CPU - Sockets</td>
 					<td class="fieldarea">
-						<input type="text" size="1" name="cpus" id="cpus" value="'.$plan->cpus.'" required>
+						<input type="text" size="8" name="cpus" id="cpus" value="'.$plan->cpus.'" required>
 						The number of CPU sockets. 1 - 4.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Cores</td>
+					<td class="fieldlabel">CPU - Cores</td>
 					<td class="fieldarea">
-						<input type="text" size="1" name="cores" id="cores" value="'.$plan->cores.'" required>
-						The number of cpu cores per socket. 1 - 32.
+						<input type="text" size="8" name="cores" id="cores" value="'.$plan->cores.'" required>
+						The number of CPU cores per socket. 1 - 32.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Limit</td>
+					<td class="fieldlabel">CPU - Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpulimit" id="cpulimit" value="'.$plan->cpulimit.'" required>
 						Limit of CPU usage. Note if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Units</td>
+					<td class="fieldlabel">CPU - Weighting</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
 						Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. NOTE: You can disable fair-scheduler configuration by setting this to 0.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">RAM</td>
+					<td class="fieldlabel">RAM - Memory</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
-						RAM space in MegaByte e.g 1024 = 1GB
+						RAM space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Space</td>
+					<td class="fieldlabel">SSD/HDD - Disk</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
-						Disk space in Gigabayte e.g 1024= 1 Terra Byte
+						Disk space in Gigabytes e.g 1024 = 1TB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">IO Priority</td>
+					<td class="fieldlabel">I/O - Priority</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="iopriority" id="iopriority" value="'.$plan->iopriority.'">
+						<input type="text" size="8" name="iopriority" id="iopriority" value="'.$plan->iopriority.'">
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Format</td>
+					<td class="fieldlabel">Disk - Format</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskformat">
-							<option value="raw" '. ($plan->diskformat=="raw" ? "selected" : "").'>Raw disk image</option>
-							<option value="qcow2" '. ($plan->diskformat=="qcow2" ? "selected" : "").'>QEMU image format</option>
-							<option value="vmdk" '. ($plan->diskformat=="vmdk" ? "selected" : "").'>VMware image format</option>
+							<option value="raw" '. ($plan->diskformat=="raw" ? "selected" : "").'>Disk Image (raw)</option>
+							<option value="qcow2" '. ($plan->diskformat=="qcow2" ? "selected" : "").'>QEMU image (qcow2)</option>
+							<option value="vmdk" '. ($plan->diskformat=="vmdk" ? "selected" : "").'>VMware image (vmdk)</option>
 						</select>
-						Recommended "QEMU image format" (to can make Snapshots)
+						Recommend "QEMU/qcow2 format" (to make Snapshots)
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk cache</td>
+					<td class="fieldlabel">Disk - Cache</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskcache">
 							<option value="" '. ($plan->diskcache=="" ? "selected" : "").'>No Cache (Default)</option>
@@ -723,7 +752,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Type</td>
+					<td class="fieldlabel">Disk - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="disktype">
 							<option value="ide" '. ($plan->disktype=="ide" ? "selected" : "").'>IDE</option>
@@ -734,31 +763,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Mode</td>
-					<td class="fieldarea">
-						<select class="form-control select-inline" name="netmode">
-							<option value="bridge" '. ($plan->netmode=="bridge" ? "selected" : "").'>Bridge</option>
-							<option value="nat" '. ($plan->netmode=="nat" ? "selected" : "").'>NAT</option>
-							<option value="none" '. ($plan->netmode=="none" ? "selected" : "").'>No network</option>
-						</select>
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">Bridge Interface</td>
-					<td class="fieldarea">
-						<input type="text" size="2" name="bridge" id="bridge" value="'.$plan->bridge.'">
-						Bridge interface name. Proxmox default bridge name is "vmbr".
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">Bridge interface number</td>
-					<td class="fieldarea">
-						<input type="text" size="2" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
-						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">NIC Model</td>
+					<td class="fieldlabel">NIC - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="netmodel">
 							<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000</option>
@@ -769,22 +774,46 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Rate</td>
+					<td class="fieldlabel">Network - Rate</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="netrate" id="netrate" value="'.$plan->netrate.'">
+						<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
 						Network Rate Limit in Megabit, Blank means unlimit.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Monthly Bandwidth</td>
+					<td class="fieldlabel">Network - BW Limit</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="bw" id="bw" value="'.$plan->bw.'">
+						<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
 						Monthly Bandwidth Limit in GigaByte, Blank means unlimit.
 					</td>
 				</tr>
 				<tr>
+					<td class="fieldlabel">Network - Mode</td>
+					<td class="fieldarea">
+						<select class="form-control select-inline" name="netmode">
+							<option value="bridge" '. ($plan->netmode=="bridge" ? "selected" : "").'>Bridge</option>
+							<option value="nat" '. ($plan->netmode=="nat" ? "selected" : "").'>NAT</option>
+							<option value="none" '. ($plan->netmode=="none" ? "selected" : "").'>No network</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<td class="fieldlabel">Bridge - Interface</td>
+					<td class="fieldarea">
+						<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
+						Bridge interface name. Proxmox default bridge name is "vmbr".
+					</td>
+				</tr>
+				<tr>
+					<td class="fieldlabel">Bridge - Int. ID</td>
+					<td class="fieldarea">
+						<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
+						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+					</td>
+				</tr>
+				<tr>
 					<td class="fieldlabel">
-						KVM HV
+						Hardware Virt?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
@@ -794,7 +823,7 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On boot
+						On-boot VM?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
@@ -832,7 +861,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU - Units</td>
+					<td class="fieldlabel">CPU - Weighting</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpuunits" id="cpuunits" value="1024" required>
 						Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
@@ -928,38 +957,38 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Limit</td>
+					<td class="fieldlabel">CPU - Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpulimit" id="cpulimit" value="'.$plan->cpulimit.'" required>
 						Limit of CPU usage. Default is 1. Note: if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Units</td>
+					<td class="fieldlabel">CPU - Weighting</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
-						Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024.
+						Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">RAM</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
-						RAM space in MegaByte e.g 1024 = 1GB
+						RAM space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Swap</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="swap" id="swap" value="'.$plan->swap.'">
-						Swap space in MegaByte e.g 1024 = 1GB
+						Swap space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Disk Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
-						Disk space in Gigabayte e.g 1024= 1 Terra Byte
+						Disk space in Gigabytes e.g 1024= 1 Terra Byte
 					</td>
 				</tr>
 				<tr>
@@ -980,14 +1009,14 @@
 					<td class="fieldlabel">Network Rate</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="netrate" id="netrate" value="'.$plan->netrate.'">
-						Network Rate Limit in Megabit, Blank means unlimit.
+						Network Rate Limit in Megabit/Second, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Monthly Bandwidth</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="bw" id="bw" value="'.$plan->bw.'">
-						Monthly Bandwidth Limit in GigaByte, Blank means unlimit.
+						Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
