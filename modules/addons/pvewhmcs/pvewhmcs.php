@@ -825,75 +825,75 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Limit</td>
+					<td class="fieldlabel">CPU - Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpulimit" id="cpulimit" value="1" required>
 						Limit of CPU usage. Default is 1. Note: if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Units</td>
+					<td class="fieldlabel">CPU - Units</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpuunits" id="cpuunits" value="1024" required>
-						Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024.
+						Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">RAM</td>
+					<td class="fieldlabel">RAM - Memory</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required>
-						RAM space in MegaByte e.g 1024 = 1GB
+						RAM space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Swap</td>
+					<td class="fieldlabel">Swap - Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="swap" id="swap">
-						Swap space in MegaByte e.g 1024 = 1GB
+						Swap space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Space</td>
+					<td class="fieldlabel">Disk - Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" required>
-						Disk space in Gigabayte e.g 1024= 1 Terra Byte
+						Disk space in Gigabayte e.g 1024 = 1TB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Bridge Interface</td>
+					<td class="fieldlabel">Bridge - Interface</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="bridge" id="bridge" value="vmbr">
+						<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
 						Bridge interface name. Proxmox default bridge name is "vmbr".
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Bridge interface number</td>
+					<td class="fieldlabel">Bridge - Int. ID</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="vmbr" id="vmbr" value="0">
-						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+						<input type="text" size="8" name="vmbr" id="vmbr" value="0">
+						Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Rate</td>
+					<td class="fieldlabel">Network - Rate</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="netrate" id="netrate">
-						Network Rate Limit in Megabit, Blank means unlimit.
+						<input type="text" size="8" name="netrate" id="netrate">
+						Network Rate Limit in Megabit/Second, blank means unlimited.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Monthly Bandwidth</td>
+					<td class="fieldlabel">Data - Monthly</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="bw" id="bw">
-						Monthly Bandwidth Limit in GigaByte, Blank means unlimit.
+						<input type="text" size="8" name="bw" id="bw">
+						Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On boot
+						On-boot VM?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during system bootup. (Recommended)
+							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during hypervisor bootup. (Recommended)
 						</label>
 					</td>
 				</tr>
