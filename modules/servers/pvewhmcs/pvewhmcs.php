@@ -636,7 +636,7 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['created']=$guest->created ;
 
 	}
-	else echo '<script>alert("no proxmox") ;</script>' ;
+	else echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>' ; die;
 
     return array(
         'templatefile' => 'clientarea',
