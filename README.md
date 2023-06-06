@@ -7,6 +7,8 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
+https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
+
 **System Requirements:**
 
 - WHMCS 8.x stable
