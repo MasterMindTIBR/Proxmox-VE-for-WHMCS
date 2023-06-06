@@ -18,7 +18,7 @@
 			<div class="col col-md-2">
 				<img src="{$WEB_ROOT}./modules/servers/pvewhmcs/img/{$vm_status['status']}.png"/><br/>
 				{$vm_status['status']}<br/>
-				Up Time:&nbsp;{$vm_status['uptime']}
+				Uptime:&nbsp;{$vm_status['uptime']}
 				
 			</div>
 			<div class="col col-md-7">
@@ -60,11 +60,11 @@
 			<td>Assigned IPv4 Address</td><td>{$vm_config['ipv4']}&nbsp;Subnet Mask:&nbsp;{$vm_config['netmask4']}&nbsp;Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
-			<td>OS type</td>
+			<td>OS (Type)</td>
 			<td>{$vm_config['ostype']}</td>
 		</tr>
 		<tr>
-			<td>CPU</td>
+			<td>CPU (Spec)</td>
 			<td>{$vm_config['sockets']}&nbsp;{$vm_config['cpu']}&nbsp;{$vm_config['cores']}&nbsp;core(s).</td>
 		</tr>
 		<tr>
@@ -72,15 +72,15 @@
 			<td>{$vm_config['memory']}&nbsp;MB</td>
 		</tr>
 		<tr>
-			<td>Primary Network Interface</td>
+			<td>Network Interface #1</td>
 			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
 		</tr>
 		<tr>
-			<td>Secondary Network Interface</td>
+			<td>Network Interface #2</td>
 			<td>{$vm_config['net1']}</td>
 		</tr>
 		<tr>
-			<td>Hard Disk</td>
+			<td>Storage (SSD/HDD)</td>
 			<td>
 			{$rootfs=(","|explode:$vm_config['rootfs'])}
 			{$disk=(","|explode:$vm_config['ide0'])}
@@ -91,7 +91,7 @@
 		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
-	<h4>Virtual Machine Statistics</h4>
+	<h4>VM Statistics</h4>
 	<ul class="nav nav-tabs client-tabs" role="tab-list">
 		<li class="active"><a id="dailytab" data-toggle="tab" role="tab" href="#dailystat">Daily</a></li>
 		<li><a id="dailytab" data-toggle="tab" role="tab" href="#weeklystat">Weekly</a></li>

@@ -1120,7 +1120,7 @@
 						]
 					);
 		$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan updated.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='KVM plan updated successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Updated the KVM Plan successfuly.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
@@ -1187,7 +1187,7 @@
 						]
 					);
 		$_SESSION['pvewhmcs']['infomsg']['title']='OpenVZ Plan updated.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan updated successfuly. (Updating plans will not effect on current Virtual machines.)' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan updated successfully. (Updating plans will not effect on current Virtual machines.)' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 

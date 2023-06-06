@@ -73,13 +73,13 @@ function pvewhmcs_ConfigOptions()
 			"FriendlyName" => "Plan",
 			"Type" => "dropdown",
 			'Options' => $plans ,
-			"Description" => "The Virtual Machine Type."
+			"Description" => "KVM/OpenVZ : Plan Name"
 		),
 		"IPPool" => array(
 			"FriendlyName" => "IP Pool",
 			"Type" => "dropdown",
 			'Options'=> $ippools,
-			"Description" => "IP pool to assign IP to target VM."
+			"Description" => "Pool to assign VM IP from."
 		),
 	);
 
@@ -137,7 +137,7 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['rootfs']=$plan->disk ;
 
 			$vm_settings['net0']='bridge='.$plan->bridge.$plan->vmbr.',name=eth0,ip='.$ip->ipaddress.'/'.mask2cidr($ip->mask).',gw='.$ip->gateway;
-			$vm_settings['nameserver']='8.8.4.4 4.2.2.2' ;
+			$vm_settings['nameserver']='1.1.1.1 1.0.0.1' ;
 			$vm_settings['password']=$params['customfields']['Password'] ;
 		}
 		else {
@@ -156,7 +156,7 @@ function pvewhmcs_CreateAccount($params) {
 			if (isset($params['customfields']['ISO']))
 				$vm_settings['ide2']='local:iso/'.$params['customfields']['ISO'].',media=cdrom' ;
 
-			/* Network s ettings */
+			/* Network settings */
 			if ($plan->netmode!='none') {
 				$vm_settings['net0']=$plan->netmodel;
 				if ($plan->netmode=='bridge') {
@@ -496,8 +496,8 @@ function get_server_pass_from_whmcs($enc_pass){
 
 function pvewhmcs_ClientAreaCustomButtonArray() {
     $buttonarray = array(
-	 "<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> Tiger VNC (JAVA)" => "javaVNC",
-	 "<img src='./modules/servers/pvewhmcs/img/novnc.png'/> NoVNC" => "noVNC",
+	 "<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
+	 "<img src='./modules/servers/pvewhmcs/img/novnc.png'/> NoVNC (HTML5)" => "noVNC",
 	 "<i class='fa fa-2x fa-plug'></i> Start" => "vmStart",
 	 "<i class='fa fa-2x fa-power-off'></i> Shutdown" => "vmShutdown",
 	 "<i class='fa fa-2x fa-stop'></i>  Stop" => "vmStop",
