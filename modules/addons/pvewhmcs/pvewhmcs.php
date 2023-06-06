@@ -31,7 +31,7 @@
 		if (!$err)
 			return array('status'=>'success','description'=>'PVE for WHMCS installed successfuly.');
 
-		return array('status'=>'error','description'=>'PVE for WHMCS did not activated.');
+		return array('status'=>'error','description'=>'PVE for WHMCS was not activated properly.');
 
 	}
 
@@ -338,16 +338,16 @@
 					<td class="fieldlabel">OS Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="ostype">
-							<option value="w2k">Windows 2000</option>
-							<option value="wxp">Windows XP</option>
-							<option value="w2k3">Windows server 2003</option>
-							<option value="w2k8">Windows server 2008</option>
-							<option value="wvista">Windows Vista</option>
-							<option value="win7">Windows 7</option>
-							<option value="win8">Windows 8</option>
-							<option value="126">Linux 4.X/3.X/2.6 Kernel</option>
-							<option value="124">Linux 2.4 Kernel</option>
+							<option value="l26">Linux 6.x - 2.6 Kernel</option>
+							<option value="l24">Linux 2.4 Kernel</option>
 							<option value="solaris">Solaris Kernel</option>
+							<option value="win11">Windows 11 / 2022</option>
+							<option value="win10">Windows 10 / 2016 / 2019</option>
+							<option value="win8">Windows 8.x / 2012 / 2012r2</option>
+							<option value="win7">Windows 7 / 2008r2</option>
+							<option value="wvista">Windows Vista / 2008</option>
+							<option value="wxp">Windows XP / 2003</option>
+							<option value="w2k">Windows 2000</option>
 							<option value="other">Other</option>
 						</select>
 						Virtual Machine Guest type (OpenVZ or KVM).
@@ -357,30 +357,59 @@
 					<td class="fieldlabel">CPU emulation</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="cpuemu">
-							<option value="486">486</option>
-							<option value="athlon">Athlon</option>
-							<option value="pentium">Pentium</option>
-							<option value="pentium2">Pentium II</option>
-							<option value="pentium3">Pentium III</option>
-							<option value="coreduo">Core duo</option>
-							<option value="core2duo">Core 2 duo</option>
-							<option value="kvm32">kvm32</option>
-							<option selected="" value="kvm64">kvm64</option>
-							<option value="qemu32">qemu32</option>
-							<option value="qemu64">qemu64</option>
-							<option value="phenom">Phenom</option>
-							<option value="Conroe">Conroe</option>
-							<option value="Penryn">Penryn</option>
-							<option value="Nehalem">Nehalem</option>
-							<option value="Westmere">Westmere</option>
-							<option value="SandyBridge">SandyBridge</option>
-							<option value="IvyBridge">IvyBridge</option>
-							<option value="Haswell">Haswell</option>
-							<option value="Broadwell">Broadwell</option>
-							<option value="Opteron_G1">Opteron G1</option>
-							<option value="Opteron_G2">Opteron G2</option>
-							<option value="Opteron_G3">Opteron G3</option>
-							<option value="Opteron_G4">Opteron G4</option>
+							<option value="486">486 (Intel)</option>
+							<option value="Broadwell">Broadwell (Intel)</option>
+							<option value="Broadwell-IBRS">Broadwell-IBRS (Intel)</option>
+							<option value="Broadwell-noTSX">Broadwell-noTSX (Intel)</option>
+							<option value="Broadwell-noTSX-IBRS">Broadwell-noTSX-IBRS (Intel)</option>
+							<option value="Cascadelake-Server">Cascadelake-Server (Intel)</option>
+							<option value="Cascadelake-Server-noTSX">Cascadelake-Server-noTSX (Intel)</option>
+							<option value="Conroe">Conroe (Intel)</option>
+							<option value="Haswell">Haswell (Intel)</option>
+							<option value="Haswell-IBRS">Haswell-IBRS (Intel)</option>
+							<option value="Haswell-noTSX">Haswell-noTSX (Intel)</option>
+							<option value="Haswell-noTSX-IBRS">Haswell-noTSX-IBRS (Intel)</option>
+							<option value="Icelake-Client">Icelake-Client (Intel)</option>
+							<option value="Icelake-Client-noTSX">Icelake-Client-noTSX (Intel)</option>
+							<option value="Icelake-Server">Icelake-Server (Intel)</option>
+							<option value="Icelake-Server-noTSX">Icelake-Server-noTSX (Intel)</option>
+							<option value="IvyBridge">IvyBridge (Intel)</option>
+							<option value="IvyBridge-IBRS">IvyBridge-IBRS (Intel)</option>
+							<option value="KnightsMill">KnightsMill (Intel)</option>
+							<option value="Nehalem">Nehalem (Intel)</option>
+							<option value="Nehalem-IBRS">Nehalem-IBRS (Intel)</option>
+							<option value="Penryn">Penryn (Intel)</option>
+							<option value="SandyBridge">SandyBridge (Intel)</option>
+							<option value="SandyBridge-IBRS">SandyBridge-IBRS (Intel)</option>
+							<option value="Skylake-Client">Skylake-Client (Intel)</option>
+							<option value="Skylake-Client-IBRS">Skylake-Client-IBRS (Intel)</option>
+							<option value="Skylake-Client-noTSX-IBRS">Skylake-Client-noTSX-IBRS (Intel)</option>
+							<option value="Skylake-Server">Skylake-Server (Intel)</option>
+							<option value="Skylake-Server-IBRS">Skylake-Server-IBRS (Intel)</option>
+							<option value="Skylake-Server-noTSX-IBRS">Skylake-Server-noTSX-IBRS (Intel)</option>
+							<option value="Westmere">Westmere (Intel)</option>
+							<option value="Westmere-IBRS">Westmere-IBRS (Intel)</option>
+							<option value="pentium">Pentium I (Intel)</option>
+							<option value="pentium2">Pentium II (Intel)</option>
+							<option value="pentium3">Pentium III (Intel)</option>
+							<option value="coreduo">Core Duo (Intel)</option>
+							<option value="core2duo">Core 2 Duo (Intel)</option>
+							<option value="athlon">Athlon (AMD)</option>
+							<option value="phenom">Phenom (AMD)</option>
+							<option value="EPYC">EPYC (AMD)</option>
+							<option value="EPYC-IBPB">EPYC-IBPB (AMD)</option>
+							<option value="EPYC-Milan">EPYC-Milan (AMD)</option>
+							<option value="EPYC-Rome">EPYC-Rome (AMD)</option>
+							<option value="Opteron_G1">Opteron_G1 (AMD)</option>
+							<option value="Opteron_G2">Opteron_G2 (AMD)</option>
+							<option value="Opteron_G3">Opteron_G3 (AMD)</option>
+							<option value="Opteron_G4">Opteron_G4 (AMD)</option>
+							<option value="Opteron_G5">Opteron_G5 (AMD)</option>
+							<option value="kvm32">kvm32 (QEMU)</option>
+							<option value="kvm64">kvm64 (QEMU)</option>
+							<option value="max">Max (QEMU)</option>
+							<option value="qemu32">qemu32 (QEMU)</option>
+							<option value="qemu64">qemu64 (QEMU)</option>
 							<option value="host">Host</option>
 						</select>
 						CPU emulation type. Default is KVM64
@@ -398,14 +427,14 @@
 					<td class="fieldlabel">Cores</td>
 					<td class="fieldarea">
 						<input type="text" size="1" name="cores" id="cores" value="1" required>
-						The number of cpu cores per socket. 1 - 32.
+						The number of CPU cores per socket. 1 - 32.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">CPU Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpulimit" id="cpulimit" value="0" required>
-						Limit of CPU usage. Note if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
+						Limit of CPU usage. Note if the server has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 					</td>
 				</tr>
 				<tr>
@@ -419,14 +448,14 @@
 					<td class="fieldlabel">RAM</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required>
-						RAM space in MegaByte e.g 1024 = 1GB
+						RAM space in Megabyte e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Disk Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" required>
-						Disk space in Gigabayte e.g 1024= 1 Terra Byte
+						Disk space in Gigabyte e.g 1024 = 1 Terrabyte
 					</td>
 				</tr>
 				<tr>
@@ -439,11 +468,11 @@
 					<td class="fieldlabel">Disk Format</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskformat">
-							<option value="raw">Raw disk image</option>
-							<option selected="" value="qcow2">QEMU image format</option>
-							<option value="vmdk">VMware image format</option>
+							<option value="raw">Disk Image (raw)</option>
+							<option selected="" value="qcow2">QEMU Image (qcow2)</option>
+							<option value="vmdk">VMware Image (vmdk)</option>
 						</select>
-						Recommended "QEMU image format" (to can make Snapshots)
+						Recommend "QEMU/qcow2" (so it can make Snapshots)
 					</td>
 				</tr>
 				<tr>
@@ -466,7 +495,7 @@
 							<option selected="" value="ide">IDE</option>
 							<option value="sata">SATA</option>
 							<option value="scsi">SCSI</option>
-							<option value="virtio">VIRTIO</option>
+							<option value="virtio">Virtio</option>
 						</select>
 					</td>
 				</tr>
@@ -476,7 +505,7 @@
 						<select class="form-control select-inline" name="netmode">
 							<option value="bridge">Bridge</option>
 							<option value="nat">NAT</option>
-							<option value="none">No network</option>
+							<option value="none">No Network</option>
 						</select>
 					</td>
 				</tr>
@@ -491,7 +520,7 @@
 					<td class="fieldlabel">Bridge interface number</td>
 					<td class="fieldarea">
 						<input type="text" size="2" name="vmbr" id="vmbr" value="0">
-						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+						Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
 					</td>
 				</tr>
 				<tr>
@@ -509,14 +538,14 @@
 					<td class="fieldlabel">Network Rate</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="netrate" id="netrate">
-						Network Rate Limit in Megabit, Blank means unlimit.
+						Network Rate Limit in Megabit, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Monthly Bandwidth</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="bw" id="bw">
-						Monthly Bandwidth Limit in GigaByte, Blank means unlimit.
+						Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
@@ -531,11 +560,11 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On boot
+						On-boot?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during system bootup. ((Recommended))
+							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during hypervisor boot-up. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -769,7 +798,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. ((Recommended))
+							<input type="checkbox" name="onboot" value="1" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -864,7 +893,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during system bootup. ((Recommended))
+							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during system bootup. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -967,7 +996,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" value="1" name="onboot" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. ((Recommended))
+							<input type="checkbox" value="1" name="onboot" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. (Recommended)
 						</label>
 					</td>
 				</tr>
