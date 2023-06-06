@@ -1,20 +1,20 @@
 <?php
 	use Illuminate\Database\Capsule\Manager as Capsule;
-	define( 'PRVE_BASEURL', 'addonmodules.php?module=prve' );
+	define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pve-whmcs' );
 	require_once('proxmox.php');
-	function prve_config() {
+	function pvewhmcs_config() {
 		$configarray = array(
-			"name" => "ModuleLand PRVE",
-			"description" => "Proxmox VE Addon Module for WHMCS 6.x",
-			"version" => "1.0",
-			"author" => "ModuleLand.com",
+			"name" => "Proxmox VE for WHMCS",
+			"description" => "Proxmox Virtual Environment + WHMCS",
+			"version" => "1.1",
+			"author" => "The Network Crew Pty Ltd",
 			'language' => 'English'
 		);
 		return $configarray;
 	}
-	function prve_activate() {
+	function pvewhmcs_activate() {
 
-		$sql = file_get_contents('../modules/addons/prve/db.sql');
+		$sql = file_get_contents('../modules/addons/pve-whmcs/db.sql');
 		if (!$sql) {
 			return array('status'=>'error','description'=>'The db.sql file not found.');
 		}
@@ -35,8 +35,8 @@
 
 	}
 
-	function prve_deactivate() {
-		Capsule::statement('drop table mod_prve_ip_addresses,mod_prve_ip_pools,mod_prve_plans,mod_prve_vms,mod_prve');
+	function pvewhmcs_deactivate() {
+		Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
 		# Return Result
 		return array('status'=>'success','description'=>'PRVE successfuly deactivated and all related tables deleted.');
 		return array('status'=>'error','description'=>'If an error occurs you can return an error
@@ -46,7 +46,7 @@
 
 	}
 
-	function prve_output($vars) {
+	function pvewhmcs_output($vars) {
 
 		$modulelink = $vars['modulelink'];
 
@@ -97,13 +97,13 @@
 		echo '
 				<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 					<div class="btn-group btn-group-lg" role="group" aria-label="...">
-						<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
 							<i class="fa fa-list"></i>&nbsp; Plans List
 						</a>
-						<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
 							<i class="fa fa-plus-square"></i>&nbsp; Add new KVM plan
 						</a>
-						<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=vmplans&amp;action=add_openvz_plan">
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_openvz_plan">
 							<i class="fa fa-plus-square"></i>&nbsp; Add new OpenVZ plan
 						</a>
 					</div>
@@ -184,7 +184,7 @@
 												</th>
 											</tr>
 							';
-										foreach (Capsule::table('mod_prve_plans')->get() as $vm) {
+										foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 											echo '<tr>';
 												echo '<td>'.$vm->id . PHP_EOL .'</td>';
 												echo '<td>'.$vm->title . PHP_EOL .'</td>';
@@ -202,8 +202,8 @@
 												echo '<td>'.$vm->netrate . PHP_EOL .'</td>';
 												echo '<td>'.$vm->bw . PHP_EOL .'</td>';
 												echo '<td>
-														<a href="'.PRVE_BASEURL.'&amp;tab=vmplans&amp;action=editplan&amp;id='.$vm->id.'&amp;vmtype='.$vm->vmtype.'"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
-														<a href="'.PRVE_BASEURL.'&amp;tab=vmplans&amp;action=removeplan&amp;id='.$vm->id.'" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
+														<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=editplan&amp;id='.$vm->id.'&amp;vmtype='.$vm->vmtype.'"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
+														<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=removeplan&amp;id='.$vm->id.'" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
 													  </td>' ;
 											echo '</tr>' ;
 										}
@@ -221,10 +221,10 @@
 			echo '
 				<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 					<div class="btn-group">
-						<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
 							<i class="fa fa-list"></i>&nbsp; List IP Pools
 						</a>
-						<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=ippools&amp;action=newip">
+						<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
 							<i class="fa fa-plus"></i>&nbsp; Add IP to Pool
 						</a>
 					</div>
@@ -257,13 +257,13 @@
 			';
 			// License Tab
 			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
-				// $license=Capsule::table('mod_prve')->get()[0] ;
-				// $results=prve_check_license($license->license,$license->localkey);
+				// $license=Capsule::table('mod_pvewhmcs')->get()[0] ;
+				// $results=pvewhmcs_check_license($license->license,$license->localkey);
 				// switch ($results['status']) {
 				// 	case "Active":
 				// 		// get new local key and save it somewhere
 				// 		$localkeydata = $results['localkey'];
-				// 		Capsule::table('mod_prve')->where('id',1)->update(
+				// 		Capsule::table('mod_pvewhmcs')->where('id',1)->update(
 				// 			[
 				// 				'localkey' => $localkeydata
 				// 			]
@@ -295,14 +295,14 @@
 
 	function enter_license_key() {
 		if (isset($_POST['saveLicenseKey'])) {
-			Capsule::table('mod_prve')->where('id',1)->update(
+			Capsule::table('mod_pvewhmcs')->where('id',1)->update(
 				[
 					'license' => $_POST['licensekey']
 				]
 			);
 			$_SESSION['prve']['infomsg']['title']='PRVE License key updated.' ;
 			$_SESSION['prve']['infomsg']['message']='PRVE license key updated successfuly.' ;
-			header("Location: ".PRVE_BASEURL."&tab=license");
+			header("Location: ".pvewhmcs_BASEURL."&tab=license");
 		}
 
 		echo '<form method="post">
@@ -551,7 +551,7 @@
 
 	/* editing a KVM plan */
 	function kvm_plan_edit($id) {
-		$plan= Capsule::table('mod_prve_plans')->where('id', '=', $id)->get()[0];
+		$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 		if (empty($plan)) {
 			echo 'Plan Not found' ;
 			return false ;
@@ -880,7 +880,7 @@
 
 	/* editing an OpenVZ plan */
 	function openvz_plan_edit($id) {
-		$plan= Capsule::table('mod_prve_plans')->where('id', '=', $id)->get()[0];
+		$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 		if (empty($plan)) {
 			echo 'Plan Not found' ;
 			return false ;
@@ -987,7 +987,7 @@
 				function ($connectionManager)
 				{
 					/** @var \Illuminate\Database\Connection $connectionManager */
-					$connectionManager->table('mod_prve_plans')->insert(
+					$connectionManager->table('mod_pvewhmcs_plans')->insert(
 						[
 							'title' => $_POST['title'],
 							'vmtype' => 'kvm',
@@ -1018,14 +1018,14 @@
 			);
 			$_SESSION['prve']['infomsg']['title']='KVM Plan added.' ;
 			$_SESSION['prve']['infomsg']['message']='New KVM plan saved successfuly.' ;
-			header("Location: ".PRVE_BASEURL."&tab=vmplans&action=planlist");
+			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
 		}
 	}
 
 	function update_kvm_plan() {
-		Capsule::table('mod_prve_plans')
+		Capsule::table('mod_pvewhmcs_plans')
 					->where('id', $_GET['id'])
 					->update(
 						[
@@ -1056,13 +1056,13 @@
 					);
 		$_SESSION['prve']['infomsg']['title']='KVM Plan updated.' ;
 		$_SESSION['prve']['infomsg']['message']='KVM plan updated successfuly.' ;
-		header("Location: ".PRVE_BASEURL."&tab=vmplans&action=planlist");
+		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
 
 	function remove_plan($id) {
-		Capsule::table('mod_prve_plans')->where('id', '=', $id)->delete();
-		header("Location: ".PRVE_BASEURL."&tab=vmplans&action=planlist");
+		Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->delete();
+		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		$_SESSION['prve']['infomsg']['title']='Plan Deleted.' ;
 		$_SESSION['prve']['infomsg']['message']='Selected Item deleted successfuly.' ;
 	}
@@ -1072,7 +1072,7 @@
 				function ($connectionManager)
 				{
 					/** @var \Illuminate\Database\Connection $connectionManager */
-					$connectionManager->table('mod_prve_plans')->insert(
+					$connectionManager->table('mod_pvewhmcs_plans')->insert(
 						[
 							'title' => $_POST['title'],
 							'vmtype' => 'openvz',
@@ -1094,14 +1094,14 @@
 			);
 			$_SESSION['prve']['infomsg']['title']='New OpenVZ Plan added.' ;
 			$_SESSION['prve']['infomsg']['message']='New OpenVZ plan saved successfuly.' ;
-			header("Location: ".PRVE_BASEURL."&tab=vmplans&action=planlist");
+			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
 		}
 	}
 
 	function update_openvz_plan() {
-		Capsule::table('mod_prve_plans')
+		Capsule::table('mod_pvewhmcs_plans')
 					->where('id', $_GET['id'])
 					->update(
 						[
@@ -1123,21 +1123,21 @@
 					);
 		$_SESSION['prve']['infomsg']['title']='OpenVZ Plan updated.' ;
 		$_SESSION['prve']['infomsg']['message']='New KVM plan updated successfuly. (Updating plans will not effect on current Virtual machines.)' ;
-		header("Location: ".PRVE_BASEURL."&tab=vmplans&action=planlist");
+		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
 	// List IP pools in table
 	function list_ip_pools() {
-		echo '<a class="btn btn-default" href="'. PRVE_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IP Pool</a>';
+		echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IP Pool</a>';
 		echo '<table class="datatable"><tr><th>Id</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
-		foreach (Capsule::table('mod_prve_ip_pools')->get() as $pool) {
+		foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 			echo '<tr>';
 				echo '<td>'.$pool->id . PHP_EOL .'</td>';
 				echo '<td>'.$pool->title . PHP_EOL .'</td>';
 				echo '<td>'.$pool->gateway . PHP_EOL .'</td>';
 				echo '<td>
-						<a href="'.PRVE_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/info.gif"></a>
-						<a href="'.PRVE_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all ip addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
+						<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/info.gif"></a>
+						<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all ip addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
 					  </td>' ;
 			echo '</tr>' ;
 		}
@@ -1171,7 +1171,7 @@
 				function ($connectionManager)
 				{
 					/** @var \Illuminate\Database\Connection $connectionManager */
-					$connectionManager->table('mod_prve_ip_pools')->insert(
+					$connectionManager->table('mod_pvewhmcs_ip_pools')->insert(
 						[
 							'title' => $_POST['title'],
 							'gateway' => $_POST['gateway'],
@@ -1181,31 +1181,31 @@
 			);
 			$_SESSION['prve']['infomsg']['title']='New IP Pool added.' ;
 			$_SESSION['prve']['infomsg']['message']='New IP Pool saved successfuly.' ;
-			header("Location: ".PRVE_BASEURL."&tab=ippools&action=list_ip_pools");
+			header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
 		}
 	}
 
 	function removeIpPool($id) {
-		Capsule::table('mod_prve_ip_addresses')->where('pool_id', '=', $id)->delete();
-		Capsule::table('mod_prve_ip_pools')->where('id', '=', $id)->delete();
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
+		Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
 
-		header("Location: ".PRVE_BASEURL."&tab=ippools&action=list_ip_pools");
+		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 		$_SESSION['prve']['infomsg']['title']='IP Pool Deleted.' ;
 		$_SESSION['prve']['infomsg']['message']='Selected IP pool deleted successfuly.' ;
 	}
 
 	// add IP address/subnet to Pool
 	function add_ip_2_pool() {
-		require_once('../modules/addons/prve/Ipv4/Subnet.php');
+		require_once('../modules/addons/pve-whmcs/Ipv4/Subnet.php');
 		echo '<form method="post">
 			<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 				<tr>
 					<td class="fieldlabel">IP Pool</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="pool_id">';
-							foreach (Capsule::table('mod_prve_ip_pools')->get() as $pool) {
+							foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 								echo '<option value="'.$pool->id.'">'.$pool->title.'</option>';
 								$gateways[]=$pool->gateway ;
 							}
@@ -1229,7 +1229,7 @@
 				$ips = $subnet->getIterator();
 				foreach($ips as $ip) {
 					if (!in_array($ip, $gateways)) {
-						Capsule::table('mod_prve_ip_addresses')->insert(
+						Capsule::table('mod_pvewhmcs_ip_addresses')->insert(
 								[
 									'pool_id' => $_POST['pool_id'],
 									'ipaddress' => $ip,
@@ -1241,7 +1241,7 @@
 			}
 			else {
 				if (!in_array($_POST['ipblock'], $gateways)) {
-					Capsule::table('mod_prve_ip_addresses')->insert(
+					Capsule::table('mod_pvewhmcs_ip_addresses')->insert(
 							[
 								'pool_id' => $_POST['pool_id'],
 								'ipaddress' => $_POST['ipblock'],
@@ -1250,7 +1250,7 @@
 						);
 				}
 			}
-			header("Location: ".PRVE_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
+			header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
 			$_SESSION['prve']['infomsg']['title']='IP Address/Blocks added to Pool.' ;
 			$_SESSION['prve']['infomsg']['message']='you can remove IP addresses from the pool.' ;
 		}
@@ -1260,12 +1260,12 @@
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
 		echo '<table class="datatable"><tr><th>IP Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
-		foreach (Capsule::table('mod_prve_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
+		foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
 			echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
-			if (count(Capsule::table('mod_prve_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
+			if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
 				echo 'is in use' ;
 			else
-				echo '<a href="'.PRVE_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IP address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
+				echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IP address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
 			echo '</td></tr>';
 		}
 		echo '</table>' ;
@@ -1273,8 +1273,8 @@
 	}
 	// Remove IP Address
 	function removeip($id,$pool_id) {
-		Capsule::table('mod_prve_ip_addresses')->where('id', '=', $id)->delete();
-		header("Location: ".PRVE_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
+		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
 		$_SESSION['prve']['infomsg']['title']='IP Address Deleted.' ;
 		$_SESSION['prve']['infomsg']['message']='Selected Item deleted successfuly.' ;
 	}

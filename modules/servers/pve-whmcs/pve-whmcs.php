@@ -1,20 +1,20 @@
 <?php
-if (file_exists('../modules/addons/prve/proxmox.php'))
-	require_once('../modules/addons/prve/proxmox.php');
+if (file_exists('../modules/addons/pve-whmcs/proxmox.php'))
+	require_once('../modules/addons/pve-whmcs/proxmox.php');
 else
-	require_once('modules/addons/prve/proxmox.php');
+	require_once('modules/addons/pve-whmcs/proxmox.php');
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 
 // // Check license
-// $license=Capsule::table('mod_prve')->get()[0] ;
-// $results=prve_check_license($license->license,$license->localkey) ;
+// $license=Capsule::table('mod_pvewhmcs')->get()[0] ;
+// $results=pvewhmcs_check_license($license->license,$license->localkey) ;
 //
 // switch ($results['status']) {
 //     case "Active":
 //         // get new local key and save it somewhere
 //         $localkeydata = $results['localkey'];
-// 		Capsule::table('mod_prve')->where('id',1)->update(
+// 		Capsule::table('mod_pvewhmcs')->where('id',1)->update(
 // 			[
 // 				'localkey' => $localkeydata
 // 			]
@@ -35,19 +35,19 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 // }
 
 global $guest ;
-function prve_ConfigOptions()
+function pvewhmcs_ConfigOptions()
 {
 	// Reterive PRVE Cluster
 	$server=Capsule::table('tblservers')->where('type', '=', 'prve')->get()[0] ;
 
 
 	// Reterive Plans
-	foreach (Capsule::table('mod_prve_plans')->get() as $plan) {
+	foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $plan) {
 		$plans[$plan->id]=$plan->vmtype.'&nbsp;:&nbsp;'.$plan->title ;
 	}
 
 	// Reterive IP Pools
-	foreach (Capsule::table('mod_prve_ip_pools')->get() as $ippool) {
+	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $ippool) {
 		$ippools[$ippool->id]=$ippool->title ;
 	}
 	/*
@@ -85,9 +85,9 @@ function prve_ConfigOptions()
 
 	return $configarray;
 }
-function prve_CreateAccount($params) {
+function pvewhmcs_CreateAccount($params) {
 	// Reterive Plan form table
-	$plan=Capsule::table('mod_prve_plans')->where('id', '=', $params['configoption1'])->get()[0] ;
+	$plan=Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0] ;
 
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
@@ -96,10 +96,10 @@ function prve_CreateAccount($params) {
 	$vm_settings=array() ;
 
 
-	//$ip=Capsule::select('select * from mod_prve_ip_addresses where pool_id='.$params['configoption2'].' and ipaddress not in(select ipaddress from mod_prve_vms) limit 1')[0] ;
+	//$ip=Capsule::select('select * from mod_pvewhmcs_ip_addresses where pool_id='.$params['configoption2'].' and ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0] ;
 
 	// select a ip address from pool
-	$ip=Capsule::select('select ipaddress,mask,gateway from mod_prve_ip_addresses i INNER JOIN mod_prve_ip_pools p on (i.pool_id=p.id and p.id='.$params['configoption2'].') where  i.ipaddress not in(select ipaddress from mod_prve_vms) limit 1')[0] ;
+	$ip=Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id='.$params['configoption2'].') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0] ;
 
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
@@ -114,7 +114,7 @@ function prve_CreateAccount($params) {
 			$vm_settings['name']=($params["serviceid"])+100;
 			$vm_settings['full']=true ;
 			if ($proxmox->post('/nodes/'.$first_node.'/qemu/'.$params['customfields']['KVMTemplate'].'/clone',$vm_settings)) {
-				Capsule::table('mod_prve_vms')->insert(
+				Capsule::table('mod_pvewhmcs_vms')->insert(
 								[
 									'id' => ($params['serviceid']+100),
 									'user_id'=>$params['clientsdetails']['userid'],
@@ -185,7 +185,7 @@ function prve_CreateAccount($params) {
 
 			if ($proxmox->post('/nodes/'.$first_node.'/'.$v,$vm_settings)) {
 				unset($vm_sttings) ;
-				Capsule::table('mod_prve_vms')->insert(
+				Capsule::table('mod_pvewhmcs_vms')->insert(
 								[
 									'id' => ($params['serviceid']+100),
 									'user_id'=>$params['clientsdetails']['userid'],
@@ -206,7 +206,7 @@ function prve_CreateAccount($params) {
 }
 
 
-function prve_TestConnection(array $params)
+function pvewhmcs_TestConnection(array $params)
 {
     try {
         // Call the service's connection test function.
@@ -234,7 +234,7 @@ function prve_TestConnection(array $params)
         'error' => $errorMsg,
     );
 }
-function prve_SuspendAccount(array $params) {
+function pvewhmcs_SuspendAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
@@ -243,14 +243,14 @@ function prve_SuspendAccount(array $params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		// find virtual machine type
-		$vm=Capsule::table('mod_prve_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
+		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.($params['serviceid']+100).'/status/suspend')) {
 			return true ;
 		}
 	}
 	return false;
 }
-function prve_UnsuspendAccount(array $params) {
+function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
@@ -259,7 +259,7 @@ function prve_UnsuspendAccount(array $params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		// find virtual machine type
-		$vm=Capsule::table('mod_prve_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
+		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.($params['serviceid']+100).'/status/resume')) {
 			return true ;
 		}
@@ -268,7 +268,7 @@ function prve_UnsuspendAccount(array $params) {
 }
 
 
-function prve_TerminateAccount(array $params) {
+function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
@@ -277,11 +277,11 @@ function prve_TerminateAccount(array $params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		// find virtual machine type
-		$vm=Capsule::table('mod_prve_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
+		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', ($params['serviceid']+100))->get()[0];
 		$proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.($params['serviceid']+100).'/status/stop') ;
 		sleep(10) ;
 		if ($proxmox->delete('/nodes/'.$first_node.'/'.$vm->vtype.'/'.($params['serviceid']+100),array('skiplock'=>1))) {
-			Capsule::table('mod_prve_vms')->where('id', '=', ($params['serviceid']+100))->delete();
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', ($params['serviceid']+100))->delete();
 			return true ;
 		}
 	}
@@ -494,10 +494,10 @@ function get_server_pass_from_whmcs($enc_pass){
 	return $hasher->decrypt($enc_pass);
 }
 
-function prve_ClientAreaCustomButtonArray() {
+function pvewhmcs_ClientAreaCustomButtonArray() {
     $buttonarray = array(
-	 "<img src='./modules/servers/prve/img/tigervnc.png'/> Tiger VNC (JAVA)" => "javaVNC",
-	 "<img src='./modules/servers/prve/img/novnc.png'/> NoVNC" => "noVNC",
+	 "<img src='./modules/servers/pve-whmcs/img/tigervnc.png'/> Tiger VNC (JAVA)" => "javaVNC",
+	 "<img src='./modules/servers/pve-whmcs/img/novnc.png'/> NoVNC" => "noVNC",
 	 "<i class='fa fa-2x fa-plug'></i> Start" => "vmStart",
 	 "<i class='fa fa-2x fa-power-off'></i> Shutdown" => "vmShutdown",
 	 "<i class='fa fa-2x fa-stop'></i>  Stop" => "vmStop",
@@ -506,9 +506,9 @@ function prve_ClientAreaCustomButtonArray() {
 	return $buttonarray;
 }
 
-function prve_ClientArea($params) {
-	//reterive virtual machine info from table mod_prve_vms
-	$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+function pvewhmcs_ClientArea($params) {
+	//reterive virtual machine info from table mod_pvewhmcs_vms
+	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -650,11 +650,11 @@ function prve_ClientArea($params) {
     );
 }
 
-function prve_vmStat($params) {
+function pvewhmcs_vmStat($params) {
 	return true ;
 }
 
-function prve_noVNC($params) {
+function pvewhmcs_noVNC($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -665,20 +665,20 @@ function prve_noVNC($params) {
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.($params['serviceid']+100) .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		$path = 'api2/json/websocket?port=' . $vm_vncproxy['port'] . '&user=' . $serverusername . '@pam' . '&vmid=' . ($params['serviceid']+100) . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
 
 
-		$url='./modules/servers/prve/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
+		$url='./modules/servers/pve-whmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
 		echo '<script>window.open("'.$url.'")</script>';
 
-		//echo '<script>window.open("./modules/servers/prve/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
+		//echo '<script>window.open("./modules/servers/pve-whmcs/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
 	}
 }
 
-function prve_javaVNC($params){
+function pvewhmcs_javaVNC($params){
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -690,7 +690,7 @@ function prve_javaVNC($params){
 		$first_node = $nodes[0];
 		unset($nodes);
 
-		$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.($params['serviceid']+100) .'/vncproxy') ;
 
@@ -701,13 +701,13 @@ function prve_javaVNC($params){
 		$javaVNCparams[3]=$vm_vncproxy['user'] ;
 		$javaVNCparams[4]=$vm_vncproxy['ticket'] ;
 
-		echo '<script>window.open("modules/servers/prve/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
+		echo '<script>window.open("modules/servers/pve-whmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
 		return true ;
 	}
 	return false;
 }
 
-function prve_vmStart($params) {
+function pvewhmcs_vmStart($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -718,14 +718,14 @@ function prve_vmStart($params) {
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.($params['serviceid']+100).'/status/start'))
 			return true ;
 	}
 	return false;
 }
-function prve_vmShutdown($params) {
+function pvewhmcs_vmShutdown($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -736,14 +736,14 @@ function prve_vmShutdown($params) {
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.($params['serviceid']+100).'/status/shutdown'))
 			return true ;
 	}
 	return false;
 }
-function prve_vmStop($params) {
+function pvewhmcs_vmStop($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -754,7 +754,7 @@ function prve_vmStop($params) {
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_prve_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',($params['serviceid']+100))->get()[0] ;
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.($params['serviceid']+100).'/status/stop'))
 			return true ;
 	}

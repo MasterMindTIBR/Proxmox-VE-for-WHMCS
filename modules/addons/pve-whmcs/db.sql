@@ -1,11 +1,11 @@
-CREATE TABLE IF NOT EXISTS `mod_prve` (
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `license` text NOT NULL,
   `localkey` text,
   PRIMARY KEY (`id`)
 );
-INSERT INTO `mod_prve` (`id`, `license`, `localkey`) VALUES	(1, 'null', NULL);
-CREATE TABLE IF NOT EXISTS `mod_prve_ip_addresses` (
+INSERT INTO `mod_pvewhmcs` (`id`, `license`, `localkey`) VALUES	(1, 'null', NULL);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_addresses` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `pool_id` int(11) NOT NULL DEFAULT '0',
   `ipaddress` varchar(255) NOT NULL DEFAULT '0',
@@ -13,13 +13,13 @@ CREATE TABLE IF NOT EXISTS `mod_prve_ip_addresses` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `ipaddress` (`ipaddress`)
 );
-CREATE TABLE IF NOT EXISTS `mod_prve_ip_pools` (
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_pools` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   `gateway` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
-CREATE TABLE IF NOT EXISTS `mod_prve_plans` (
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(255) CHARACTER SET utf8 NOT NULL COMMENT 'Plan name',
   `vmtype` varchar(8) NOT NULL COMMENT 'Type of Guest e.g KVM or Openvz or others in feuture',
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS `mod_prve_plans` (
   `onboot` tinyint(1) unsigned DEFAULT '0',
   PRIMARY KEY (`id`)
 );
-CREATE TABLE IF NOT EXISTS `mod_prve_vms` (
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `id` int(10) unsigned NOT NULL,
   `user_id` int(10) unsigned NOT NULL,
   `vtype` varchar(255) NOT NULL,

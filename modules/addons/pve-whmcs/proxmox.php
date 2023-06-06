@@ -344,7 +344,7 @@ class PVE2_API {
 }
 
 
-function prve_check_license($licensekey, $localkey='') {
+function pvewhmcs_check_license($licensekey, $localkey='') {
 
     // -----------------------------------
     //  -- Configuration Values --
