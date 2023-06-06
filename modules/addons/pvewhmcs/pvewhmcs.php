@@ -834,7 +834,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. (Recommended)
+							<input type="checkbox" name="onboot" value="1" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during hypervisor boot-up. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -925,11 +925,11 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On-boot VM?
+						On-boot CT?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a VM will be started during hypervisor bootup. (Recommended)
+							<input type="checkbox" name="onboot" value="1" checked> Specifies whether a CT will be started during hypervisor boot-up. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -1028,11 +1028,11 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On-boot VM?
+						On-boot CT?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" value="1" name="onboot" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during system bootup. (Recommended)
+							<input type="checkbox" value="1" name="onboot" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a CT will be started during hypervisor boot-up. (Recommended)
 						</label>
 					</td>
 				</tr>
