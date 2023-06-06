@@ -1,246 +1,341 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="noVNC_loading">
 <head>
 
     <!--
     noVNC example: simple example using default UI
-    Copyright (C) 2012 Joel Martin
-    Copyright (C) 2013 Samuel Mannehed for Cendio AB
+    Copyright (C) 2019 The noVNC Authors
     noVNC is licensed under the MPL 2.0 (see LICENSE.txt)
     This file is licensed under the 2-Clause BSD license (see LICENSE.txt).
 
     Connect parameters are provided in query string:
-        http://example.com/?host=HOST&port=PORT&encrypt=1&true_color=1
+        http://example.com/?host=HOST&port=PORT&encrypt=1
     or the fragment:
-        http://example.com/#host=HOST&port=PORT&encrypt=1&true_color=1
+        http://example.com/#host=HOST&port=PORT&encrypt=1
     -->
     <title>noVNC</title>
 
-    <meta charset="utf-8">
-
-    <!-- Always force latest IE rendering engine (even in intranet) & Chrome Frame
-                Remove this if you use the .htaccess -->
-    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="icon" type="image/x-icon" href="app/images/icons/novnc.ico">
 
     <!-- Apple iOS Safari settings -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <!-- App Start Icon  -->
-    <link rel="apple-touch-startup-image" href="images/screen_320x460.png" />
-    <!-- For iOS devices set the icon to use if user bookmarks app on their homescreen -->
-    <link rel="apple-touch-icon" href="images/screen_57x57.png">
-    <!--
-    <link rel="apple-touch-icon-precomposed" href="images/screen_57x57.png" />
-    -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
+    <!-- @2x -->
+    <link rel="apple-touch-icon" sizes="40x40" type="image/png" href="app/images/icons/novnc-ios-40.png">
+    <link rel="apple-touch-icon" sizes="58x58" type="image/png" href="app/images/icons/novnc-ios-58.png">
+    <link rel="apple-touch-icon" sizes="80x80" type="image/png" href="app/images/icons/novnc-ios-80.png">
+    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
+    <link rel="apple-touch-icon" sizes="152x152" type="image/png" href="app/images/icons/novnc-ios-152.png">
+    <link rel="apple-touch-icon" sizes="167x167" type="image/png" href="app/images/icons/novnc-ios-167.png">
+    <!-- @3x -->
+    <link rel="apple-touch-icon" sizes="60x60" type="image/png" href="app/images/icons/novnc-ios-60.png">
+    <link rel="apple-touch-icon" sizes="87x87" type="image/png" href="app/images/icons/novnc-ios-87.png">
+    <link rel="apple-touch-icon" sizes="120x120" type="image/png" href="app/images/icons/novnc-ios-120.png">
+    <link rel="apple-touch-icon" sizes="180x180" type="image/png" href="app/images/icons/novnc-ios-180.png">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="include/base.css" title="plain">
+    <link rel="stylesheet" href="app/styles/base.css">
+    <link rel="stylesheet" href="app/styles/input.css">
 
-     <!--
-    <script type='text/javascript'
-        src='http://getfirebug.com/releases/lite/1.2/firebug-lite-compressed.js'></script>
-    -->
-        <script src="include/util.js"></script>
+    <!-- Images that will later appear via CSS -->
+    <link rel="preload" as="image" href="app/images/info.svg">
+    <link rel="preload" as="image" href="app/images/error.svg">
+    <link rel="preload" as="image" href="app/images/warning.svg">
+
+    <script type="module" crossorigin="anonymous" src="app/error-handler.js"></script>
+    <script type="module" crossorigin="anonymous" src="app/ui.js"></script>
 </head>
 
-<body style="margin: 0px;">
-    <div id="noVNC_screen">
-            <div id="noVNC_status_bar" class="noVNC_status_bar" style="margin-top: 0px;">
-                <table border=0 width="100%"><tr>
-                    <td><div id="noVNC_status" style="position: relative; height: auto;">
-                        Loading
-                    </div></td>
-                    <td width="1%"><div id="noVNC_buttons">
-                        <input type=button value="Send CtrlAltDel"
-                            id="sendCtrlAltDelButton">
-                        <span id="noVNC_xvp_buttons">
-                        <input type=button value="Shutdown"
-                            id="xvpShutdownButton">
-                        <input type=button value="Reboot"
-                            id="xvpRebootButton">
-                        <input type=button value="Reset"
-                            id="xvpResetButton">
-                        </span>
-                            </div></td>
-                </tr></table>
+<body>
+
+    <div id="noVNC_fallback_error" class="noVNC_center">
+        <div>
+            <div>noVNC encountered an error:</div>
+            <br>
+            <div id="noVNC_fallback_errormsg"></div>
+        </div>
+    </div>
+
+    <!-- noVNC Control Bar -->
+    <div id="noVNC_control_bar_anchor" class="noVNC_vcenter">
+
+        <div id="noVNC_control_bar">
+            <div id="noVNC_control_bar_handle" title="Hide/Show the control bar"><div></div></div>
+
+            <div class="noVNC_scroll">
+
+            <h1 class="noVNC_logo" translate="no"><span>no</span><br>VNC</h1>
+
+            <hr>
+
+            <!-- Drag/Pan the viewport -->
+            <input type="image" alt="Drag" src="app/images/drag.svg"
+                id="noVNC_view_drag_button" class="noVNC_button noVNC_hidden"
+                title="Move/Drag Viewport">
+
+            <!--noVNC Touch Device only buttons-->
+            <div id="noVNC_mobile_buttons">
+                <input type="image" alt="Keyboard" src="app/images/keyboard.svg"
+                    id="noVNC_keyboard_button" class="noVNC_button" title="Show Keyboard">
             </div>
-            <canvas id="noVNC_canvas" width="640px" height="20px">
-                Canvas not supported.
-            </canvas>
+
+            <!-- Extra manual keys -->
+            <input type="image" alt="Extra keys" src="app/images/toggleextrakeys.svg"
+                id="noVNC_toggle_extra_keys_button" class="noVNC_button"
+                title="Show Extra Keys">
+            <div class="noVNC_vcenter">
+            <div id="noVNC_modifiers" class="noVNC_panel">
+                <input type="image" alt="Ctrl" src="app/images/ctrl.svg"
+                    id="noVNC_toggle_ctrl_button" class="noVNC_button"
+                    title="Toggle Ctrl">
+                <input type="image" alt="Alt" src="app/images/alt.svg"
+                    id="noVNC_toggle_alt_button" class="noVNC_button"
+                    title="Toggle Alt">
+                <input type="image" alt="Windows" src="app/images/windows.svg"
+                    id="noVNC_toggle_windows_button" class="noVNC_button"
+                    title="Toggle Windows">
+                <input type="image" alt="Tab" src="app/images/tab.svg"
+                    id="noVNC_send_tab_button" class="noVNC_button"
+                    title="Send Tab">
+                <input type="image" alt="Esc" src="app/images/esc.svg"
+                    id="noVNC_send_esc_button" class="noVNC_button"
+                    title="Send Escape">
+                <input type="image" alt="Ctrl+Alt+Del" src="app/images/ctrlaltdel.svg"
+                    id="noVNC_send_ctrl_alt_del_button" class="noVNC_button"
+                    title="Send Ctrl-Alt-Del">
+            </div>
+            </div>
+
+            <!-- Shutdown/Reboot -->
+            <input type="image" alt="Shutdown/Reboot" src="app/images/power.svg"
+                id="noVNC_power_button" class="noVNC_button"
+                title="Shutdown/Reboot...">
+            <div class="noVNC_vcenter">
+            <div id="noVNC_power" class="noVNC_panel">
+                <div class="noVNC_heading">
+                    <img alt="" src="app/images/power.svg"> Power
+                </div>
+                <input type="button" id="noVNC_shutdown_button" value="Shutdown">
+                <input type="button" id="noVNC_reboot_button" value="Reboot">
+                <input type="button" id="noVNC_reset_button" value="Reset">
+            </div>
+            </div>
+
+            <!-- Clipboard -->
+            <input type="image" alt="Clipboard" src="app/images/clipboard.svg"
+                id="noVNC_clipboard_button" class="noVNC_button"
+                title="Clipboard">
+            <div class="noVNC_vcenter">
+            <div id="noVNC_clipboard" class="noVNC_panel">
+                <div class="noVNC_heading">
+                    <img alt="" src="app/images/clipboard.svg"> Clipboard
+                </div>
+                <p class="noVNC_subheading">
+                    Edit clipboard content in the textarea below.
+                </p>
+                <textarea id="noVNC_clipboard_text" rows=5></textarea>
+            </div>
+            </div>
+
+            <!-- Toggle fullscreen -->
+            <input type="image" alt="Full Screen" src="app/images/fullscreen.svg"
+                id="noVNC_fullscreen_button" class="noVNC_button noVNC_hidden"
+                title="Full Screen">
+
+            <!-- Settings -->
+            <input type="image" alt="Settings" src="app/images/settings.svg"
+                id="noVNC_settings_button" class="noVNC_button"
+                title="Settings">
+            <div class="noVNC_vcenter">
+            <div id="noVNC_settings" class="noVNC_panel">
+                <div class="noVNC_heading">
+                    <img alt="" src="app/images/settings.svg"> Settings
+                </div>
+                <ul>
+                    <li>
+                        <label><input id="noVNC_setting_shared" type="checkbox"> Shared Mode</label>
+                    </li>
+                    <li>
+                        <label><input id="noVNC_setting_view_only" type="checkbox"> View Only</label>
+                    </li>
+                    <li><hr></li>
+                    <li>
+                        <label><input id="noVNC_setting_view_clip" type="checkbox"> Clip to Window</label>
+                    </li>
+                    <li>
+                        <label for="noVNC_setting_resize">Scaling Mode:</label>
+                        <select id="noVNC_setting_resize" name="vncResize">
+                            <option value="off">None</option>
+                            <option value="scale">Local Scaling</option>
+                            <option value="remote">Remote Resizing</option>
+                        </select>
+                    </li>
+                    <li><hr></li>
+                    <li>
+                        <div class="noVNC_expander">Advanced</div>
+                        <div><ul>
+                            <li>
+                                <label for="noVNC_setting_quality">Quality:</label>
+                                <input id="noVNC_setting_quality" type="range" min="0" max="9" value="6">
+                            </li>
+                            <li>
+                                <label for="noVNC_setting_compression">Compression level:</label>
+                                <input id="noVNC_setting_compression" type="range" min="0" max="9" value="2">
+                            </li>
+                            <li><hr></li>
+                            <li>
+                                <label for="noVNC_setting_repeaterID">Repeater ID:</label>
+                                <input id="noVNC_setting_repeaterID" type="text" value="">
+                            </li>
+                            <li>
+                                <div class="noVNC_expander">WebSocket</div>
+                                <div><ul>
+                                    <li>
+                                        <label><input id="noVNC_setting_encrypt" type="checkbox"> Encrypt</label>
+                                    </li>
+                                    <li>
+                                        <label for="noVNC_setting_host">Host:</label>
+                                        <input id="noVNC_setting_host">
+                                    </li>
+                                    <li>
+                                        <label for="noVNC_setting_port">Port:</label>
+                                        <input id="noVNC_setting_port" type="number">
+                                    </li>
+                                    <li>
+                                        <label for="noVNC_setting_path">Path:</label>
+                                        <input id="noVNC_setting_path" type="text" value="websockify">
+                                    </li>
+                                </ul></div>
+                            </li>
+                            <li><hr></li>
+                            <li>
+                                <label><input id="noVNC_setting_reconnect" type="checkbox"> Automatic Reconnect</label>
+                            </li>
+                            <li>
+                                <label for="noVNC_setting_reconnect_delay">Reconnect Delay (ms):</label>
+                                <input id="noVNC_setting_reconnect_delay" type="number">
+                            </li>
+                            <li><hr></li>
+                            <li>
+                                <label><input id="noVNC_setting_show_dot" type="checkbox"> Show Dot when No Cursor</label>
+                            </li>
+                            <li><hr></li>
+                            <!-- Logging selection dropdown -->
+                            <li>
+                                <label>Logging:
+                                    <select id="noVNC_setting_logging" name="vncLogging">
+                                    </select>
+                                </label>
+                            </li>
+                        </ul></div>
+                    </li>
+                    <li class="noVNC_version_separator"><hr></li>
+                    <li class="noVNC_version_wrapper">
+                        <span>Version:</span>
+                        <span class="noVNC_version"></span>
+                    </li>
+                </ul>
+            </div>
+            </div>
+
+            <!-- Connection Controls -->
+            <input type="image" alt="Disconnect" src="app/images/disconnect.svg"
+                id="noVNC_disconnect_button" class="noVNC_button"
+                title="Disconnect">
+
+            </div>
         </div>
 
-        <script>
-        /*jslint white: false */
-        /*global window, $, Util, RFB, */
-        "use strict";
+    </div> <!-- End of noVNC_control_bar -->
 
-        // Load supporting scripts
-        Util.load_scripts(["webutil.js", "base64.js", "websock.js", "des.js",
-                           "keysymdef.js", "keyboard.js", "input.js", "display.js",
-                           "inflator.js", "rfb.js", "keysym.js"]);
+    <div id="noVNC_hint_anchor" class="noVNC_vcenter">
+        <div id="noVNC_control_bar_hint">
+        </div>
+    </div>
 
-        var rfb;
-        var resizeTimeout;
+    <!-- Status Dialog -->
+    <div id="noVNC_status"></div>
 
+    <!-- Connect button -->
+    <div class="noVNC_center">
+        <div id="noVNC_connect_dlg">
+            <p class="noVNC_logo" translate="no"><span>no</span>VNC</p>
+            <div>
+                <button id="noVNC_connect_button">
+                    <img alt="" src="app/images/connect.svg"> Connect
+                </button>
+            </div>
+        </div>
+    </div>
 
-        function UIresize() {
-            if (WebUtil.getConfigVar('resize', false)) {
-                var innerW = window.innerWidth;
-                var innerH = window.innerHeight;
-                var controlbarH = $D('noVNC_status_bar').offsetHeight;
-                var padding = 5;
-                if (innerW !== undefined && innerH !== undefined)
-                    rfb.setDesktopSize(innerW, innerH - controlbarH - padding);
-            }
-        }
-        function FBUComplete(rfb, fbu) {
-            UIresize();
-            rfb.set_onFBUComplete(function() { });
-        }
-        function passwordRequired(rfb) {
-            var msg;
-            msg = '<form onsubmit="return setPassword();"';
-            msg += '  style="margin-bottom: 0px">';
-            msg += 'Password Required: ';
-            msg += '<input type=password size=10 id="password_input" class="noVNC_status">';
-            msg += '<\/form>';
-            $D('noVNC_status_bar').setAttribute("class", "noVNC_status_warn");
-            $D('noVNC_status').innerHTML = msg;
-        }
-        function setPassword() {
-            rfb.sendPassword($D('password_input').value);
-            return false;
-        }
-        function sendCtrlAltDel() {
-            rfb.sendCtrlAltDel();
-            return false;
-        }
-        function xvpShutdown() {
-            rfb.xvpShutdown();
-            return false;
-        }
-        function xvpReboot() {
-            rfb.xvpReboot();
-            return false;
-        }
-        function xvpReset() {
-            rfb.xvpReset();
-            return false;
-        }
-        function updateState(rfb, state, oldstate, msg) {
-            var s, sb, cad, level;
-            s = $D('noVNC_status');
-            sb = $D('noVNC_status_bar');
-            cad = $D('sendCtrlAltDelButton');
-            switch (state) {
-                case 'failed':       level = "error";  break;
-                case 'fatal':        level = "error";  break;
-                case 'normal':       level = "normal"; break;
-                case 'disconnected': level = "normal"; break;
-                case 'loaded':       level = "normal"; break;
-                default:             level = "warn";   break;
-            }
+    <!-- Server Key Verification Dialog -->
+    <div class="noVNC_center noVNC_connect_layer">
+    <div id="noVNC_verify_server_dlg" class="noVNC_panel"><form>
+        <div class="noVNC_heading">
+            Server identity
+        </div>
+        <div>
+            The server has provided the following identifying information:
+        </div>
+        <div id="noVNC_fingerprint_block">
+            <b>Fingerprint:</b>
+            <span id="noVNC_fingerprint"></span>
+        </div>
+        <div>
+            Please verify that the information is correct and press
+            "Approve". Otherwise press "Reject".
+        </div>
+        <div>
+            <input id="noVNC_approve_server_button" type="submit" value="Approve" class="noVNC_submit">
+            <input id="noVNC_reject_server_button" type="button" value="Reject" class="noVNC_submit">
+        </div>
+    </form></div>
+    </div>
 
-            if (state === "normal") {
-                cad.disabled = false;
-            } else {
-                cad.disabled = true;
-                xvpInit(0);
-            }
+    <!-- Password Dialog -->
+    <div class="noVNC_center noVNC_connect_layer">
+    <div id="noVNC_credentials_dlg" class="noVNC_panel"><form>
+        <div class="noVNC_heading">
+            Credentials
+        </div>
+        <div id="noVNC_username_block">
+            <label for="noVNC_username_input">Username:</label>
+            <input id="noVNC_username_input">
+        </div>
+        <div id="noVNC_password_block">
+            <label for="noVNC_password_input">Password:</label>
+            <input id="noVNC_password_input" type="password">
+        </div>
+        <div>
+            <input id="noVNC_credentials_button" type="submit" value="Send Credentials" class="noVNC_submit">
+        </div>
+    </form></div>
+    </div>
 
-            if (typeof(msg) !== 'undefined') {
-                sb.setAttribute("class", "noVNC_status_" + level);
-                s.innerHTML = msg;
-            }
-        }
+    <!-- Transition Screens -->
+    <div id="noVNC_transition">
+        <div id="noVNC_transition_text"></div>
+        <div>
+        <input type="button" id="noVNC_cancel_reconnect_button" value="Cancel" class="noVNC_submit">
+        </div>
+        <div class="noVNC_spinner"></div>
+    </div>
 
-        window.onresize = function () {
-            // When the window has been resized, wait until the size remains
-            // the same for 0.5 seconds before sending the request for changing
-            // the resolution of the session
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(function(){
-                UIresize();
-            }, 500);
-        };
+    <!-- This is where the RFB elements will attach -->
+    <div id="noVNC_container">
+        <!-- Note that Google Chrome on Android doesn't respect any of these,
+             html attributes which attempt to disable text suggestions on the
+             on-screen keyboard. Let's hope Chrome implements the ime-mode
+             style for example -->
+        <textarea id="noVNC_keyboardinput" autocapitalize="off"
+            autocomplete="off" spellcheck="false" tabindex="-1"></textarea>
+    </div>
 
-        function xvpInit(ver) {
-            var xvpbuttons;
-            xvpbuttons = $D('noVNC_xvp_buttons');
-            if (ver >= 1) {
-                xvpbuttons.style.display = 'inline';
-            } else {
-                xvpbuttons.style.display = 'none';
-            }
-        }
-
-        window.onscriptsload = function () {
-            var host, port, password, path, token;
-
-            $D('sendCtrlAltDelButton').style.display = "inline";
-            $D('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
-            $D('xvpShutdownButton').onclick = xvpShutdown;
-            $D('xvpRebootButton').onclick = xvpReboot;
-            $D('xvpResetButton').onclick = xvpReset;
-
-            WebUtil.init_logging(WebUtil.getConfigVar('logging', 'warn'));
-            document.title = unescape(WebUtil.getConfigVar('title', 'noVNC'));
-            // By default, use the host and port of server that served this file
-            host = WebUtil.getConfigVar('host', '<?php echo $_GET['host']; ?>');
-            port = WebUtil.getConfigVar('port', '<?php echo $_GET['port']; ?>');
-
-            // if port == 80 (or 443) then it won't be present and should be
-            // set manually
-            if (!port) {
-                if (window.location.protocol.substring(0,5) == 'https') {
-                    port = 443;
-                }
-                else if (window.location.protocol.substring(0,4) == 'http') {
-                    port = 80;
-                }
-            }
-
-            password = WebUtil.getConfigVar('password', '<?php echo $_GET['ticket']; ?>');
-            path = WebUtil.getConfigVar('path', '<?php echo $_GET['path']; ?>');
-
-            // If a token variable is passed in, set the parameter in a cookie.
-            // This is used by nova-novncproxy.
-            token = WebUtil.getConfigVar('token', null);
-            if (token) {
-
-                // if token is already present in the path we should use it
-                path = WebUtil.injectParamIfMissing(path, "token", token);
-
-                WebUtil.createCookie('token', token, 1)
-            }
-
-            if ((!host) || (!port)) {
-                updateState(null, 'fatal', null, 'Must specify host and port in URL');
-                return;
-            }
-
-            try {
-                rfb = new RFB({'target':       $D('noVNC_canvas'),
-                               'encrypt':      WebUtil.getConfigVar('encrypt',true),
-                               'repeaterID':   WebUtil.getConfigVar('repeaterID', ''),
-                               'true_color':   WebUtil.getConfigVar('true_color', true),
-                               'local_cursor': WebUtil.getConfigVar('cursor', true),
-                               'shared':       WebUtil.getConfigVar('shared', true),
-                               'view_only':    WebUtil.getConfigVar('view_only', false),
-                               'onUpdateState':  updateState,
-                               'onXvpInit':    xvpInit,
-                               'onPasswordRequired':  passwordRequired,
-                               'onFBUComplete': FBUComplete});
-            } catch (exc) {
-                updateState(null, 'fatal', null, 'Unable to create RFB client -- ' + exc);
-                return; // don't continue trying to connect
-            }
-
-            rfb.connect(host, port, password, path);
-        };
-        </script>
-
-    </body>
+    <audio id="noVNC_bell">
+        <source src="app/sounds/bell.oga" type="audio/ogg">
+        <source src="app/sounds/bell.mp3" type="audio/mpeg">
+    </audio>
+ </body>
 </html>
