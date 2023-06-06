@@ -257,71 +257,11 @@
 			';
 			// License Tab
 			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
-				// $license=Capsule::table('mod_pvewhmcs')->get()[0] ;
-				// $results=pvewhmcs_check_license($license->license,$license->localkey);
-				// switch ($results['status']) {
-				// 	case "Active":
-				// 		// get new local key and save it somewhere
-				// 		$localkeydata = $results['localkey'];
-				// 		Capsule::table('mod_pvewhmcs')->where('id',1)->update(
-				// 			[
-				// 				'localkey' => $localkeydata
-				// 			]
-				// 		);
-				// 		echo ('<b style="color:green">Valid License key. The key is:&nbsp;'.$license->license.'</b>');
-				// 		break;
-				// 	case "Invalid":
-				// 		echo ('<b style="color:red">License key is Invalid</b>');
-				// 		enter_license_key() ;
-				// 		break;
-				// 	case "Expired":
-				// 		echo ('<b style="color:red">License key is Expired, Renew or new license</b>');
-				// 		enter_license_key() ;
-				// 		break;
-				// 	case "Suspended":
-				// 		echo ('<b style="color:red">License is Suspended, Contact module customer support</b>');
-				// 		break;
-				// 	default:
-				// 		die("Invalid Response");
-				// 		break;
-				// }
-				echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</a></b>');
-			echo '
-				</div>
-			';
+			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</a></b>');
+			echo '</div>';
 
 	echo '</div>'; // end of tab-content
 	}
-
-	function enter_license_key() {
-		if (isset($_POST['saveLicenseKey'])) {
-			Capsule::table('mod_pvewhmcs')->where('id',1)->update(
-				[
-					'license' => $_POST['licensekey']
-				]
-			);
-			$_SESSION['pvewhmcs']['infomsg']['title']='PVE for WHMCS License key updated.' ;
-			$_SESSION['pvewhmcs']['infomsg']['message']='PVE for WHMCS license key updated successfuly.' ;
-			header("Location: ".pvewhmcs_BASEURL."&tab=license");
-		}
-
-		echo '<form method="post">
-			  <table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
-				<tr>
-					<td class="fieldlabel">License Key</td>
-					<td class="fieldarea">
-						<input type="text" size="100" name="licensekey" id="licensekey" required>
-					</td>
-				</tr>
-			  </table>
-				<div class="btn-container">
-					<input type="submit" class="btn btn-primary" value="Save License" name="saveLicenseKey" id="saveLicenseKey">
-					<input type="reset" class="btn btn-default" value="Cancel Changes">
-				</div>
-			  </form>
-		';
-	}
-
 
 	/* adding a KVM plan */
 	function kvm_plan_add() {
@@ -492,18 +432,19 @@
 					<td class="fieldlabel">Disk - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="disktype">
-							<option selected="" value="ide">IDE</option>
-							<option value="sata">SATA</option>
+							<option selected="" value="virtio">Virtio</option>
 							<option value="scsi">SCSI</option>
-							<option value="virtio">Virtio</option>
+							<option value="sata">SATA</option>
+							<option value="ide">IDE</option>
 						</select>
+						Virtio is the fastest option, then SCSI, then SATA, etc.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">NIC - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="netmodel">
-							<option selected="" value="e1000">Intel E1000</option>
+							<option selected="" value="e1000">Intel E1000 (Reliable)</option>
 							<option value="virtio">VirtIO (Paravirtualized)</option>
 							<option value="rtl8139">Realtek RTL8139</option>
 							<option value="vmxnet3">VMware vmxnet3</option>
@@ -554,7 +495,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="kvm" value="1" checked> Enable KVM hardware virtualization. (Recommended)
+							<input type="checkbox" name="kvm" value="1" checked> Enable KVM hardware virtualisation. (Recommended)
 						</label>
 					</td>
 				</tr>
@@ -762,19 +703,20 @@
 					<td class="fieldlabel">Disk - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="disktype">
-							<option value="ide" '. ($plan->disktype=="ide" ? "selected" : "").'>IDE</option>
-							<option value="sata" '. ($plan->disktype=="sata" ? "selected" : "").'>SATA</option>
+							<option value="virtio" '. ($plan->disktype=="virtio" ? "selected" : "").'>Virtio</option>
 							<option value="scsi" '. ($plan->disktype=="scsi" ? "selected" : "").'>SCSI</option>
-							<option value="virtio" '. ($plan->disktype=="virtio" ? "selected" : "").'>VIRTIO</option>
+							<option value="sata" '. ($plan->disktype=="sata" ? "selected" : "").'>SATA</option>
+							<option value="ide" '. ($plan->disktype=="ide" ? "selected" : "").'>IDE</option>
 						</select>
+						Virtio is the fastest option, then SCSI, then SATA, etc.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">NIC - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="netmodel">
-							<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000</option>
-							<option value="virtio" '. ($plan->netmodel=="virtio" ? "selected" : "").'>VirtIO (Paravirtualized)</option>
+							<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000 (Reliable)</option>
+							<option value="virtio" '. ($plan->netmodel=="virtio" ? "selected" : "").'>VirtIO (Paravirt)</option>
 							<option value="rtl8139" '. ($plan->netmodel=="rtl8139" ? "selected" : "").'>Realtek RTL8139</option>
 							<option value="vmxnet3" '. ($plan->netmodel=="vmxnet3" ? "selected" : "").'>VMware vmxnet3</option>
 						</select>
@@ -824,7 +766,7 @@
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
-							<input type="checkbox" name="kvm" value="1" '. ($plan->kvm=="1" ? "checked" : "").'> Enable KVM hardware virtualization. (Recommended)
+							<input type="checkbox" name="kvm" value="1" '. ($plan->kvm=="1" ? "checked" : "").'> Enable KVM hardware virtualisation. (Recommended)
 						</label>
 					</td>
 				</tr>

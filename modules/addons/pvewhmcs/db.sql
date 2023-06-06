@@ -1,10 +1,9 @@
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `license` text NOT NULL,
-  `localkey` text,
+  `config` text,
   PRIMARY KEY (`id`)
 );
-INSERT INTO `mod_pvewhmcs` (`id`, `license`, `localkey`) VALUES	(1, 'null', NULL);
+INSERT INTO `mod_pvewhmcs` (`id`, `config`) VALUES	(1, NULL);
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_addresses` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `pool_id` int(11) NOT NULL DEFAULT '0',
@@ -32,7 +31,6 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `memory` smallint(5) unsigned NOT NULL,
   `swap` smallint(5) unsigned DEFAULT NULL,
   `disk` smallint(5) unsigned DEFAULT NULL,
-  `iopriority` varchar(10) DEFAULT '4',
   `diskformat` varchar(10) DEFAULT NULL,
   `diskcache` varchar(20) DEFAULT NULL,
   `disktype` varchar(20) DEFAULT NULL,
@@ -40,9 +38,9 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `bridge` varchar(20) NOT NULL DEFAULT 'vmbr',
   `vmbr` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `netmodel` varchar(10) DEFAULT NULL,
-  `netrate` varchar(5) DEFAULT NULL,
+  `netrate` varchar(5) DEFAULT '0',
   `firewall` tinyint(1) unsigned NOT NULL DEFAULT '0',
-  `bw` int(6) unsigned DEFAULT NULL,
+  `bw` int(6) unsigned DEFAULT '0',
   `kvm` tinyint(1) unsigned DEFAULT '0',
   `onboot` tinyint(1) unsigned DEFAULT '0',
   PRIMARY KEY (`id`)
