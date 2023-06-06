@@ -21,24 +21,24 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 // 		);
 //         break;
 //     case "Invalid":
-//         die("<b style='color:red'>PRVE License key is Invalid</b>");
+//         die("<b style='color:red'>PVE for WHMCS License key is Invalid</b>");
 //         break;
 //     case "Expired":
-//         die("<b style='color:red'>PRVE License key is Expired</b>");
+//         die("<b style='color:red'>PVE for WHMCS License key is Expired</b>");
 //         break;
 //     case "Suspended":
-//         die("<b style='color:red'>PRVE License key is Suspended, contact PRVE WHMCS module support</b>");
+//         die("<b style='color:red'>PVE for WHMCS License key is Suspended, contact PVE for WHMCS WHMCS module support</b>");
 //         break;
 //     default:
-//         die("<b style='color:red'>PRVE License server, Invalid Response</b>");
+//         die("<b style='color:red'>PVE for WHMCS License server, Invalid Response</b>");
 //         break;
 // }
 
 global $guest ;
 function pvewhmcs_ConfigOptions()
 {
-	// Reterive PRVE Cluster
-	$server=Capsule::table('tblservers')->where('type', '=', 'prve')->get()[0] ;
+	// Reterive PVE for WHMCS Cluster
+	$server=Capsule::table('tblservers')->where('type', '=', 'pve-whmcs')->get()[0] ;
 
 
 	// Reterive Plans

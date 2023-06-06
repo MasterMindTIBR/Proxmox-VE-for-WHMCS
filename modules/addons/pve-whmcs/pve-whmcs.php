@@ -29,16 +29,16 @@
 			$i++ ;
 		}
 		if (!$err)
-			return array('status'=>'success','description'=>'PRVE installed successfuly.');
+			return array('status'=>'success','description'=>'PVE for WHMCS installed successfuly.');
 
-		return array('status'=>'error','description'=>'PRVE did not activated.');
+		return array('status'=>'error','description'=>'PVE for WHMCS did not activated.');
 
 	}
 
 	function pvewhmcs_deactivate() {
 		Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
 		# Return Result
-		return array('status'=>'success','description'=>'PRVE successfuly deactivated and all related tables deleted.');
+		return array('status'=>'success','description'=>'PVE for WHMCS successfuly deactivated and all related tables deleted.');
 		return array('status'=>'error','description'=>'If an error occurs you can return an error
 			   message for display here');
 		return array('status'=>'info','description'=>'If you want to give an info message to a user
@@ -51,16 +51,16 @@
 		$modulelink = $vars['modulelink'];
 
 		// Messages
-		if (isset($_SESSION['prve']['infomsg'])) {
+		if (isset($_SESSION['pvewhmcs']['infomsg'])) {
 			echo '
 				<div class="infobox">
 					<strong>
-						<span class="title">'.$_SESSION['prve']['infomsg']['title'].'</span>
+						<span class="title">'.$_SESSION['pvewhmcs']['infomsg']['title'].'</span>
 					</strong><br/>
-				'.$_SESSION['prve']['infomsg']['message'].'
+				'.$_SESSION['pvewhmcs']['infomsg']['message'].'
 				</div>
 			' ;
-			unset($_SESSION['prve']) ;
+			unset($_SESSION['pvewhmcs']) ;
 		}
 
 		echo '
@@ -68,7 +68,7 @@
 				<ul class="nav nav-tabs admin-tabs">
 					<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM Plans</a></li>
 					<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP pools</a></li>
-					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">PRVE License</a></li>
+					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">PVE for WHMCS License</a></li>
 				</ul>
 			</div>
 			<div class="tab-content admin-tabs">
@@ -285,7 +285,7 @@
 				// 		die("Invalid Response");
 				// 		break;
 				// }
-				echo ('<b style="color:green">PRVE is now Open-source and free to use.</b>');
+				echo ('<b style="color:green">PVE for WHMCS is now Open-source and free to use.</b>');
 			echo '
 				</div>
 			';
@@ -300,8 +300,8 @@
 					'license' => $_POST['licensekey']
 				]
 			);
-			$_SESSION['prve']['infomsg']['title']='PRVE License key updated.' ;
-			$_SESSION['prve']['infomsg']['message']='PRVE license key updated successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='PVE for WHMCS License key updated.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='PVE for WHMCS license key updated successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=license");
 		}
 
@@ -1016,8 +1016,8 @@
 					);
 				}
 			);
-			$_SESSION['prve']['infomsg']['title']='KVM Plan added.' ;
-			$_SESSION['prve']['infomsg']['message']='New KVM plan saved successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan added.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan saved successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1054,8 +1054,8 @@
 							'onboot' => $_POST['onboot'],
 						]
 					);
-		$_SESSION['prve']['infomsg']['title']='KVM Plan updated.' ;
-		$_SESSION['prve']['infomsg']['message']='KVM plan updated successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan updated.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='KVM plan updated successfuly.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
@@ -1063,8 +1063,8 @@
 	function remove_plan($id) {
 		Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->delete();
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
-		$_SESSION['prve']['infomsg']['title']='Plan Deleted.' ;
-		$_SESSION['prve']['infomsg']['message']='Selected Item deleted successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='Plan Deleted.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
 	}
 	function save_openvz_plan() {
 		try {
@@ -1092,8 +1092,8 @@
 					);
 				}
 			);
-			$_SESSION['prve']['infomsg']['title']='New OpenVZ Plan added.' ;
-			$_SESSION['prve']['infomsg']['message']='New OpenVZ plan saved successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='New OpenVZ Plan added.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='New OpenVZ plan saved successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1121,8 +1121,8 @@
 							'onboot' => $_POST['onboot'],
 						]
 					);
-		$_SESSION['prve']['infomsg']['title']='OpenVZ Plan updated.' ;
-		$_SESSION['prve']['infomsg']['message']='New KVM plan updated successfuly. (Updating plans will not effect on current Virtual machines.)' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='OpenVZ Plan updated.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan updated successfuly. (Updating plans will not effect on current Virtual machines.)' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
@@ -1179,8 +1179,8 @@
 					);
 				}
 			);
-			$_SESSION['prve']['infomsg']['title']='New IP Pool added.' ;
-			$_SESSION['prve']['infomsg']['message']='New IP Pool saved successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='New IP Pool added.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='New IP Pool saved successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1192,8 +1192,8 @@
 		Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
 
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
-		$_SESSION['prve']['infomsg']['title']='IP Pool Deleted.' ;
-		$_SESSION['prve']['infomsg']['message']='Selected IP pool deleted successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='IP Pool Deleted.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Selected IP pool deleted successfuly.' ;
 	}
 
 	// add IP address/subnet to Pool
@@ -1251,8 +1251,8 @@
 				}
 			}
 			header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
-			$_SESSION['prve']['infomsg']['title']='IP Address/Blocks added to Pool.' ;
-			$_SESSION['prve']['infomsg']['message']='you can remove IP addresses from the pool.' ;
+			$_SESSION['pvewhmcs']['infomsg']['title']='IP Address/Blocks added to Pool.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='you can remove IP addresses from the pool.' ;
 		}
 	}
 	// List IP addresses in pool
@@ -1275,7 +1275,7 @@
 	function removeip($id,$pool_id) {
 		Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
-		$_SESSION['prve']['infomsg']['title']='IP Address Deleted.' ;
-		$_SESSION['prve']['infomsg']['message']='Selected Item deleted successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='IP Address Deleted.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
 	}
 ?>
