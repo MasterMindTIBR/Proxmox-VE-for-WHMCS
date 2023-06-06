@@ -285,7 +285,7 @@
 				// 		die("Invalid Response");
 				// 		break;
 				// }
-				echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!<br>https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</b>');
+				echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</a></b>');
 			echo '
 				</div>
 			';
@@ -598,7 +598,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">OS Type</td>
+					<td class="fieldlabel">OS - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="ostype">
 						    <option value="l26" ' . ($plan->ostype == "l26" ? "selected" : "") . '>Linux 6.x - 2.6 Kernel</option>
@@ -617,7 +617,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU emulation</td>
+					<td class="fieldlabel">CPU - Emulation</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="cpuemu">
 						    <option value="host" ' . ($plan->cpuemu == "host" ? "selected" : "") . '>Host</option>
@@ -712,6 +712,13 @@
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
 						RAM space in Megabytes e.g 1024 = 1GB
+					</td>
+				</tr>
+				<tr>
+					<td class="fieldlabel">Swap - Space</td>
+					<td class="fieldarea">
+						<input type="text" size="8" name="swap" id="swap" required value="'.$plan->swap.'">
+						Swap space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
@@ -971,49 +978,49 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">RAM</td>
+					<td class="fieldlabel">RAM - Memory</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
 						RAM space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Swap</td>
+					<td class="fieldlabel">Swap - Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="swap" id="swap" value="'.$plan->swap.'">
 						Swap space in Megabytes e.g 1024 = 1GB
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Space</td>
+					<td class="fieldlabel">Disk - Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
 						Disk space in Gigabytes e.g 1024= 1 Terra Byte
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Bridge Interface</td>
+					<td class="fieldlabel">Bridge - Interface</td>
 					<td class="fieldarea">
 						<input type="text" size="2" name="bridge" id="bridge" value="'.$plan->bridge.'">
 						Bridge interface name. Proxmox default bridge name is "vmbr".
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Bridge interface number</td>
+					<td class="fieldlabel">Bridge - Int. ID</td>
 					<td class="fieldarea">
 						<input type="text" size="2" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
 						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Rate</td>
+					<td class="fieldlabel">Network - Rate</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="netrate" id="netrate" value="'.$plan->netrate.'">
 						Network Rate Limit in Megabit/Second, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Monthly Bandwidth</td>
+					<td class="fieldlabel">Network - BW Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="5" name="bw" id="bw" value="'.$plan->bw.'">
 						Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
@@ -1021,7 +1028,7 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On boot
+						On-boot VM?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
