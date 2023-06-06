@@ -335,7 +335,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">OS Type</td>
+					<td class="fieldlabel">OS - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="ostype">
 							<option value="l26">Linux 6.x - 2.6 Kernel</option>
@@ -354,118 +354,118 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU emulation</td>
+					<td class="fieldlabel">CPU - Emulation</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="cpuemu">
-							<option value="486">486 (Intel)</option>
-							<option value="Broadwell">Broadwell (Intel)</option>
-							<option value="Broadwell-IBRS">Broadwell-IBRS (Intel)</option>
-							<option value="Broadwell-noTSX">Broadwell-noTSX (Intel)</option>
-							<option value="Broadwell-noTSX-IBRS">Broadwell-noTSX-IBRS (Intel)</option>
-							<option value="Cascadelake-Server">Cascadelake-Server (Intel)</option>
-							<option value="Cascadelake-Server-noTSX">Cascadelake-Server-noTSX (Intel)</option>
-							<option value="Conroe">Conroe (Intel)</option>
-							<option value="Haswell">Haswell (Intel)</option>
-							<option value="Haswell-IBRS">Haswell-IBRS (Intel)</option>
-							<option value="Haswell-noTSX">Haswell-noTSX (Intel)</option>
-							<option value="Haswell-noTSX-IBRS">Haswell-noTSX-IBRS (Intel)</option>
-							<option value="Icelake-Client">Icelake-Client (Intel)</option>
-							<option value="Icelake-Client-noTSX">Icelake-Client-noTSX (Intel)</option>
-							<option value="Icelake-Server">Icelake-Server (Intel)</option>
-							<option value="Icelake-Server-noTSX">Icelake-Server-noTSX (Intel)</option>
-							<option value="IvyBridge">IvyBridge (Intel)</option>
-							<option value="IvyBridge-IBRS">IvyBridge-IBRS (Intel)</option>
-							<option value="KnightsMill">KnightsMill (Intel)</option>
-							<option value="Nehalem">Nehalem (Intel)</option>
-							<option value="Nehalem-IBRS">Nehalem-IBRS (Intel)</option>
-							<option value="Penryn">Penryn (Intel)</option>
-							<option value="SandyBridge">SandyBridge (Intel)</option>
-							<option value="SandyBridge-IBRS">SandyBridge-IBRS (Intel)</option>
-							<option value="Skylake-Client">Skylake-Client (Intel)</option>
-							<option value="Skylake-Client-IBRS">Skylake-Client-IBRS (Intel)</option>
-							<option value="Skylake-Client-noTSX-IBRS">Skylake-Client-noTSX-IBRS (Intel)</option>
-							<option value="Skylake-Server">Skylake-Server (Intel)</option>
-							<option value="Skylake-Server-IBRS">Skylake-Server-IBRS (Intel)</option>
-							<option value="Skylake-Server-noTSX-IBRS">Skylake-Server-noTSX-IBRS (Intel)</option>
-							<option value="Westmere">Westmere (Intel)</option>
-							<option value="Westmere-IBRS">Westmere-IBRS (Intel)</option>
-							<option value="pentium">Pentium I (Intel)</option>
-							<option value="pentium2">Pentium II (Intel)</option>
-							<option value="pentium3">Pentium III (Intel)</option>
-							<option value="coreduo">Core Duo (Intel)</option>
-							<option value="core2duo">Core 2 Duo (Intel)</option>
-							<option value="athlon">Athlon (AMD)</option>
-							<option value="phenom">Phenom (AMD)</option>
-							<option value="EPYC">EPYC (AMD)</option>
-							<option value="EPYC-IBPB">EPYC-IBPB (AMD)</option>
-							<option value="EPYC-Milan">EPYC-Milan (AMD)</option>
-							<option value="EPYC-Rome">EPYC-Rome (AMD)</option>
-							<option value="Opteron_G1">Opteron_G1 (AMD)</option>
-							<option value="Opteron_G2">Opteron_G2 (AMD)</option>
-							<option value="Opteron_G3">Opteron_G3 (AMD)</option>
-							<option value="Opteron_G4">Opteron_G4 (AMD)</option>
-							<option value="Opteron_G5">Opteron_G5 (AMD)</option>
-							<option value="kvm32">kvm32 (QEMU)</option>
-							<option value="kvm64">kvm64 (QEMU)</option>
-							<option value="max">Max (QEMU)</option>
-							<option value="qemu32">qemu32 (QEMU)</option>
-							<option value="qemu64">qemu64 (QEMU)</option>
 							<option value="host">Host</option>
+							<option value="kvm32">(QEMU) kvm32</option>
+							<option value="kvm64" selected="">(QEMU) kvm64</option>
+							<option value="max">(QEMU) Max</option>
+							<option value="qemu32">(QEMU) qemu32</option>
+							<option value="qemu64">(QEMU) qemu64</option>
+							<option value="486">(Intel) 486</option>
+							<option value="Broadwell">(Intel) Broadwell</option>
+							<option value="Broadwell-IBRS">(Intel) Broadwell-IBRS</option>
+							<option value="Broadwell-noTSX">(Intel) Broadwell-noTSX</option>
+							<option value="Broadwell-noTSX-IBRS">(Intel) Broadwell-noTSX-IBRS</option>
+							<option value="Cascadelake-Server">(Intel) Cascadelake-Server</option>
+							<option value="Cascadelake-Server-noTSX">(Intel) Cascadelake-Server-noTSX</option>
+							<option value="Conroe">(Intel) Conroe</option>
+							<option value="Haswell">(Intel) Haswell</option>
+							<option value="Haswell-IBRS">(Intel) Haswell-IBRS</option>
+							<option value="Haswell-noTSX">(Intel) Haswell-noTSX</option>
+							<option value="Haswell-noTSX-IBRS">(Intel) Haswell-noTSX-IBRS</option>
+							<option value="Icelake-Client">(Intel) Icelake-Client</option>
+							<option value="Icelake-Client-noTSX">(Intel) Icelake-Client-noTSX</option>
+							<option value="Icelake-Server">(Intel) Icelake-Server</option>
+							<option value="Icelake-Server-noTSX">(Intel) Icelake-Server-noTSX</option>
+							<option value="IvyBridge">(Intel) IvyBridge</option>
+							<option value="IvyBridge-IBRS">(Intel) IvyBridge-IBRS</option>
+							<option value="KnightsMill">(Intel) KnightsMill</option>
+							<option value="Nehalem">(Intel) Nehalem</option>
+							<option value="Nehalem-IBRS">(Intel) Nehalem-IBRS</option>
+							<option value="Penryn">(Intel) Penryn</option>
+							<option value="SandyBridge">(Intel) SandyBridge</option>
+							<option value="SandyBridge-IBRS">(Intel) SandyBridge-IBRS</option>
+							<option value="Skylake-Client">(Intel) Skylake-Client</option>
+							<option value="Skylake-Client-IBRS">(Intel) Skylake-Client-IBRS</option>
+							<option value="Skylake-Client-noTSX-IBRS">(Intel) Skylake-Client-noTSX-IBRS</option>
+							<option value="Skylake-Server">(Intel) Skylake-Server</option>
+							<option value="Skylake-Server-IBRS">(Intel) Skylake-Server-IBRS</option>
+							<option value="Skylake-Server-noTSX-IBRS">(Intel) Skylake-Server-noTSX-IBRS</option>
+							<option value="Westmere">(Intel) Westmere</option>
+							<option value="Westmere-IBRS">(Intel) Westmere-IBRS</option>
+							<option value="pentium">(Intel) Pentium I</option>
+							<option value="pentium2">(Intel) Pentium II</option>
+							<option value="pentium3">(Intel) Pentium III</option>
+							<option value="coreduo">(Intel) Core Duo</option>
+							<option value="core2duo">(Intel) Core 2 Duo</option>
+							<option value="athlon">(AMD) Athlon</option>
+							<option value="phenom">(AMD) Phenom</option>
+							<option value="EPYC">(AMD) EPYC</option>
+							<option value="EPYC-IBPB">(AMD) EPYC-IBPB</option>
+							<option value="EPYC-Milan">(AMD) EPYC-Milan</option>
+							<option value="EPYC-Rome">(AMD) EPYC-Rome</option>
+							<option value="Opteron_G1">(AMD) Opteron_G1</option>
+							<option value="Opteron_G2">(AMD) Opteron_G2</option>
+							<option value="Opteron_G3">(AMD) Opteron_G3</option>
+							<option value="Opteron_G4">(AMD) Opteron_G4</option>
+							<option value="Opteron_G5">(AMD) Opteron_G5</option>
 						</select>
 						CPU emulation type. Default is KVM64
 					</td>
 				</tr>
 
 				<tr>
-					<td class="fieldlabel">CPU</td>
+					<td class="fieldlabel">CPU - Sockets</td>
 					<td class="fieldarea">
-						<input type="text" size="1" name="cpus" id="cpus" value="1" required>
+						<input type="text" size="8" name="cpus" id="cpus" value="1" required>
 						The number of CPU sockets. 1 - 4.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Cores</td>
+					<td class="fieldlabel">CPU - Cores</td>
 					<td class="fieldarea">
-						<input type="text" size="1" name="cores" id="cores" value="1" required>
+						<input type="text" size="8" name="cores" id="cores" value="1" required>
 						The number of CPU cores per socket. 1 - 32.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Limit</td>
+					<td class="fieldlabel">CPU - Limit</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpulimit" id="cpulimit" value="0" required>
-						Limit of CPU usage. Note if the server has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
+						Limit of CPU usage. Note if the Server has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">CPU Units</td>
+					<td class="fieldlabel">CPU - Weighting</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="cpuunits" id="cpuunits" value="1024" required>
-						Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. NOTE: You can disable fair-scheduler configuration by setting this to 0.
+						Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024. NOTE: Disable fair-scheduler by setting this to 0.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">RAM</td>
+					<td class="fieldlabel">RAM - Memory</td>
 					<td class="fieldarea">
-						<input type="text" size="8" name="memory" id="memory" required>
-						RAM space in Megabyte e.g 1024 = 1GB
+						<input type="text" size="8" name="memory" id="memory" value="2048" required>
+						RAM space in Megabyte e.g 1024 = 1GB (default is 2GB)
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Space</td>
+					<td class="fieldlabel">SSD/HDD - Disk</td>
 					<td class="fieldarea">
-						<input type="text" size="8" name="disk" id="disk" required>
-						Disk space in Gigabyte e.g 1024 = 1 Terrabyte
+						<input type="text" size="8" name="disk" id="disk" value="10240" required>
+						Disk space in Gigabyte e.g 1024 = 1TB (default is 10GB)
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">IO Priority</td>
+					<td class="fieldlabel">I/O - Priority</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="iopriority" id="iopriority" value="4">
+						<input type="text" size="8" name="iopriority" id="iopriority" value="4">
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Format</td>
+					<td class="fieldlabel">Disk - Format</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskformat">
 							<option value="raw">Disk Image (raw)</option>
@@ -476,7 +476,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk cache</td>
+					<td class="fieldlabel">Disk - Cache</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="diskcache">
 							<option selected="" value="">No Cache (Default)</option>
@@ -489,7 +489,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Disk Type</td>
+					<td class="fieldlabel">Disk - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="disktype">
 							<option selected="" value="ide">IDE</option>
@@ -500,31 +500,7 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Mode</td>
-					<td class="fieldarea">
-						<select class="form-control select-inline" name="netmode">
-							<option value="bridge">Bridge</option>
-							<option value="nat">NAT</option>
-							<option value="none">No Network</option>
-						</select>
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">Bridge Interface</td>
-					<td class="fieldarea">
-						<input type="text" size="2" name="bridge" id="bridge" value="vmbr">
-						Bridge interface name. Proxmox default bridge name is "vmbr".
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">Bridge interface number</td>
-					<td class="fieldarea">
-						<input type="text" size="2" name="vmbr" id="vmbr" value="0">
-						Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
-					</td>
-				</tr>
-				<tr>
-					<td class="fieldlabel">NIC Model</td>
+					<td class="fieldlabel">NIC - Type</td>
 					<td class="fieldarea">
 						<select class="form-control select-inline" name="netmodel">
 							<option selected="" value="e1000">Intel E1000</option>
@@ -535,22 +511,46 @@
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Network Rate</td>
+					<td class="fieldlabel">Network - Rate</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="netrate" id="netrate">
-						Network Rate Limit in Megabit, Blank means unlimited.
+						<input type="text" size="8" name="netrate" id="netrate">
+						Network Rate Limit in Megabit/Second, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
-					<td class="fieldlabel">Monthly Bandwidth</td>
+					<td class="fieldlabel">Network - BW Limit</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="bw" id="bw">
+						<input type="text" size="8" name="bw" id="bw">
 						Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
 					</td>
 				</tr>
 				<tr>
+					<td class="fieldlabel">Network - Mode</td>
+					<td class="fieldarea">
+						<select class="form-control select-inline" name="netmode">
+							<option value="bridge">Bridge</option>
+							<option value="nat">NAT</option>
+							<option value="none">No Network</option>
+						</select>
+					</td>
+				</tr>
+				<tr>
+					<td class="fieldlabel">Bridge - Interface</td>
+					<td class="fieldarea">
+						<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
+						Bridge interface name. Proxmox default bridge name is "vmbr".
+					</td>
+				</tr>
+				<tr>
+					<td class="fieldlabel">Bridge - Int. ID</td>
+					<td class="fieldarea">
+						<input type="text" size="8" name="vmbr" id="vmbr" value="0">
+						Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+					</td>
+				</tr>
+				<tr>
 					<td class="fieldlabel">
-						KVM HV
+						Hardware Virt?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
@@ -560,7 +560,7 @@
 				</tr>
 				<tr>
 					<td class="fieldlabel">
-						On-boot?
+						On-boot VM?
 					</td>
 					<td class="fieldarea">
 						<label class="checkbox-inline">
