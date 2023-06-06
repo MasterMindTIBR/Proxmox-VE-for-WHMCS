@@ -16,7 +16,7 @@ We're slowly overhauling the Module to suit our internal needs at [LEOPARD.host]
 **Libraries & Dependencies:**
 
 - [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
-- [TightTNC vncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
+- [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [NoVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
 
 **Documentation & Resources:**
