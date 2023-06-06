@@ -135,52 +135,52 @@
 										<tbody>
 											<tr>
 												<th>
-													id
+													ID
 												</th>
 												<th>
-													title
+													Title
 												</th>
 												<th>
-													vmtype
+													VM Type
 												</th>
 												<th>
-													ostype
+													OS Type
 												</th>
 												<th>
-													cpus
+													CPUs
 												</th>
 												<th>
-													cores
+													Cores
 												</th>
 												<th>
-													memory
+													RAM
 												</th>
 												<th>
-													swap
+													Swap
 												</th>
 												<th>
-													disk
+													Disk
 												</th>
 												<th>
-													disktype
+													Disk Type
 												</th>
 												<th>
-													netmode
+													Net Mode
 												</th>
 												<th>
 													Bridge
 												</th>
 												<th>
-													netmodel
+													NIC Model
 												</th>
 												<th>
-													netrate
+													Rate
 												</th>
 												<th>
-													bw
+													BW
 												</th>
 												<th>
-													action
+													Actions
 												</th>
 											</tr>
 							';
@@ -995,35 +995,35 @@
 					<td class="fieldlabel">Disk - Space</td>
 					<td class="fieldarea">
 						<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
-						Disk space in Gigabytes e.g 1024= 1 Terra Byte
+						Disk space in Gigabytes e.g 1024 = 1TB
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Bridge - Interface</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="bridge" id="bridge" value="'.$plan->bridge.'">
+						<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
 						Bridge interface name. Proxmox default bridge name is "vmbr".
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Bridge - Int. ID</td>
 					<td class="fieldarea">
-						<input type="text" size="2" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
+						<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
 						Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Network - Rate</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="netrate" id="netrate" value="'.$plan->netrate.'">
-						Network Rate Limit in Megabit/Second, Blank means unlimited.
+						<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
+						Network Rate Limit in Megabit/Second, blank means unlimited.
 					</td>
 				</tr>
 				<tr>
 					<td class="fieldlabel">Network - BW Limit</td>
 					<td class="fieldarea">
-						<input type="text" size="5" name="bw" id="bw" value="'.$plan->bw.'">
-						Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
+						<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
+						Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
 					</td>
 				</tr>
 				<tr>
@@ -1082,7 +1082,7 @@
 				}
 			);
 			$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan added.' ;
-			$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan saved successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='Saved the KVM Plan successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1158,7 +1158,7 @@
 				}
 			);
 			$_SESSION['pvewhmcs']['infomsg']['title']='New OpenVZ Plan added.' ;
-			$_SESSION['pvewhmcs']['infomsg']['message']='New OpenVZ plan saved successfuly.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='Saved the OpenVZ Plan successfuly.' ;
 			header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 		} catch (\Exception $e) {
 			echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1187,14 +1187,14 @@
 						]
 					);
 		$_SESSION['pvewhmcs']['infomsg']['title']='OpenVZ Plan updated.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='New KVM plan updated successfully. (Updating plans will not effect on current Virtual machines.)' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Updated the KVM Plan successfully. (Updating plans will not effect on current VMs.)' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	}
 
 	// List IP pools in table
 	function list_ip_pools() {
 		echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IP Pool</a>';
-		echo '<table class="datatable"><tr><th>Id</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
+		echo '<table class="datatable"><tr><th>ID</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
 		foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 			echo '<tr>';
 				echo '<td>'.$pool->id . PHP_EOL .'</td>';
@@ -1258,7 +1258,7 @@
 
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 		$_SESSION['pvewhmcs']['infomsg']['title']='IP Pool Deleted.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Selected IP pool deleted successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IP Pool successfuly.' ;
 	}
 
 	// add IP address/subnet to Pool
@@ -1317,7 +1317,7 @@
 			}
 			header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
 			$_SESSION['pvewhmcs']['infomsg']['title']='IP Address/Blocks added to Pool.' ;
-			$_SESSION['pvewhmcs']['infomsg']['message']='you can remove IP addresses from the pool.' ;
+			$_SESSION['pvewhmcs']['infomsg']['message']='You can remove IP Addresses from the pool.' ;
 		}
 	}
 	// List IP addresses in pool
@@ -1330,7 +1330,7 @@
 			if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
 				echo 'is in use' ;
 			else
-				echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IP address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
+				echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IP Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
 			echo '</td></tr>';
 		}
 		echo '</table>' ;
@@ -1340,7 +1340,7 @@
 	function removeip($id,$pool_id) {
 		Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
-		$_SESSION['pvewhmcs']['infomsg']['title']='IP Address Deleted.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='IP Address deleted.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Deleted selected item successfuly.' ;
 	}
 ?>
