@@ -68,7 +68,7 @@
 				<ul class="nav nav-tabs admin-tabs">
 					<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM Plans</a></li>
 					<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
-					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">Software License</a></li>
+					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">License / Support</a></li>
 				</ul>
 			</div>
 			<div class="tab-content admin-tabs">
@@ -257,7 +257,8 @@
 			';
 			// License Tab
 			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
-			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/</a></b>');
+			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a></b>');
+			echo ('<b>SUPPORT: Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.')
 			echo '</div>';
 
 	echo '</div>'; // end of tab-content
