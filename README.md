@@ -21,17 +21,19 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 - [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [NoVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
 
-**Documentation & Resources:**
+**📄 Documentation & Resources:**
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
 - NoVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 
-**Problems & Contributions**
+**🆘 Support for the Module:**
 
-If you have any problems with the Module, please raise an [Issue](https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/issues).
+Including logs, details, steps to reproduce, etc, please raise an [Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
-If you'd like to contribute to the Module, please open a [PR](https://github.com/LEOPARD-host/Proxmox-VE-for-WHMCS/pulls).
+**Making the Module better:**
+
+If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**

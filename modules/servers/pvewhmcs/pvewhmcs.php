@@ -2,7 +2,7 @@
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
 	require_once('../modules/addons/pvewhmcs/proxmox.php');
 else
-	require_once('modules/addons/pvewhmcs/proxmox.php');
+	require_once(ROOTDIR.'/modules/addons/pvewhmcs/proxmox.php');
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 
