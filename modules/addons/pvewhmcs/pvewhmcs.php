@@ -258,7 +258,7 @@
 			// License Tab
 			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
 			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a></b>');
-			echo ('<b>SUPPORT: Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.')
+			echo ('<b>SUPPORT: Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
 			echo '</div>';
 
 	echo '</div>'; // end of tab-content
