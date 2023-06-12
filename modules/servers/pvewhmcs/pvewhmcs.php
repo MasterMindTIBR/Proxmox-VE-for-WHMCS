@@ -492,16 +492,34 @@ function pvewhmcs_ClientArea($params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 
+		# Get and set VM variables
 		$vm_config=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
-		$vm_status=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/status/current') ;
+		$cluster_resources = $proxmox->get('/cluster/resources');
+		$vm_status = null;
 
-		$vm_status['uptime']=time2format($vm_status['uptime']) ;
-		$vm_status['cpu']=round( $vm_status['cpu'] * 100, 2 ) ;
+		# Loop through data, find ID
+		foreach ($cluster_resources as $vm) {
+		    if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
+		        $vm_status = $vm;
+		        break;
+		    }
+		}
 
-		$vm_status['diskusepercent'] = intval( $vm_status['disk'] * 100 / $vm_status['maxdisk'] );
-		$vm_status['memusepercent']=intval( $vm_status['mem'] * 100 / $vm_status['maxmem']);
+		# Set usage data appropriately
+		if ($vm_status !== null) {
+		    $vm_status['uptime'] = time2format($vm_status['uptime']);
+		    $vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
 
-		if ($guest->vtype=='lxc') $vm_status['swapusepercent']=intval( $vm_status['swap'] * 100 / $vm_status['maxswap']);
+		    $vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
+		    $vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
+
+		    if ($guest->vtype == 'lxc') {
+		        $vm_status['swapusepercent'] = intval($vm_status['swap'] * 100 / $vm_status['maxswap']);
+		    }
+		} else {
+		    // Handle the VM not found in the cluster resources (Optional)
+		    echo "VM/CT not found in Cluster Resources.";
+		}
 
 		// Max CPU usage Yearly
 		$rrd_params=array('timeframe'=>'year','ds'=>'cpu','cf'=>'AVERAGE') ;
