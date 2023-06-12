@@ -257,7 +257,7 @@
 			';
 			// License Tab
 			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
-			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a></b>');
+			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a></b><br>');
 			echo ('<b>SUPPORT: Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
 			echo '</div>';
 
@@ -1130,7 +1130,7 @@
 				echo '<td>'.$pool->title . PHP_EOL .'</td>';
 				echo '<td>'.$pool->gateway . PHP_EOL .'</td>';
 				echo '<td>
-						<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/info.gif"></a>
+						<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
 						<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all ip addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
 					  </td>' ;
 			echo '</tr>' ;
