@@ -23,13 +23,13 @@ class Ipv4_Address
    * fromLong
    * Creates Ipv4_Address object from a decimal (long) address
    *
-   * @param real $data
+   * @param float $data
    * @static
    * @access public
    * @return Ipv4_Address
    */
   static function fromLong($data) {
-    return new self((real)$data);
+    return new self((float)$data);
   }
 
   /**
