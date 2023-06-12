@@ -1192,7 +1192,7 @@
 
 	// add IP address/subnet to Pool
 	function add_ip_2_pool() {
-		require_once('../modules/addons/pvewhmcs/Ipv4/Subnet.php');
+		require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
 		echo '<form method="post">
 			<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 				<tr>
