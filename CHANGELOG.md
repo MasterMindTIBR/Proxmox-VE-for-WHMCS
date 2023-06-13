@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.2] - Not yet released
+
+### Added
+- Link off to GitHub Issues for Support from the Module page in WHMCS
+- CHANGELOG.md file added to repository to track in recommended format
+
+### Changed
+- Change relative to ROOTDIR in IPv4 file, in case of other issues
+- Use /cluster/resources via API, not /node/, to get resources/maxes
+
+### Fixed
+- Regression in v1.1 with missing semicolon breaking activation (#14)
+- Edit Icon not rendering on IP/Pool edit page, missing WHMCS (#13)
+- Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
+- IPv4 Address functions, update file to use float not real (#13)
+
 ## [1.1] - 2023-06-06
  
 ### Added
