@@ -60,131 +60,146 @@ function pvewhmcs_ConfigOptions() {
 
 function pvewhmcs_CreateAccount($params) {
     // Retrieve Plan from table
-	$plan=Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
 
-	$vm_settings=array();
+	$vm_settings = array();
 
-    // select an IP address from pool
-	$ip=Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id='.$params['configoption2'].') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
+    // Select an IP address from pool
+	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
     // CREATE IF QEMU/KVM
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
 
-		$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
-            # Get first node name.
+            // Get first node name.
 			$nodes = $proxmox->get_node_list();
 			$first_node = $nodes[0];
 			unset($nodes);
-			$vm_settings['newid']=$params["serviceid"];
+			$vm_settings['newid'] = $params["serviceid"];
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
-			$vm_settings['full']=true;
-			$response = $proxmox->post('/nodes/'.$first_node.'/qemu/'.$params['customfields']['KVMTemplate'].'/clone',$vm_settings);
+			$vm_settings['full'] = true;
+			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			if ($response) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
 					[
 						'id' => $params['serviceid'],
-						'user_id'=>$params['clientsdetails']['userid'],
-						'vtype'=>'qemu',
-						'ipaddress'=>$ip->ipaddress,
-						'subnetmask'=>$ip->mask,
-						'gateway'=>$ip->gateway,
-						'created'=>date("Y-m-d H:i:s"),
+						'user_id' => $params['clientsdetails']['userid'],
+						'vtype' => 'qemu',
+						'ipaddress' => $ip->ipaddress,
+						'subnetmask' => $ip->mask,
+						'gateway' => $ip->gateway,
+						'created' => date("Y-m-d H:i:s"),
 					]
 				);
 				return true;
 			} else {
 				$response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : json_encode($response);
-                return array('error' => "Proxmox Error: Failed to create Service. Response: " . $response_message);
+				throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 			}
 		} else {
-			return array('error' => "Proxmox Error: PVE API login failed. Please check your credentials.");
+			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 		}
-    // CREATE IF LXC/CONTAINER
+        // CREATE IF LXC/CONTAINER
 	} else {
-		$vm_settings['vmid']=$params["serviceid"];
-		if ($plan->vmtype=='lxc') {
-			$vm_settings['ostemplate']='local:vztmpl/'.$params['customfields']['Template'];
-			$vm_settings['swap']=$plan->swap;
-			$vm_settings['rootfs']=$plan->disk;
+		$vm_settings['vmid'] = $params["serviceid"];
+		if ($plan->vmtype == 'lxc') {
+			$vm_settings['ostemplate'] = 'local:vztmpl/' . $params['customfields']['Template'];
+			$vm_settings['swap'] = $plan->swap;
+			$vm_settings['rootfs'] = $plan->disk;
 
-			$vm_settings['net0']='bridge='.$plan->bridge.$plan->vmbr.',name=eth0,ip='.$ip->ipaddress.'/'.mask2cidr($ip->mask).',gw='.$ip->gateway;
-			$vm_settings['nameserver']='1.1.1.1 1.0.0.1';
-			$vm_settings['password']=$params['customfields']['Password'];
-		}
-		else {
-			$vm_settings['ostype']=$plan->ostype;
-			$vm_settings['sockets']=$plan->cpus;
-			$vm_settings['cores']=$plan->cores;
-			$vm_settings['cpu']=$plan->cpuemu;
-			$vm_settings['kvm']=$plan->kvm;
-			$vm_settings['onboot']=$plan->onboot;
+			$vm_settings['net0'] = 'bridge=' . $plan->bridge . $plan->vmbr . ',name=eth0,ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
+			$vm_settings['password'] = $params['customfields']['Password'];
+		} else {
+			$vm_settings['ostype'] = $plan->ostype;
+			$vm_settings['sockets'] = $plan->cpus;
+			$vm_settings['cores'] = $plan->cores;
+			$vm_settings['cpu'] = $plan->cpuemu;
+			$vm_settings['kvm'] = $plan->kvm;
+			$vm_settings['onboot'] = $plan->onboot;
 
-			$vm_settings[$plan->disktype.'0']='local:'.$plan->disk.',format='.$plan->diskformat;
-			if (!empty($plan->diskcache))
-				$vm_settings[$plan->disktype.'0'].= ',cache='.$plan->diskcache;
+			$vm_settings[$plan->disktype . '0'] = 'local:' . $plan->disk . ',format=' . $plan->diskformat;
+			if (!empty($plan->diskcache)) {
+				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
+			}
 
             // Assign ISO File
-			if (isset($params['customfields']['ISO']))
-				$vm_settings['ide2']='local:iso/'.$params['customfields']['ISO'].',media=cdrom';
+			if (isset($params['customfields']['ISO'])) {
+				$vm_settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
+			}
 
 			/* Network settings */
-			if ($plan->netmode!='none') {
-				$vm_settings['net0']=$plan->netmodel;
-				if ($plan->netmode=='bridge') {
-					$vm_settings['net0'].=',bridge='.$plan->bridge.$plan->vmbr;
+			if ($plan->netmode != 'none') {
+				$vm_settings['net0'] = $plan->netmodel;
+				if ($plan->netmode == 'bridge') {
+					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
 				}
-				$vm_settings['net0'].=',firewall='.$plan->firewall;
-				if (!empty($plan->netrate))
-					$vm_settings['net0'].=',rate='.$plan->netrate;
+				$vm_settings['net0'] .= ',firewall=' . $plan->firewall;
+				if (!empty($plan->netrate)) {
+					$vm_settings['net0'] .= ',rate=' . $plan->netrate;
+				}
 			}
 			/* end of network settings */
 		}
 
-		$vm_settings['cpuunits']=$plan->cpuunits;
-		$vm_settings['cpulimit']=$plan->cpulimit;
-		$vm_settings['memory']=$plan->memory;
+		$vm_settings['cpuunits'] = $plan->cpuunits;
+		$vm_settings['cpulimit'] = $plan->cpulimit;
+		$vm_settings['memory'] = $plan->memory;
 
 		try {
-			$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
 			if ($proxmox->login()) {
-                # Get first node name.
+                // Get first node name.
 				$nodes = $proxmox->get_node_list();
 				$first_node = $nodes[0];
 				unset($nodes);
 
-				if ($plan->vmtype=='kvm') $v='qemu'; else $v='lxc';
+				if ($plan->vmtype == 'kvm') {
+					$v = 'qemu';
+				} else {
+					$v = 'lxc';
+				}
 
-				$response = $proxmox->post('/nodes/'.$first_node.'/'.$v,$vm_settings);
+				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
 				if ($response) {
 					unset($vm_settings);
 					Capsule::table('mod_pvewhmcs_vms')->insert(
 						[
 							'id' => $params['serviceid'],
-							'user_id'=>$params['clientsdetails']['userid'],
-							'vtype'=>$v,
-							'ipaddress'=>$ip->ipaddress,
-							'subnetmask'=>$ip->mask,
-							'gateway'=>$ip->gateway,
-							'created'=>date("Y-m-d H:i:s"),
+							'user_id' => $params['clientsdetails']['userid'],
+							'vtype' => $v,
+							'ipaddress' => $ip->ipaddress,
+							'subnetmask' => $ip->mask,
+							'gateway' => $ip->gateway,
+							'created' => date("Y-m-d H:i:s"),
 						]
 					);
 					return true;
 				} else {
 					$response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : json_encode($response);
-                	return array('error' => "Proxmox Error: Failed to create Service. Response: " . $response_message);
+					throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 				}
 			} else {
-				return array('error' => "Proxmox Error: PVE API login failed. Please check your credentials.");
+				throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 			}
-		} catch (PVE2_Exception $e) {
-			return array('error' => "Proxmox Error: " . $e->getMessage());
+		} catch (Exception $e) {
+            // Record the error in WHMCS's module log.
+			logModuleCall(
+				'pvewhmcs',
+				__FUNCTION__,
+				$params,
+				$e->getMessage(),
+				$e->getTraceAsString()
+			);
+
+			return $e->getMessage();
 		}
 		unset($vm_settings);
 	}
