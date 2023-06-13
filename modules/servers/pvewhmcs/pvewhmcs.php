@@ -104,7 +104,7 @@ function pvewhmcs_CreateAccount($params) {
 				} elseif (is_string($response) || is_numeric($response)) {
 					$response_message = (string)$response;
 				} else {
-					$response_message = "Proxmox Error: Unexpected Error.";
+				    $response_message = "Proxmox Error: Unexpected Error. Response Type: " . gettype($response) . ", Response: " . print_r($response, true);
 				}
 				throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 			}
@@ -194,7 +194,7 @@ function pvewhmcs_CreateAccount($params) {
 					} elseif (is_string($response) || is_numeric($response)) {
 						$response_message = (string)$response;
 					} else {
-						$response_message = "Proxmox Error: Unexpected Error.";
+					    $response_message = "Proxmox Error: Unexpected Error. Response Type: " . gettype($response) . ", Response: " . print_r($response, true);
 					}
 					throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 				}
