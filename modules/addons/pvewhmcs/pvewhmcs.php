@@ -68,7 +68,7 @@
 				<ul class="nav nav-tabs admin-tabs">
 					<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM Plans</a></li>
 					<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
-					<li class="'.($_GET['tab']=="license" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#license">License / Support</a></li>
+					<li class="'.($_GET['tab']=="health" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#health">Support / Health</a></li>
 				</ul>
 			</div>
 			<div class="tab-content admin-tabs">
@@ -256,9 +256,9 @@
 				</div>
 			';
 			// License Tab
-			echo '<div id="license" class="tab-pane '.($_GET['tab']=="license" ? "active" : "").'" >' ;
-			echo ('<b style="color:green">PVE for WHMCS is now open-source and free to use!</b><br><b><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a></b><br>');
-			echo ('<b>SUPPORT: Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
+			echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
+			echo ('<h3>Updates</h3>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>');
+			echo ('<h3>Support</h3>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
 			echo '</div>';
 
 	echo '</div>'; // end of tab-content

@@ -11,6 +11,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### Changed
 - Change relative to ROOTDIR in IPv4 file, in case of other issues
 - Use /cluster/resources via API, not /node/, to get resources/maxes
+- Updated noVNC, TigerVNC, Ubuntu, Debian and CentOS interface images
 
 ### Fixed
 - Regression in v1.1 with missing semicolon breaking activation (#14)
