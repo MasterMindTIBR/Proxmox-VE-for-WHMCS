@@ -145,34 +145,38 @@ function pvewhmcs_CreateAccount($params) {
 		$vm_settings['cpulimit']=$plan->cpulimit ;
 		$vm_settings['memory']=$plan->memory ;
 
-		$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		try {
+			$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
-		if ($proxmox->login()) {
-			# Get first node name.
-			$nodes = $proxmox->get_node_list();
-			$first_node = $nodes[0];
-			unset($nodes);
+			if ($proxmox->login()) {
+				# Get first node name.
+				$nodes = $proxmox->get_node_list();
+				$first_node = $nodes[0];
+				unset($nodes);
 
-			if ($plan->vmtype=='kvm') $v='qemu' ; else $v='lxc';
+				if ($plan->vmtype=='kvm') $v='qemu' ; else $v='lxc';
 
-			if ($proxmox->post('/nodes/'.$first_node.'/'.$v,$vm_settings)) {
-				unset($vm_sttings) ;
-				Capsule::table('mod_pvewhmcs_vms')->insert(
-								[
-									'id' => $params['serviceid'],
-									'user_id'=>$params['clientsdetails']['userid'],
-									'vtype'=>$v,
-									'ipaddress'=>$ip->ipaddress,
-									'subnetmask'=>$ip->mask,
-									'gateway'=>$ip->gateway,
-									'created'=>date("Y-m-d H:i:s"),
-								]
-							);
-				return true ;
+				if ($proxmox->post('/nodes/'.$first_node.'/'.$v,$vm_settings)) {
+					unset($vm_sttings) ;
+					Capsule::table('mod_pvewhmcs_vms')->insert(
+									[
+										'id' => $params['serviceid'],
+										'user_id'=>$params['clientsdetails']['userid'],
+										'vtype'=>$v,
+										'ipaddress'=>$ip->ipaddress,
+										'subnetmask'=>$ip->mask,
+										'gateway'=>$ip->gateway,
+										'created'=>date("Y-m-d H:i:s"),
+									]
+								);
+					return true ;
+				}
+			}else {
+				return array('error' => "Proxmox Error: PVE API login failed. Please check your credentials.");
 			}
-		}else {
-			echo 'not';
-		}
+		} catch (PVE2_Exception $e) {
+        	return array('error' => "Proxmox Error: " . $e->getMessage());
+    }
 		unset($vm_sttings);
 	}
 }

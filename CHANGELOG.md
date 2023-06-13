@@ -6,6 +6,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### Added
 - Link off to GitHub Issues for Support from the Module page in WHMCS
 - CHANGELOG.md file added to repository to track in recommended format
+- Try-catch around the Creation API Call, routing OK/error into WHMCS
 
 ### Changed
 - Change relative to ROOTDIR in IPv4 file, in case of other issues
