@@ -158,7 +158,7 @@ function pvewhmcs_CreateAccount($params) {
 				if ($plan->vmtype=='kvm') $v='qemu' ; else $v='lxc';
 
 				if ($proxmox->post('/nodes/'.$first_node.'/'.$v,$vm_settings)) {
-					unset($vm_sttings) ;
+					unset($vm_settings) ;
 					Capsule::table('mod_pvewhmcs_vms')->insert(
 						[
 							'id' => $params['serviceid'],
@@ -178,7 +178,7 @@ function pvewhmcs_CreateAccount($params) {
 		} catch (PVE2_Exception $e) {
 			return array('error' => "Proxmox Error: " . $e->getMessage());
 		}
-		unset($vm_sttings);
+		unset($vm_settings);
 	}
 }
 
