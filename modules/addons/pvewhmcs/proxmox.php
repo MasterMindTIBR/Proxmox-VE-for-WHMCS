@@ -252,20 +252,20 @@ class PVE2_API {
 					return $action_response_array['data'];
 				}
 			} else {
-				error_log("PVE2 API: This API Request Failed.\n" .
+				throw new PVE2_Exception("PVE2 API: This API Request Failed.\n" .
 					"HTTP Response - {$split_http_response_line[1]}\n" .
 					"HTTP Error - {$split_headers[0]}");
 				return false;
 			}
 		} else {
-			error_log("PVE2 API: Error - Invalid HTTP Response.\n" . var_export($split_headers, true));
+			throw new PVE2_Exception("PVE2 API: Error - Invalid HTTP Response.\n" . var_export($split_headers, true));
 			return false;
 		}
 
 		if (!empty($action_response_array['data'])) {
 			return $action_response_array['data'];
 		} else {
-			error_log("PVE2 API: \$action_response_array['data'] is empty. Returning false.\n" .
+			throw new PVE2_Exception("PVE2 API: \$action_response_array['data'] is empty. Returning false.\n" .
 				var_export($action_response_array['data'], true));
 			return false;
 		}
