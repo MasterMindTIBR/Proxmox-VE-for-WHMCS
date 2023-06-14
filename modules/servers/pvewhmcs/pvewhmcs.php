@@ -84,6 +84,13 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['newid'] = $params["serviceid"];
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
+			// DEBUG - Log the request parameters before it's fired
+			logModuleCall(
+				'pvewhmcs',
+				__FUNCTION__,
+				'vm_settings_and_v_1',
+				['vm_settings' => $vm_settings, 'v' => $v]
+			);
 			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			if ($response) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
@@ -104,7 +111,7 @@ function pvewhmcs_CreateAccount($params) {
 				} elseif (is_string($response) || is_numeric($response)) {
 					$response_message = (string)$response;
 				} else {
-				    $response_message = "Proxmox Error: Unexpected Error. Response Type: " . gettype($response) . ", Response: " . print_r($response, true);
+					$response_message = "Unexpected Error/Response. Type: " . gettype($response) . ", Contents: " . print_r($response, true);
 				}
 				throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 			}
@@ -173,6 +180,13 @@ function pvewhmcs_CreateAccount($params) {
 					$v = 'lxc';
 				}
 
+				// DEBUG - Log the request parameters before it's fired
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					'vm_settings_and_v_2',
+					['vm_settings' => $vm_settings, 'v' => $v]
+				);
 				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
 				if ($response) {
 					unset($vm_settings);
@@ -194,14 +208,14 @@ function pvewhmcs_CreateAccount($params) {
 					} elseif (is_string($response) || is_numeric($response)) {
 						$response_message = (string)$response;
 					} else {
-					    $response_message = "Proxmox Error: Unexpected Error. Response Type: " . gettype($response) . ", Response: " . print_r($response, true);
+						$response_message = "Unexpected Error/Response. Type: " . gettype($response) . ", Contents: " . print_r($response, true);
 					}
 					throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
 				}
 			} else {
 				throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 			}
-		} catch (Exception $e) {
+		} catch (PVE2_Exception $e) {
             // Record the error in WHMCS's module log.
 			logModuleCall(
 				'pvewhmcs',
