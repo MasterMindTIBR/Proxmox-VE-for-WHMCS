@@ -124,7 +124,7 @@ function pvewhmcs_CreateAccount($params) {
 		if ($plan->vmtype == 'lxc') {
 			$vm_settings['ostemplate'] = 'local:vztmpl/' . $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
-			$vm_settings['rootfs'] = $plan->disk;
+			$vm_settings['rootfs'] = 'local:' . $plan->disk;
 
 			$vm_settings['net0'] = 'bridge=' . $plan->bridge . $plan->vmbr . ',name=eth0,ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
@@ -134,6 +134,8 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
+			$vm_settings['ipconfig'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
 			$vm_settings['kvm'] = $plan->kvm;
 			$vm_settings['onboot'] = $plan->onboot;
 
