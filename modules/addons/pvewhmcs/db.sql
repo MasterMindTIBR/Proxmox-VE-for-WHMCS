@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `diskformat` varchar(10) DEFAULT NULL,
   `diskcache` varchar(20) DEFAULT NULL,
   `disktype` varchar(20) DEFAULT NULL,
+  `storage` varchar(20) DEFAULT NULL,
+  `diskio` varchar(20) DEFAULT NULL,
   `netmode` varchar(10) DEFAULT NULL,
   `bridge` varchar(20) NOT NULL DEFAULT 'vmbr',
   `vmbr` tinyint(1) unsigned NOT NULL DEFAULT '0',

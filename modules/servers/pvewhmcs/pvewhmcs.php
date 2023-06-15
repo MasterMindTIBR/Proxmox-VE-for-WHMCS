@@ -122,10 +122,10 @@ function pvewhmcs_CreateAccount($params) {
 	} else {
 		$vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
-			$vm_settings['ostemplate'] = 'local:vztmpl/' . $params['customfields']['Template'];
+			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
-			$vm_settings['rootfs'] = 'local:' . $plan->disk;
-
+			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
+			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['net0'] = 'bridge=' . $plan->bridge . $plan->vmbr . ',name=eth0,ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
 			$vm_settings['password'] = $params['customfields']['Password'];
@@ -139,14 +139,14 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['kvm'] = $plan->kvm;
 			$vm_settings['onboot'] = $plan->onboot;
 
-			$vm_settings[$plan->disktype . '0'] = 'local:' . $plan->disk . ',format=' . $plan->diskformat;
+			$vm_settings[$plan->disktype . '0'] = $plan->storage . ':' . $plan->disk . ',format=' . $plan->diskformat;
 			if (!empty($plan->diskcache)) {
 				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
 			}
 
             // Assign ISO File
 			if (isset($params['customfields']['ISO'])) {
-				$vm_settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
+				$vm_settings['ide2'] = $plan->storage . ':iso/' . $params['customfields']['ISO'] . ',media=cdrom';
 			}
 
 			/* Network settings */

@@ -7,11 +7,15 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Link off to GitHub Issues for Support from the Module page in WHMCS
 - CHANGELOG.md file added to repository to track in recommended format
 - Try-catch around the Creation API Call, routing OK/error into WHMCS
+- Feed the IP/GW configuration into QEMU and LXC creation attempts
+- PVE Storage volume field and Disk I/O Limit fields added (#7)
 
 ### Changed
 - Change relative to ROOTDIR in IPv4 file, in case of other issues
 - Use /cluster/resources via API, not /node/, to get resources/maxes
 - Updated noVNC, TigerVNC, Ubuntu, Debian and CentOS interface images
+- Improved error handling and pass-back from Proxmox to Class to WHMCS
+- Updated the PVE2 API Class and improved its logging (prefix/exception)
 
 ### Fixed
 - Regression in v1.1 with missing semicolon breaking activation (#14)

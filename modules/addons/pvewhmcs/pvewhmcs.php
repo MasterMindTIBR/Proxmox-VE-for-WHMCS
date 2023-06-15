@@ -165,6 +165,12 @@ function pvewhmcs_output($vars) {
 		Disk Type
 		</th>
 		<th>
+		PVE Store
+		</th>
+		<th>
+		I/O Cap
+		</th>
+		<th>
 		Net Mode
 		</th>
 		<th>
@@ -196,6 +202,8 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->swap . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
+			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
+			echo '<td>'.$vm->diskio . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmodel . PHP_EOL .'</td>';
@@ -257,8 +265,8 @@ function pvewhmcs_output($vars) {
 	';
 			// License Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h3>Updates</h3>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>');
-	echo ('<h3>Support</h3>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
+	echo ('<h2>Updates:</h2>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<h2>Support:</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
 	echo '</div>';
 
 	echo '</div>'; // end of tab-content
@@ -433,6 +441,20 @@ function kvm_plan_add() {
 	<option value="ide">IDE</option>
 	</select>
 	Virtio is the fastest option, then SCSI, then SATA, etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="storage" id="storage" value="local" required>
+	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">I/O - Throttling</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -698,6 +720,20 @@ function kvm_plan_edit($id) {
 	<option value="ide" '. ($plan->disktype=="ide" ? "selected" : "").'>IDE</option>
 	</select>
 	Virtio is the fastest option, then SCSI, then SATA, etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
+	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">I/O Cap - Write</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -999,6 +1035,8 @@ function save_kvm_plan() {
 						'diskformat' => $_POST['diskformat'],
 						'diskcache' => $_POST['diskcache'],
 						'disktype' => $_POST['disktype'],
+						'storage' => $_POST['storage'],
+						'diskio' => $_POST['diskio'],
 						'netmode' => $_POST['netmode'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
@@ -1038,6 +1076,8 @@ function update_kvm_plan() {
 			'diskformat' => $_POST['diskformat'],
 			'diskcache' => $_POST['diskcache'],
 			'disktype' => $_POST['disktype'],
+			'storage' => $_POST['storage'],
+			'diskio' => $_POST['diskio'],
 			'netmode' => $_POST['netmode'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],

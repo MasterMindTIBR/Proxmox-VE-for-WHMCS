@@ -61,7 +61,7 @@ class Ipv4_Address
    * Returns value as decimal (long) address
    *
    * @access public
-   * @return real
+   * @return float
    */
   public function toLong() {
     return $this->ip_long;
@@ -93,7 +93,7 @@ class Ipv4_Address
    * __construct
    * Private constructor
    *
-   * @param real $long
+   * @param float $long
    * @access private
    * @return void
    */
