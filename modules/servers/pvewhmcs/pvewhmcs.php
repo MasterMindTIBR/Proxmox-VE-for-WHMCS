@@ -39,7 +39,8 @@ function pvewhmcs_ConfigOptions() {
 		}
 	}
 	*/
-	// Option for the product
+	// Options for the Service
+	// SQL/Param: configoption1 configoption2
 	$configarray = array(
 		"Plan" => array(
 			"FriendlyName" => "Plan",

@@ -1144,6 +1144,8 @@ function save_lxc_plan() {
 						'memory' => $_POST['memory'],
 						'swap' => $_POST['swap'],
 						'disk' => $_POST['disk'],
+						'storage' => $_POST['storage'],
+						'diskio' => $_POST['diskio'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
 						'netmodel' => $_POST['netmodel'],
@@ -1175,6 +1177,8 @@ function update_lxc_plan() {
 			'memory' => $_POST['memory'],
 			'swap' => $_POST['swap'],
 			'disk' => $_POST['disk'],
+			'storage' => $_POST['storage'],
+			'diskio' => $_POST['diskio'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
 			'netmodel' => $_POST['netmodel'],
@@ -1184,7 +1188,7 @@ function update_lxc_plan() {
 		]
 	);
 	$_SESSION['pvewhmcs']['infomsg']['title']='LXC Plan updated.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the KVM Plan successfully. (Updating plans will not effect on current VMs.)' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the LXC Plan successfully. (Updating plans will not effect on current VMs.)' ;
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
