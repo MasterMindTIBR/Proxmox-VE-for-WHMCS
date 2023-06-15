@@ -299,7 +299,7 @@ function kvm_plan_add() {
 	<option value="w2k">Windows 2000</option>
 	<option value="other">Other</option>
 	</select>
-	Virtual Machine Guest type (LXC or KVM).
+	Kernel type (Linux, Windows, etc).
 	</td>
 	</tr>
 	<tr>
@@ -571,7 +571,7 @@ function kvm_plan_edit($id) {
 	<option value="w2k" ' . ($plan->ostype == "w2k" ? "selected" : "") . '>Windows 2000</option>
 	<option value="other" ' . ($plan->ostype == "other" ? "selected" : "") . '>Other</option>
 	</select>
-	Virtual Machine Guest type (LXC or KVM).
+	Kernel type (Linux, Windows, etc).
 	</td>
 	</tr>
 	<tr>
@@ -1203,7 +1203,7 @@ function list_ip_pools() {
 		echo '<td>'.$pool->gateway . PHP_EOL .'</td>';
 		echo '<td>
 		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
-		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all ip addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
+		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all IP Addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
 		</td>' ;
 		echo '</tr>' ;
 	}
@@ -1247,7 +1247,7 @@ function save_ip_pool() {
 			}
 		);
 		$_SESSION['pvewhmcs']['infomsg']['title']='New IP Pool added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='New IP Pool saved successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='New IP Pool saved successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	} catch (\Exception $e) {
 		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1260,7 +1260,7 @@ function removeIpPool($id) {
 
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	$_SESSION['pvewhmcs']['infomsg']['title']='IP Pool Deleted.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IP Pool successfuly.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IP Pool successfully.' ;
 }
 
 	// add IP address/subnet to Pool
