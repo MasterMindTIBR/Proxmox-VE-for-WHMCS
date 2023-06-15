@@ -856,10 +856,24 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Disk - Space</td>
+	<td class="fieldlabel">SSD/HDD - Disk</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required>
 	Disk space in Gigabayte e.g 1024 = 1TB
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="storage" id="storage" value="local" required>
+	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">I/O - Throttling</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -959,10 +973,24 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Disk - Space</td>
+	<td class="fieldlabel">SSD/HDD - Disk</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
 	Disk space in Gigabytes e.g 1024 = 1TB
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="storage" id="storage" value="local" required>
+	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">I/O - Throttling</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
