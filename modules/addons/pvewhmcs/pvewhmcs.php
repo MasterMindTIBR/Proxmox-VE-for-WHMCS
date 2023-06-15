@@ -982,14 +982,14 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">PVE Storage - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" value="local" required>
+	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">I/O - Throttling</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
