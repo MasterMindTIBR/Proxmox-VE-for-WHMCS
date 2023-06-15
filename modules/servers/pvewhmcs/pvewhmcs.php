@@ -126,7 +126,7 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['net0'] = 'bridge=' . $plan->bridge . $plan->vmbr . ',name=eth0,ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['net0'] = 'model=' . $plan->netmodel . ',bridge=' . $plan->bridge . $plan->vmbr . ',name=eth0,ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
