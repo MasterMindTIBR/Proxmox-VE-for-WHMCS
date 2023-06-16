@@ -22,6 +22,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Edit Icon not rendering on IP/Pool edit page, missing WHMCS (#13)
 - Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
 - IPv4 Address functions, update file to use float not real (#13)
+- Container (CT/LXC) Swap reporting in Client Area now working
 
 ## [1.1] - 2023-06-06
  

@@ -577,6 +577,12 @@ function pvewhmcs_ClientArea($params) {
 
 		// Max CPU usage Yearly
 		$rrd_params=array('timeframe'=>'year','ds'=>'cpu','cf'=>'AVERAGE') ;
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			'rrd_params_pre_send',
+			['rrd_params' => $rrd_params, 'v' => $v]
+		);
 		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['cpu']['year']=base64_encode($vm_rrd['image']);
