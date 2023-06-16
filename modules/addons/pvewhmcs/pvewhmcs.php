@@ -249,14 +249,12 @@ function pvewhmcs_output($vars) {
 	if (isset($_POST['newIPpool'])) {
 		save_ip_pool() ;
 	}
-
 	if ($_GET['action']=='removeippool') {
 		removeIpPool($_GET['id']) ;
 	}
 	if ($_GET['action']=='list_ips') {
 		list_ips();
 	}
-
 	if ($_GET['action']=='removeip') {
 		removeip($_GET['id'],$_GET['pool_id']);
 	}
