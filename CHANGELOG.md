@@ -10,6 +10,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Feed the IP/GW configuration into QEMU and LXC creation attempts
 - PVE Storage volume field and Disk I/O Limit fields added (#7)
 - PHP and Web Server reported on the Health/Support GUI tab
+- License the repository/module via GPLv3 (link-back etc)
 
 ### Changed
 - Change relative to ROOTDIR in IPv4 file, in case of other issues
