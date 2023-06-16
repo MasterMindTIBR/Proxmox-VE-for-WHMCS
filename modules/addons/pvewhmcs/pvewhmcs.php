@@ -2,6 +2,7 @@
 use Illuminate\Database\Capsule\Manager as Capsule;
 define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
 require_once('proxmox.php');
+
 function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
@@ -12,6 +13,11 @@ function pvewhmcs_config() {
 	);
 	return $configarray;
 }
+
+function pvewhmcs_version(){
+    return "1.1";
+}
+
 function pvewhmcs_activate() {
 
 	$sql = file_get_contents(ROOTDIR.'/modules/addons/pvewhmcs/db.sql');
@@ -263,9 +269,9 @@ function pvewhmcs_output($vars) {
 	';
 			// License Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h2>Updates:</h2>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<h2>Support:</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.<br><br>');
-	echo ('<h2>System:</h2>PHP ' . phpversion() . ' on ' . $_SERVER['SERVER_SOFTWARE']);
+	echo ('<h2>Technical Support:</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc. Thank you.<br><br>');
+	echo ('<h2>Updates & Codebase:</h2><b>Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<h2>System Environment:</h2>Proxmox VE for WHMCS v' . pvewhmcs_version() . ' on PHP v' . phpversion() . ' (' . $_SERVER['SERVER_SOFTWARE'] . ')');
 	echo '</div>';
 
 	echo '</div>'; // end of tab-content
