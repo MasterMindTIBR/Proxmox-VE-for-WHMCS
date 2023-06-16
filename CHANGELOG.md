@@ -10,7 +10,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Feed the IP/GW configuration into QEMU and LXC creation attempts
 - PVE Storage > Volume Name and Disk I/O Limit fields added (#7)
 - Module, PHP & Server reported on the Health/Support GUI tab
-- Licensed repository/module via GPLv3 (link-back attrib.)
+- Licensed repository/module via GPLv3 (link-back attribution)
 - Warning in README.md re: WHMCS Service ID being > 100
 - Zero Tolerance Abuse Policy added to README file
 
@@ -27,7 +27,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
 - IPv4 Address functions, update file to use float not real (#13)
 - Container (CT/LXC) Swap reporting in Client Area now working
-- RRD (Usage) measurements: parameters attached to requests
+- RRD (Usage) measurements: params attached to requests
 - API Requests for Creation now functional (fixes #17)
 
 ## [1.1b] - 2023-06-06

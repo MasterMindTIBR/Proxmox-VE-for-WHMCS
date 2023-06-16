@@ -13,8 +13,8 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) Service ID >100
-- (PHP) 8.x.x stable
-- (Proxmox) VE 7/8
+- (PHP) v8.x.x stable
+- (Proxmox) VE v7/8
 
 **SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100.
 
