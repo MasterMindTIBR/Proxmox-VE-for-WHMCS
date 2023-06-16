@@ -581,7 +581,7 @@ function pvewhmcs_ClientArea($params) {
 			'pvewhmcs',
 			__FUNCTION__,
 			'rrd_params_pre_send',
-			['rrd_params' => $rrd_params, 'v' => $v]
+			$rrd_params
 		);
 		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
