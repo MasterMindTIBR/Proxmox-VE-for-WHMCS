@@ -566,9 +566,9 @@ function pvewhmcs_ClientArea($params) {
 			$vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
 			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
 
-			if ($guest->vtype == 'lxc') {
-				$vm_status['swapusepercent'] = intval($vm_status['swap'] * 100 / $vm_status['maxswap']);
-			}
+			// if ($guest->vtype == 'lxc') {
+			// 	$vm_status['swapusepercent'] = intval($vm_status['swap'] * 100 / $vm_status['maxswap']);
+			// }
 		} else {
 		    // Handle the VM not found in the cluster resources (Optional)
 			echo "VM/CT not found in Cluster Resources.";
