@@ -267,7 +267,7 @@ function pvewhmcs_output($vars) {
 	echo'
 	</div>
 	';
-			// License Tab
+	// Health Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
 	echo ('<h2>Technical Support:</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc. Thank you.<br><br>');
 	echo ('<h2>Updates & Codebase:</h2><b>Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
@@ -678,13 +678,6 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Swap - Space</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="swap" id="swap" required value="'.$plan->swap.'">
-	Swap space in Megabytes e.g 1024 = 1GB
-	</td>
-	</tr>
-	<tr>
 	<td class="fieldlabel">SSD/HDD - Disk</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
@@ -1063,7 +1056,6 @@ function save_kvm_plan() {
 						'cpulimit' => $_POST['cpulimit'],
 						'cpuunits' => $_POST['cpuunits'],
 						'memory' => $_POST['memory'],
-						'swap' => $_POST['swap'],
 						'disk' => $_POST['disk'],
 						'diskformat' => $_POST['diskformat'],
 						'diskcache' => $_POST['diskcache'],
@@ -1104,7 +1096,6 @@ function update_kvm_plan() {
 			'cpulimit' => $_POST['cpulimit'],
 			'cpuunits' => $_POST['cpuunits'],
 			'memory' => $_POST['memory'],
-			'swap' => $_POST['swap'],
 			'disk' => $_POST['disk'],
 			'diskformat' => $_POST['diskformat'],
 			'diskcache' => $_POST['diskcache'],
