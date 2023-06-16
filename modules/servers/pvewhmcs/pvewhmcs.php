@@ -583,97 +583,97 @@ function pvewhmcs_ClientArea($params) {
 			'rrd_params_pre_send',
 			$rrd_params
 		);
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] . '/rrd' . $rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['cpu']['year']=base64_encode($vm_rrd['image']);
 
 		// Max CPU usage monthly
 		$rrd_params=array('timeframe'=>'month','ds'=>'cpu','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['cpu']['month']=base64_encode($vm_rrd['image']);
 
 		// Max CPU usage weekly
 		$rrd_params=array('timeframe'=>'week','ds'=>'cpu','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['cpu']['week']=base64_encode($vm_rrd['image']);
 
 		// Max CPU usage daily
 		$rrd_params=array('timeframe'=>'day','ds'=>'cpu','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['cpu']['day']=base64_encode($vm_rrd['image']);
 
 		// Max memory Yearly
 		$rrd_params=array('timeframe'=>'year','ds'=>'maxmem','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['maxmem']['year']=base64_encode($vm_rrd['image']);
 
 		// Max memory monthly
 		$rrd_params=array('timeframe'=>'month','ds'=>'maxmem','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['maxmem']['month']=base64_encode($vm_rrd['image']);
 
 		// Max memory weekly
 		$rrd_params=array('timeframe'=>'week','ds'=>'maxmem','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['maxmem']['week']=base64_encode($vm_rrd['image']);
 
 		// Max memory daily
 		$rrd_params=array('timeframe'=>'day','ds'=>'maxmem','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['maxmem']['day']=base64_encode($vm_rrd['image']);
 
 		// Network rate Yearly
 		$rrd_params=array('timeframe'=>'year','ds'=>'netin,netout','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['netinout']['year']=base64_encode($vm_rrd['image']);
 
 		// Network rate monthly
 		$rrd_params=array('timeframe'=>'month','ds'=>'netin,netout','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['netinout']['month']=base64_encode($vm_rrd['image']);
 
 		// Network rate weekly
 		$rrd_params=array('timeframe'=>'week','ds'=>'netin,netout','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['netinout']['week']=base64_encode($vm_rrd['image']);
 
 		// Network rate daily
 		$rrd_params=array('timeframe'=>'day','ds'=>'netin,netout','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['netinout']['day']=base64_encode($vm_rrd['image']);
 
 		// Max IO Yearly
 		$rrd_params=array('timeframe'=>'year','ds'=>'diskread,diskwrite','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['diskrw']['year']=base64_encode($vm_rrd['image']);
 
 		// Max IO monthly
 		$rrd_params=array('timeframe'=>'month','ds'=>'diskread,diskwrite','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['diskrw']['month']=base64_encode($vm_rrd['image']);
 
 		// Max IO weekly
 		$rrd_params=array('timeframe'=>'week','ds'=>'diskread,diskwrite','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['diskrw']['week']=base64_encode($vm_rrd['image']);
 
 		// Max IO daily
 		$rrd_params=array('timeframe'=>'day','ds'=>'diskread,diskwrite','cf'=>'AVERAGE') ;
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd',$rrd_params) ;
+		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
 		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
 		$vm_statistics['diskrw']['day']=base64_encode($vm_rrd['image']);
 
