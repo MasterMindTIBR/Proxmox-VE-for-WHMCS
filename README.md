@@ -9,7 +9,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
-**🛠️ SYSTEM REQUIREMENTS:**
+### 🛠️ SYSTEM REQUIREMENTS:
 
 - WHMCS 8.x.x stable (HTTPS)
 - WHMCS Service ID >100
@@ -22,13 +22,13 @@ If you don't have enough in WHMCS, create dummy services until you reach SID 101
 
 PROXMOX 8: As this major release is in beta (as of June 2023), support is experimental.
 
-**🤬 ABUSE - ZERO TOLERANCE:**
+### 🤬 ABUSE - ZERO TOLERANCE:
 
 NOTE: This module is being overhauled and is in BETA. Your support is welcomed.
 
 If you cannot accept this, do not download nor use the code. Complaints, nasty reviews, and similar behaviour is against the spirit of FOSS and will not be tolerated. Be grateful & considerate - thank you!
 
-**🆘 TECHNICAL SUPPORT:**
+### 🆘 TECHNICAL SUPPORT:
 
 Including logs, details, steps to reproduce, etc, please raise an [Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
@@ -42,20 +42,20 @@ Information we will need:
 
 Please note that this is FOSS and Support is not guaranteed.
 
-**🖥️ LIBRARIES & DEPENDENCIES:**
+### 🖥️ LIBRARIES & DEPENDENCIES:
 
 - [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
 - [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [NoVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
 
-**📄 DOCUMENTATION & RESOURCES:**
+### 📄 DOCUMENTATION & RESOURCES:
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
 - NoVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 
-**🙌 CONTRIBUTING TO THE MODULE:**
+### 🙌 CONTRIBUTING TO THE MODULE:
 
 If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
 
