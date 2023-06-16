@@ -9,10 +9,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Try-catch around the Creation API Call, routing OK/error into WHMCS
 - Feed the IP/GW configuration into QEMU and LXC creation attempts
 - PVE Storage volume field and Disk I/O Limit fields added (#7)
+- PHP and Web Server reported on the Health/Support GUI tab
 
 ### Changed
 - Change relative to ROOTDIR in IPv4 file, in case of other issues
-- Use /cluster/resources via API, not /node/, to get resources/maxes
+- Use /cluster/resources via API, not /node/, to get stats (ex. swap)
 - Updated noVNC, TigerVNC, Ubuntu, Debian and CentOS interface images
 - Improved error handling and pass-back from Proxmox to Class to WHMCS
 - Updated the PVE2 API Class and improved its logging (prefix/exception)
@@ -23,6 +24,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
 - IPv4 Address functions, update file to use float not real (#13)
 - Container (CT/LXC) Swap reporting in Client Area now working
+- RRD (Usage) measurements: parameters attached to requests
 
 ## [1.1] - 2023-06-06
  
