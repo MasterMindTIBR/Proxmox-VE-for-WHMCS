@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.0] - Not yet released
+## [1.2.0b] - Not yet released
 
 ### Added
 - Link off to GitHub Issues for Support from the Module page in WHMCS
@@ -15,6 +15,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Zero Tolerance Abuse Policy added to README file
 
 ### Changed
+- Module versioning changed to semver (semantic versioning) 1.2.0
 - Change rel. path to ROOTDIR in IPv4 file, in case of other issues
 - Use /cluster/resources via API, not /node/, to get stats (ex. swap)
 - Updated noVNC, TigerVNC, Ubuntu, Debian and CentOS interface images
@@ -40,7 +41,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### Changed
 - Module Name from "PRVE" to "pvewhmcs" (ie. Proxmox VE for WHMCS)
 - Default storage/disk type changed from IDE to Virtio (fastest)
-- Updated 3 dependencies to latest: PVE2-PHP, NoVNC, TigerVNC
+- Updated 3 dependencies to latest: PVE2-PHP, noVNC, TigerVNC
 - Removed all code segments relating to Software Licensing
 - DNS defaults changed from Google DNS to Cloudflare DNS
  
