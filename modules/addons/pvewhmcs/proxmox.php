@@ -232,11 +232,11 @@ class PVE2_API {
 
 		$action_response_export = var_export($action_response_array, true);
 		// error_log("----------------------------------------------\n" .
-			"FULL RESPONSE:\n\n{$action_response}\n\nEND FULL RESPONSE\n\n" .
-			"Headers:\n\n{$header_response}\n\nEnd Headers\n\n" .
-			"Data:\n\n{$body_response}\n\nEnd Data\n\n" .
-			"RESPONSE ARRAY:\n\n{$action_response_export}\n\nEND RESPONSE ARRAY\n" .
-			"----------------------------------------------");
+		//	"FULL RESPONSE:\n\n{$action_response}\n\nEND FULL RESPONSE\n\n" .
+		//	"Headers:\n\n{$header_response}\n\nEnd Headers\n\n" .
+		//	"Data:\n\n{$body_response}\n\nEnd Data\n\n" .
+		//	"RESPONSE ARRAY:\n\n{$action_response_export}\n\nEND RESPONSE ARRAY\n" .
+		//	"----------------------------------------------");
 
 		unset($action_response);
 		unset($action_response_export);
