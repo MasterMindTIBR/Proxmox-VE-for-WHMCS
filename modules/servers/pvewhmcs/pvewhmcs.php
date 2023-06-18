@@ -523,7 +523,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
 		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
-		"<i class='fa fa-2x fa-flag-checkered'></i> Start VM/CT" => "vmStart",
+		"<i class='fa fa-2x fa-flag-checkered'></i> Start Machine" => "vmStart",
 		"<i class='fa fa-2x fa-power-off'></i> Shut Down" => "vmShutdown",
 		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
@@ -723,7 +723,7 @@ function pvewhmcs_noVNC($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
-		$path = 'api2/json/websocket?port=' . $vm_vncproxy['port'] . '&user=' . $serverusername . '@pam' . '&vmid=' . $params['serviceid'] . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
+		$path = 'api2/json/nodes/'.$first_node.'/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
 
 
 		$url='./modules/servers/pvewhmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;

@@ -11,6 +11,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### Fixed
 - noVNC render method updated to stop out-of-order data flow problem
+- noVNC back-end vncproxy and vncwebsocket methods updated re: spec
 - Client Area actions (Power Off/On, etc) fixed for LXC (QEMU OK)
 - Error with both VNC methods. We are likely to remove TigerVNC
 
