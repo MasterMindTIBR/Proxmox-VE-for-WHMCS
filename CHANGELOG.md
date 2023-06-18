@@ -1,7 +1,20 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.0b] - 2013-06-18
+## [1.2.1b] - 2023-06-18
+
+### Added
+- Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
+
+### Changed
+- Stop VM/CT (Client Area) renamed to Hard Stop, compared to Shut Down
+
+### Fixed
+- noVNC render method updated to stop out-of-order data flow problem
+- Client Area actions (Power Off/On, etc) fixed for LXC (QEMU OK)
+- Error with both VNC methods. We are likely to remove TigerVNC
+
+## [1.2.0b] - 2023-06-18
 
 ### Added
 - Link off to GitHub Issues for Support from the Module page in WHMCS

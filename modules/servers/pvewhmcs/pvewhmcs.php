@@ -727,7 +727,7 @@ function pvewhmcs_noVNC($params) {
 
 
 		$url='./modules/servers/pvewhmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
-		$vncreply='<center><strong><a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 
 		// echo '<script>window.open("'.$url.'")</script>';
 
@@ -753,7 +753,8 @@ function pvewhmcs_javaVNC($params){
 
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 
-		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy') ;
+		$vncparams = array();
+		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', $vncparams) ;
 
 		$javaVNCparams=array() ;
 		$javaVNCparams[0]=$serverip ;
@@ -762,10 +763,14 @@ function pvewhmcs_javaVNC($params){
 		$javaVNCparams[3]=$vm_vncproxy['user'] ;
 		$javaVNCparams[4]=$vm_vncproxy['ticket'] ;
 
-		echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
-		return true ;
+		$url='./modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
+		$vncreply='<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
+		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
+		return $vncreply;
+	} else {
+		$vncreply='Failed to prepare TigerVNC. Please contact Technical Support.';
+		return $vncreply;
 	}
-	return false;
 }
 
 function pvewhmcs_vmStart($params) {

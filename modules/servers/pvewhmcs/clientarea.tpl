@@ -1,8 +1,3 @@
-{if $vncreply}
-<div class="row">
-{$vncreply}
-</div>
-{/if}
 <div class="row">
 	<div style="text-align : left;">
 	</div>
