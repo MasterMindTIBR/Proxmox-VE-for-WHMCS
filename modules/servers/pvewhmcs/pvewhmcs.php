@@ -521,8 +521,8 @@ function get_server_pass_from_whmcs($enc_pass){
 
 function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
-		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
+		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<i class='fa fa-2x fa-flag-checkered'></i> Start VM/CT" => "vmStart",
 		"<i class='fa fa-2x fa-power-off'></i> Shut Down" => "vmShutdown",
 		"<i class='fa fa-2x fa-stop'></i>  Stop VM/CT" => "vmStop",
