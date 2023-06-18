@@ -522,22 +522,32 @@ function get_server_pass_from_whmcs($enc_pass){
 function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
 		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
-		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> NoVNC (HTML5)" => "noVNC",
-		"<i class='fa fa-2x fa-plug'></i> Start" => "vmStart",
-		"<i class='fa fa-2x fa-power-off'></i> Shutdown" => "vmShutdown",
-		"<i class='fa fa-2x fa-stop'></i>  Stop" => "vmStop",
-		"<i class='fa fa-2x fa fa-line-chart'></i>  Statistics" => "vmStat",
+		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
+		"<i class='fa fa-2x fa-flag-checkered'></i> Start VM/CT" => "vmStart",
+		"<i class='fa fa-2x fa-power-off'></i> Shut Down" => "vmShutdown",
+		"<i class='fa fa-2x fa-stop'></i>  Stop VM/CT" => "vmStop",
+		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
 	);
 	return $buttonarray;
 }
 
 function pvewhmcs_ClientArea($params) {
-	//reterive virtual machine info from table mod_pvewhmcs_vms
+	// Retrieve virtual machine info from table mod_pvewhmcs_vms
 	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+
+	$api_data = array(
+	    'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+
+	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -568,7 +578,7 @@ function pvewhmcs_ClientArea($params) {
 
 			if ($guest->vtype == 'lxc') {
 				$ct_specific=$proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'] .'/status/current') ;
-			 	$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
+				$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
 			}
 		} else {
 		    // Handle the VM not found in the cluster resources (Optional)
@@ -678,19 +688,21 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['netmask4']=$guest->subnetmask ;
 		$vm_config['gateway4']=$guest->gateway ;
 		$vm_config['created']=$guest->created ;
-
 	}
-	else echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>' ; die;
+	else {
+		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
+		die;
+	}
 
 	return array(
 		'templatefile' => 'clientarea',
-		'templateVariables' =>array(
+		'vars' => array(
 			'params' => $params,
 			'vm_config'=>$vm_config,
 			'vm_status'=>$vm_status,
 			'vm_statistics'=>$vm_statistics,
 			'vm_vncproxy'=>$vm_vncproxy,
-		)
+		),
 	);
 }
 
@@ -752,10 +764,18 @@ function pvewhmcs_javaVNC($params){
 }
 
 function pvewhmcs_vmStart($params) {
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+
+	$api_data = array(
+	    'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -763,18 +783,28 @@ function pvewhmcs_vmStart($params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		$pve_cmdparam['timeout'] = '60';
 
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start'))
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
 			return true ;
 	}
 	return false;
 }
 
 function pvewhmcs_vmShutdown($params) {
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+
+	$api_data = array(
+	    'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -782,18 +812,28 @@ function pvewhmcs_vmShutdown($params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		$pve_cmdparam['timeout'] = '60';
 
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/shutdown'))
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown' , $pve_cmdparam))
 			return true ;
 	}
 	return false;
 }
 
 function pvewhmcs_vmStop($params) {
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+
+	$api_data = array(
+	    'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -801,7 +841,10 @@ function pvewhmcs_vmStop($params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop'))
+		$pve_cmdparam = array();
+		$pve_cmdparam['timeout'] = '60';
+
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
 			return true ;
 	}
 	return false;

@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.0b] - Not yet released
+## [1.2.0b] - 2013-06-18
 
 ### Added
 - Link off to GitHub Issues for Support from the Module page in WHMCS
@@ -21,6 +21,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Updated noVNC, TigerVNC, Ubuntu, Debian and CentOS interface images
 - Improved error handling and pass-back from Proxmox to Class to WHMCS
 - Updated the PVE2 API Class and improved its logging (prefix/exception)
+- Method to fire API Calls updated due to reduction in WHMCS param scope
 
 ### Fixed
 - Regression in v1.1 with missing semicolon breaking activation (#14)
@@ -28,8 +29,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
 - IPv4 Address functions, update file to use float not real (#13)
 - Container (CT/LXC) Swap reporting in Client Area now working
-- RRD (Usage) measurements: params attached to requests
+- RRD (Usage) measurements: params attached to requests OK
 - API Requests for Creation now functional (fixes #17)
+- Client Area pages/actions now fixed (fixes #19)
+- Font Awesome icons fixed in the Client Area
 
 ## [1.1b] - 2023-06-06
  

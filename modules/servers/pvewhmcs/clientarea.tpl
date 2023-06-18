@@ -17,8 +17,8 @@
 			</div>
 			<div class="col col-md-2">
 				<img src="/modules/servers/pvewhmcs/img/{$vm_status['status']}.png"/><br/>
-				{$vm_status['status']}<br/>
-				Uptime:&nbsp;{$vm_status['uptime']}
+				<span style="text-transform: uppercase"><strong>{$vm_status['status']}</strong></span><br/>
+				Up:&nbsp;{$vm_status['uptime']}
 				
 			</div>
 			<div class="col col-md-7">
@@ -57,7 +57,7 @@
 
 	<table class="table table-bordered table-striped">
 		<tr>
-			<td>Assigned IPv4 Address</td><td>{$vm_config['ipv4']}&nbsp;Subnet Mask:&nbsp;{$vm_config['netmask4']}&nbsp;Gateway:&nbsp;{$vm_config['gateway4']}</td>
+			<td>Network Addressing</td><td>{$vm_config['ipv4']}&nbsp;Subnet Mask:&nbsp;{$vm_config['netmask4']}&nbsp;Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
 			<td>OS (Type)</td>
@@ -86,8 +86,9 @@
 			{$disk=(","|explode:$vm_config['ide0'])}
 			{$disk[1]}
 			{$rootfs[1]}
-			
-			<br/>{$vm_config['scsci0']}</td>
+			{$vm_config['scsi0']}
+			{$vm_config['virtio0']}
+			</td>
 		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
