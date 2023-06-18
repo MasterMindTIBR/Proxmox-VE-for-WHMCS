@@ -253,8 +253,9 @@ class PVE2_API {
 				}
 			} else {
 				throw new PVE2_Exception("PVE2 API: This API Request Failed.\n" .
-					"HTTP Response - {$split_http_response_line[1]}\n" .
-					"HTTP Error - {$split_headers[0]}");
+					"HTTP CODE: {$split_http_response_line[1]},\n" .
+					"HTTP ERROR: {$split_headers[0]},\n" . 
+					"REPLY INFO: {$body_response}");
 				return false;
 			}
 		} else {
