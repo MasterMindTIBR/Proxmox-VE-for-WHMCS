@@ -525,7 +525,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<i class='fa fa-2x fa-flag-checkered'></i> Start VM/CT" => "vmStart",
 		"<i class='fa fa-2x fa-power-off'></i> Shut Down" => "vmShutdown",
-		"<i class='fa fa-2x fa-stop'></i>  Stop VM/CT" => "vmStop",
+		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
 	);
 	return $buttonarray;
@@ -716,7 +716,6 @@ function pvewhmcs_noVNC($params) {
 	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		//$proxmox->setCookie() ;
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
@@ -728,9 +727,16 @@ function pvewhmcs_noVNC($params) {
 
 
 		$url='./modules/servers/pvewhmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
-		echo '<script>window.open("'.$url.'")</script>';
+		$vncreply='<center><strong><a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+
+		// echo '<script>window.open("'.$url.'")</script>';
+
+		return $vncreply;
 
 		//echo '<script>window.open("./modules/servers/pvewhmcs/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
+	} else {
+		$vncreply='Failed to prepare noVNC. Please contact Technical Support.';
+		return $vncreply;
 	}
 }
 
@@ -740,7 +746,6 @@ function pvewhmcs_javaVNC($params){
 	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		//$proxmox->setCookie();
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
@@ -777,14 +782,13 @@ function pvewhmcs_vmStart($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		//$proxmox->setCookie();
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		$pve_cmdparam['timeout'] = '60';
+		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
 			return true ;
@@ -806,14 +810,13 @@ function pvewhmcs_vmShutdown($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		//$proxmox->setCookie();
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		$pve_cmdparam['timeout'] = '60';
+		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown' , $pve_cmdparam))
 			return true ;
@@ -835,14 +838,13 @@ function pvewhmcs_vmStop($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		//$proxmox->setCookie();
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		$pve_cmdparam['timeout'] = '60';
+		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
 			return true ;

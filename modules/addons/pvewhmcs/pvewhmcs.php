@@ -7,7 +7,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox Virtual Environment + WHMCS",
-		"version" => "1.2.0",
+		"version" => "1.2.1",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -15,7 +15,7 @@ function pvewhmcs_config() {
 }
 
 function pvewhmcs_version(){
-    return "1.2.0";
+    return "1.2.1";
 }
 
 function pvewhmcs_activate() {
