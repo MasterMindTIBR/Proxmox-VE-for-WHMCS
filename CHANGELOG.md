@@ -4,6 +4,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ## [1.2.1b] - 2023-06-20
 
 ### Added
+- Reboot command/action added to Client Area (ie. on/off/hard-off)
 - Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
 - Images for all supported Operating Systems & Kernel types (some fixed)
 - Ground-work for noVNC overhaul, to support PVE Auth & VNC Tunnel tickets
@@ -11,6 +12,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### Changed
 - Stop VM/CT (Client Area) renamed to Hard Stop, compared to Shut Down
 - Modify the PHP API2 class, adding getTicket() so we can dual-auth (VNC)
+- Move VNC Clients from root-level to vnc-only-level access to Proxmox VE
 
 ### Fixed
 - noVNC render method updated to stop out-of-order data flow problem

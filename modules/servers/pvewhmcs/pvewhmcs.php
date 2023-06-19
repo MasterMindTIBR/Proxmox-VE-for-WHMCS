@@ -524,6 +524,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
 		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<i class='fa fa-2x fa-flag-checkered'></i> Start Machine" => "vmStart",
+		"<i class='fa fa-2x fa-sync'></i> Reboot Now" => "vmReboot",
 		"<i class='fa fa-2x fa-power-off'></i> Shut Down" => "vmShutdown",
 		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
@@ -723,11 +724,13 @@ function pvewhmcs_noVNC($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
+		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
+		$vncticket = $vm_vncproxy['ticket'];
+		// $path should only contain the actual path without any query parameters
+		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vncticket);
 
-		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vm_vncproxy['ticket']);
-
-		$url='/modules/servers/pvewhmcs/novnc_router.php?host='.$serverip.'&pveticket='.rawurlencode($pveticket).'&path='.rawurlencode($path) ;
+		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path);
 		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 
 		return $vncreply;
@@ -794,6 +797,34 @@ function pvewhmcs_vmStart($params) {
 		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
+			return true ;
+	}
+	return false;
+}
+
+function pvewhmcs_vmReboot($params) {
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+
+	$api_data = array(
+	    'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	if ($proxmox->login()) {
+		# Get first node name.
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		// $pve_cmdparam['timeout'] = '60';
+
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam))
 			return true ;
 	}
 	return false;

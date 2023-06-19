@@ -1,24 +1,20 @@
 <?php
-// Take noVNC request from WHMCS Client Area,
-// assign PVE Ticket as Browser Cookie, then
-// redirect to the noVNC page inc. VNC path.
+// FILE: novnc_router.php
+// TASK: Take WHMCS request, add browser cookie, then redirect to noVNC
 if (isset($_GET['pveticket']) && isset($_GET['host']) && isset($_GET['path'])) {
 	$pveticket = $_GET['pveticket'];
 	$host = $_GET['host'];
 	$path = $_GET['path'];
 
-    // Get the requesting hostname/domain from request
+	// Get the requesting hostname/domain from request
     $whmcsdomain = parse_url($_SERVER['HTTP_HOST']);
     $domainonly = preg_replace("/^(.*?)\.(.*)$/","$2",$whmcsdomain['path']);
+	setrawcookie('PVEAuthCookie', $pveticket, 0, '/', $domainonly);
 
-    // Set browser cookie with PVE Auth ticket (vnc user)
-	setrawcookie('PVEAuthCookie', rawurldecode($pveticket), 0, '/', $domainonly);
-
-	// $path includes the VNC Ticket, so dual auth is handled
+	// Create the final noVNC URL with the re-encoded vncticket
 	$hostname = gethostbyaddr($host);
-	$redirect_url = '/modules/servers/pvewhmcs/novnc/vnc.html?host=' . $hostname . '&port=8006&path=' . rawurlencode($path);
+	$redirect_url = '/modules/servers/pvewhmcs/novnc/vnc.html?autoconnect=true&encrypt=true&host=' . $hostname . '&port=8006&path=' . urlencode($path);
 
-	// Redirect the user to the noVNC system with query strings inc.
 	header('Location: ' . $redirect_url);
 	exit;
 } else {
