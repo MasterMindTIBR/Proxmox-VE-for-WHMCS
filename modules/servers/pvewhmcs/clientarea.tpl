@@ -57,19 +57,19 @@
 
 	<table class="table table-bordered table-striped">
 		<tr>
-			<td>Network Addressing</td><td>{$vm_config['ipv4']}&nbsp;Subnet Mask:&nbsp;{$vm_config['netmask4']}&nbsp;Gateway:&nbsp;{$vm_config['gateway4']}</td>
+			<td>Network Addressing</td><td><strong>{$vm_config['ipv4']}</strong><br/>Subnet Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
 			<td>OS (Type)</td>
-			<td>{$vm_config['ostype']}</td>
+			<td>Kernel/System:&nbsp;{$vm_config['ostype']}</td>
 		</tr>
 		<tr>
 			<td>CPU (Spec)</td>
-			<td>{$vm_config['sockets']}&nbsp;{$vm_config['cpu']}&nbsp;{$vm_config['cores']}&nbsp;core(s).</td>
+			<td>{$vm_config['sockets']}&nbsp;socket/s,&nbsp;{$vm_config['cores']}&nbsp;core/s ({$vm_config['cpu']})</td>
 		</tr>
 		<tr>
 			<td>Memory (RAM)</td>
-			<td>{$vm_config['memory']}&nbsp;MB</td>
+			<td>{$vm_config['memory']}MB</td>
 		</tr>
 		<tr>
 			<td>Network Interface #1</td>
@@ -86,8 +86,8 @@
 			{$disk=(","|explode:$vm_config['ide0'])}
 			{$disk[1]}
 			{$rootfs[1]}
-			{$vm_config['scsi0']}
-			{$vm_config['virtio0']}
+			{($vm_config['scsi0']|replace:',':'<br/>')}
+			{($vm_config['virtio0']|replace:',':'<br/>')}
 			</td>
 		</tr>
 	</table>
