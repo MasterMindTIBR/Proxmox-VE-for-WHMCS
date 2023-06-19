@@ -133,6 +133,15 @@ class PVE2_API {
 		setrawcookie("PVEAuthCookie", $this->login_ticket['ticket'], 0, "/");
 	}
 
+	# Gets the PVE Access Ticket
+	public function getTicket() {
+		if ($this->login_ticket['ticket']) {
+			return $this->login_ticket;
+		} else {
+			return false;
+		}
+	}
+
 	/*
 	 * bool check_login_ticket ()
 	 * Checks if the login ticket is valid still, returns false if not.

@@ -1,19 +1,22 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.1b] - 2023-06-18
+## [1.2.1b] - 2023-06-20
 
 ### Added
 - Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
+- Images for all supported Operating Systems & Kernel types (some fixed)
+- Ground-work for noVNC overhaul, to support PVE Auth & VNC Tunnel tickets
 
 ### Changed
 - Stop VM/CT (Client Area) renamed to Hard Stop, compared to Shut Down
+- Modify the PHP API2 class, adding getTicket() so we can dual-auth (VNC)
 
 ### Fixed
 - noVNC render method updated to stop out-of-order data flow problem
 - noVNC back-end vncproxy and vncwebsocket methods updated re: spec
 - Client Area actions (Power Off/On, etc) fixed for LXC (QEMU OK)
-- Error with both VNC methods. We are likely to remove TigerVNC
+- Error with both VNC methods. We are going to remove TigerVNC
 
 ## [1.2.0b] - 2023-06-18
 

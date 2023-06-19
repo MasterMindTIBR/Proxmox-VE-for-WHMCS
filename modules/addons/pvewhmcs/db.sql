@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `config` text,
+  `config` varchar(255),
+  `vnc_secret` varchar(255),
   PRIMARY KEY (`id`)
 );
 INSERT INTO `mod_pvewhmcs` (`id`, `config`) VALUES	(1, NULL);

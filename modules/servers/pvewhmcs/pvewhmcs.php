@@ -712,9 +712,9 @@ function pvewhmcs_vmStat($params) {
 
 function pvewhmcs_noVNC($params) {
 	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$serverusername = 'vnc';
+	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -723,17 +723,16 @@ function pvewhmcs_noVNC($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
-		$path = 'api2/json/nodes/'.$first_node.'/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
+		$pveticket = $proxmox->getTicket();
+		$csrf_token = $pveticket['CSRFPreventionToken'];
 
+		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
 
-		$url='./modules/servers/pvewhmcs/novnc/novnc_pve.php?host='.$serverip.'&port=8006&ticket='.$vm_vncproxy['ticket'].'&path='.urlencode($path) ;
+		$url='/modules/servers/pvewhmcs/novnc_router.php?host='.$serverip.'&pveticket='.urlencode($pveticket['ticket']).'&csrf_token='.urlencode($csrf_token).'&path='.urlencode($path) ;
 		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
-
-		// echo '<script>window.open("'.$url.'")</script>';
 
 		return $vncreply;
 
-		//echo '<script>window.open("./modules/servers/pvewhmcs/noVNC/vnc.php?node=pve&console=lxc&vmid=136&port='.$vm_vncwebsocket['port'].'&ticket='.$vm_vncproxy['ticket'].'")</script>';
 	} else {
 		$vncreply='Failed to prepare noVNC. Please contact Technical Support.';
 		return $vncreply;

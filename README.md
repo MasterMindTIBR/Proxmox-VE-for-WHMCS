@@ -15,12 +15,35 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 - (WHMCS) Service ID >100
 - (PHP) v8.x.x stable
 - (Proxmox) VE v7/8
+- (Proxmox) 2 users
 
 **SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100.
 
 _If you don't have enough services (any status) in WHMCS, create services until you reach SID 101._
 
-**PROXMOX 8.x:** As this major release is in beta (as of June 2023), support is experimental.
+### 🥽 VNC CONSOLE TUNNELING:
+
+noVNC (HTML5) is supported via this WHMCS Module, and TigerVNC (Java) is being removed.
+
+To access VNC via WHMCS Client Area, you need to follow the PVE User Requirement below.
+
+**WIP NOTE:** noVNC is being overhauled to deliver on the dual-ticket PVE requirements.
+
+At the moment, the vnc_secret field in the DB (mod_pvewhmcs tables) can't be set via GUI.
+
+Currently, the noVNC functionality is not operational. We are avoiding using iframe instead.
+
+### 👥 PROXMOX USER REQUIREMENT:
+
+You must have a root (etc) account to Create/Access services. Configured via WHMCS Config > Servers.
+
+Additionally, to improve security, for VNC you must have a Restricted User. "" via Module Config.
+
+For the VNC User in Proxmox you need to:
+1. Create User Group "VNC" via PVE > Datacenter / Permissions / Group
+2. Create new User > Datacenter / Permissions / Users - select Group: "VNC", Realm: pve
+3. Create new Role -> Datacenter / Permissions / Roles - select Name: "VNC", Privileges: VM.Console (only)
+3. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
 
 ### 🤬 ABUSE - ZERO TOLERANCE:
 
