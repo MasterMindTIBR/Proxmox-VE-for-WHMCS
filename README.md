@@ -29,13 +29,11 @@ To access VNC via WHMCS Client Area, you need to:
 2. PVE and WHMCS on the same Domain Name*
 3. Have valid PTR/rDNS for the PVE Address
 
-**WIP NOTE:** noVNC is being overhauled. It is not yet properly operational as it stands.
+**WIP NOTE:** noVNC has been overhauled. It is not guaranteed, nor the project at all. :-)
 
-At the moment, the vnc_secret field in the DB (mod_pvewhmcs tables) can't be set via GUI.
+\* = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
 
-* = You must use different Subdomains on the same Domain Name, so the PVEAuthCookie works.
-
-* = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to amend the code.
+\* = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to amend the code.
 
 ### 👥 PROXMOX USER REQUIREMENT:
 
@@ -47,7 +45,8 @@ For the VNC User in Proxmox you need to:
 1. Create User Group "VNC" via PVE > Datacenter / Permissions / Group
 2. Create new User "vnc" > Datacenter / Permissions / Users - select Group: "VNC", Realm: pve
 3. Create new Role -> Datacenter / Permissions / Roles - select Name: "VNC", Privileges: VM.Console (only)
-3. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
+4. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
+5. Configure the WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret with 'vnc' password.
 
 ### 🤬 ABUSE - ZERO TOLERANCE:
 

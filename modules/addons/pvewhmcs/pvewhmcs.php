@@ -75,6 +75,7 @@ function pvewhmcs_output($vars) {
 	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM Plans</a></li>
 	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
 	<li class="'.($_GET['tab']=="health" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#health">Support / Health</a></li>
+	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#config">Module Config</a></li>
 	</ul>
 	</div>
 	<div class="tab-content admin-tabs">
@@ -276,7 +277,55 @@ function pvewhmcs_output($vars) {
 	
 	echo '</div>';
 
+	// Config Tab
+	$config= Capsule::table('mod_pvewhmcs')->where('id', '=', '1')->get()[0];
+	echo '<div id="config" class="tab-pane '.($_GET['tab']=="config" ? "active" : "").'" >' ;
+	echo '
+	<form method="post">
+	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
+	<tr>
+	<td class="fieldlabel">VNC Secret</td>
+	<td class="fieldarea">
+	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'">
+	</td>
+	</tr>
+	</table>
+	<div class="btn-container">
+	<input type="submit" class="btn btn-primary" value="Save Changes" name="save_config" id="save_config">
+	<input type="reset" class="btn btn-default" value="Cancel Changes">
+	</div>
+	</form>
+	';
+	
+	echo '</div>';
+
 	echo '</div>'; // end of tab-content
+
+	if (isset($_POST['save_config'])) {
+		save_config() ;
+	}
+}
+
+/* commit module config to DB */
+function save_config() {
+	try {
+		Capsule::connection()->transaction(
+			function ($connectionManager)
+			{
+				/** @var \Illuminate\Database\Connection $connectionManager */
+				$connectionManager->table('mod_pvewhmcs')->update(
+					[
+						'vnc_secret' => $_POST['vnc_secret'],
+					]
+				);
+			}
+		);
+		$_SESSION['pvewhmcs']['infomsg']['title']='Module Config saved.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='New options have been successfully saved.' ;
+		header("Location: ".pvewhmcs_BASEURL."&tab=config");
+	} catch (\Exception $e) {
+		echo "Uh oh! That didn't work, but I was able to rollback. {$e->getMessage()}";
+	}
 }
 
 /* adding a KVM plan */

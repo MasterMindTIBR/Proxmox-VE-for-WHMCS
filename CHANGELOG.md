@@ -1,9 +1,10 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.1b] - 2023-06-20
+## [1.2.1b] - 2023-06-19
 
 ### Added
+- Module Config tab, allowing for configuration of the VNC Secret
 - Reboot command/action added to Client Area (ie. on/off/hard-off)
 - Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
 - Images for all supported Operating Systems & Kernel types (some fixed)
