@@ -523,7 +523,6 @@ function get_server_pass_from_whmcs($enc_pass){
 
 function pvewhmcs_AdminCustomButtonArray() {
 	$buttonarray = array(
-		"noVNC" => "noVNC",
 		"Start" => "vmStart",
 		"Reboot" => "vmReboot",
 		"Soft Stop" => "vmShutdown",
