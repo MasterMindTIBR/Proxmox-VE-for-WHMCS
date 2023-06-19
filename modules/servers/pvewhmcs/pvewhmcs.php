@@ -740,9 +740,9 @@ function pvewhmcs_noVNC($params) {
 
 function pvewhmcs_javaVNC($params){
 	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$serverusername = 'vnc';
+	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
