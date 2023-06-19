@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.2.2b] - Not yet released
+
+### Added
+- Power Actions now available in Admin Area as well as Client Area
+- (Note: Suspend/Unsuspend/Terminate remain admin-only functions)
+
 ## [1.2.1b] - 2023-06-19
 
 ### Added
@@ -8,7 +14,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Reboot command/action added to Client Area (ie. on/off/hard-off)
 - Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
 - Images for all supported Operating Systems & Kernel types (some fixed)
-- Ground-work for noVNC overhaul, to support PVE Auth & VNC Tunnel tickets
+- noVNC overhauled, to send PVE Cookie (ticket) and VNC Access Ticket also
 
 ### Changed
 - Stop VM/CT (Client Area) renamed to Hard Stop, compared to Shut Down

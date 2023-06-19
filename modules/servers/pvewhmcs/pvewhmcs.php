@@ -274,10 +274,11 @@ function pvewhmcs_SuspendAccount(array $params) {
 		// find virtual machine type
 		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/suspend')) {
-			return true ;
+			return "success" ;
 		}
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 function pvewhmcs_UnsuspendAccount(array $params) {
@@ -291,10 +292,11 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		// find virtual machine type
 		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/resume')) {
-			return true ;
+			return "success" ;
 		}
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 function pvewhmcs_TerminateAccount(array $params) {
@@ -311,11 +313,11 @@ function pvewhmcs_TerminateAccount(array $params) {
 		sleep(10) ;
 		if ($proxmox->delete('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-			return true ;
+			return "success" ;
 		}
 	}
-	return false ;
-
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 // WHMCS Decrypter
@@ -517,6 +519,17 @@ function get_server_pass_from_whmcs($enc_pass){
 	$key = $key1.$key2;
 	$hasher = new hash_encryption($key);
 	return $hasher->decrypt($enc_pass);
+}
+
+function pvewhmcs_AdminCustomButtonArray() {
+	$buttonarray = array(
+		"noVNC" => "noVNC",
+		"Start" => "vmStart",
+		"Reboot" => "vmReboot",
+		"Soft Stop" => "vmShutdown",
+		"Hard Stop" => "vmStop",
+	);
+	return $buttonarray;
 }
 
 function pvewhmcs_ClientAreaCustomButtonArray() {
@@ -797,9 +810,10 @@ function pvewhmcs_vmStart($params) {
 		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
-			return true ;
+			return "success" ;
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 function pvewhmcs_vmReboot($params) {
@@ -825,9 +839,10 @@ function pvewhmcs_vmReboot($params) {
 		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam))
-			return true ;
+			return "success" ;
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 function pvewhmcs_vmShutdown($params) {
@@ -853,9 +868,10 @@ function pvewhmcs_vmShutdown($params) {
 		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown' , $pve_cmdparam))
-			return true ;
+			return "success" ;
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 function pvewhmcs_vmStop($params) {
@@ -881,9 +897,10 @@ function pvewhmcs_vmStop($params) {
 		// $pve_cmdparam['timeout'] = '60';
 
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
-			return true ;
+			return "success" ;
 	}
-	return false;
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 // convert subnet mask to CIDR
