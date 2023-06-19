@@ -724,11 +724,10 @@ function pvewhmcs_noVNC($params) {
 		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		$pveticket = $proxmox->getTicket();
-		$csrf_token = $pveticket['CSRFPreventionToken'];
 
-		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vm_vncproxy['ticket']);
+		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vm_vncproxy['ticket']);
 
-		$url='/modules/servers/pvewhmcs/novnc_router.php?host='.$serverip.'&pveticket='.urlencode($pveticket['ticket']).'&csrf_token='.urlencode($csrf_token).'&path='.urlencode($path) ;
+		$url='/modules/servers/pvewhmcs/novnc_router.php?host='.$serverip.'&pveticket='.rawurlencode($pveticket).'&path='.rawurlencode($path) ;
 		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 
 		return $vncreply;

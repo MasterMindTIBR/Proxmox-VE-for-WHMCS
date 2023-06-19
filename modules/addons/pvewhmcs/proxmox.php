@@ -136,7 +136,7 @@ class PVE2_API {
 	# Gets the PVE Access Ticket
 	public function getTicket() {
 		if ($this->login_ticket['ticket']) {
-			return $this->login_ticket;
+			return $this->login_ticket['ticket'];
 		} else {
 			return false;
 		}
