@@ -56,6 +56,8 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 ### 🆘 TECHNICAL SUPPORT:
 
+Wiki: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki
+
 Including logs, details, steps to reproduce, etc, please raise an [Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
 Information we will need, at a minimum:

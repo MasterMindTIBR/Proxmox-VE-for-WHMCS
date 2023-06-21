@@ -3,25 +3,29 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.2.2b] - Not yet released
 
-### Added
+### 🚀 Feature
 - Power Actions now available in Admin Area as well as Client Area
 - (Note: Suspend/Unsuspend/Terminate remain admin-only functions)
 
+### 💅 Polish
+- Client Area: Power Action wording amended (Soft Stop, Hard Stop)
+- Admin, Module Config: Explain what the VNC Secret field is about
+
 ## [1.2.1b] - 2023-06-19
 
-### Added
+### 🚀 Feature
 - Module Config tab, allowing for configuration of the VNC Secret
 - Reboot command/action added to Client Area (ie. on/off/hard-off)
 - Link from Health tab of Admin GUI to WHMCS Marketplace re: reviews
 - Images for all supported Operating Systems & Kernel types (some fixed)
 - noVNC overhauled, to send PVE Cookie (ticket) and VNC Access Ticket also
 
-### Changed
+### 💅 Polish
 - Stop VM/CT (Client Area) renamed to Hard Stop, compared to Shut Down
 - Modify the PHP API2 class, adding getTicket() so we can dual-auth (VNC)
 - Move VNC Clients from root-level to vnc-only-level access to Proxmox VE
 
-### Fixed
+### 🐛 Bug Fix
 - noVNC render method updated to stop out-of-order data flow problem
 - noVNC back-end vncproxy and vncwebsocket methods updated re: spec
 - Client Area actions (Power Off/On, etc) fixed for LXC (QEMU OK)
@@ -29,7 +33,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.2.0b] - 2023-06-18
 
-### Added
+### 🚀 Feature
 - Link off to GitHub Issues for Support from the Module page in WHMCS
 - CHANGELOG.md file added to repository to track in recommended format
 - Try-catch around the Creation API Call, routing OK/error into WHMCS
@@ -40,7 +44,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Warning in README.md re: WHMCS Service ID being > 100
 - Zero Tolerance Abuse Policy added to README file
 
-### Changed
+### 💅 Polish
 - Module versioning changed to semver (semantic versioning) 1.2.0
 - Change rel. path to ROOTDIR in IPv4 file, in case of other issues
 - Use /cluster/resources via API, not /node/, to get stats (ex. swap)
@@ -49,7 +53,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Updated the PVE2 API Class and improved its logging (prefix/exception)
 - Method to fire API Calls updated due to reduction in WHMCS param scope
 
-### Fixed
+### 🐛 Bug Fix
 - Regression in v1.1 with missing semicolon breaking activation (#14)
 - Edit Icon not rendering on IP/Pool edit page, missing asset (#13)
 - Relative link to PVE2 API Class file broken, use ROOTDIR (#13/15)
@@ -62,19 +66,19 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.1b] - 2023-06-06
  
-### Added
+### 🚀 Feature
 - Swap space editing for plans; back-end existed but not GUI editing
 - Modern-day language to GUI according to changes in the 6 years
 - README now links out to all Dependencies and Documentation
  
-### Changed
+### 💅 Polish
 - Module Name from "PRVE" to "pvewhmcs" (ie. Proxmox VE for WHMCS)
 - Default storage/disk type changed from IDE to Virtio (fastest)
 - Updated 3 dependencies to latest: PVE2-PHP, noVNC, TigerVNC
 - Removed all code segments relating to Software Licensing
 - DNS defaults changed from Google DNS to Cloudflare DNS
  
-### Fixed
+### 🐛 Bug Fix
 - Module can now be installed onto WHMCS 8.x installations
 - OpenVZ changed to LXC, to support PVE 4.x installs & up
 - Removed I/O Priority setting, to re-do via Throttling
@@ -82,11 +86,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.0] - 2017-01-26
 
-### Added
+### 🚀 Feature
 - Open-sourced the previously commercial plugin
 
-### Changed
+### 💅 Polish
 - Commented out the licensing code segments
 
-### Fixed
+### 🐛 Bug Fix
 - Removed old database schema import file
