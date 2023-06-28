@@ -21,6 +21,16 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 _If you don't have enough services (any status) in WHMCS, create services until you reach SID 101._
 
+### 📄 MODULE INSTALL & CONFIG:
+
+Once you have uploaded, activated and made the WHMCS Module available to Administrators, you need to:
+
+1. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
+2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
+3. WHMCS Admin > Config > Products/Services > New Service
+
+For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc.
+
 ### 🥽 noVNC CONSOLE TUNNELING:
 
 To access VNC via WHMCS Client Area, you need to:
