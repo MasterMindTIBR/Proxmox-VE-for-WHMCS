@@ -17,9 +17,7 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 - (Proxmox) VE v7/8
 - (Proxmox) 2 users
 
-**SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100.
-
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough to reach SID 101._
+**SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100. _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough to reach SID 101._
 
 ### 📄 MODULE INSTALL & CONFIG:
 
