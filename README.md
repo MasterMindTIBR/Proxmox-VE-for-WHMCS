@@ -19,7 +19,7 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 **SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100.
 
-_If you don't have enough services (any status) in WHMCS, create services until you reach SID 101._
+_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough to reach SID 101._
 
 ### 📄 MODULE INSTALL & CONFIG:
 
@@ -60,7 +60,9 @@ For the VNC User in Proxmox you need to:
 
 ### 🤬 ABUSE - ZERO TOLERANCE:
 
-**NOTE:** This module is being overhauled and is in beta. Your support is welcomed.
+**NOTE:** This module has been overhauled and remains in functional beta. 
+
+Your support is welcomed per the spirit of FOSS (Free Open-source Software)!
 
 If you cannot accept this, do not download nor use the code. Complaints, nasty reviews, and similar behaviour is against the spirit of FOSS and will not be tolerated. Be grateful & considerate - thank you!
 
