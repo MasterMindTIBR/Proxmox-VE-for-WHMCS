@@ -9,7 +9,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
-## 🛠️ SYSTEM REQUIREMENTS 🛠️
+## 🎯 MODULE SYSTEM REQUIREMENTS 🎯
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) Service ID >100
@@ -19,7 +19,7 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 **SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100. _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough to reach SID 101._
 
-## 📄 MODULE INSTALL & CONFIG 📄
+## ✅ MODULE INSTALL & CONFIG ✅
 
 Once you have uploaded, activated and made the WHMCS Module available to Administrators, you need to:
 
