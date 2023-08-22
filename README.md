@@ -1,6 +1,6 @@
 # Proxmox VE for WHMCS (Module) Provision & Manage
 
-We're overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
+We're mostly done overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/)
 - Allow clients to view/manage VMs using WHMCS Client Area
@@ -12,22 +12,23 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 ## 🎯 MODULE SYSTEM REQUIREMENTS 🎯
 
 - (WHMCS) v8.x.x stable (HTTPS)
-- (WHMCS) Service ID >100
-- (PHP) v8.x.x stable
-- (Proxmox) VE v7/8
-- (Proxmox) 2 users
+- (WHMCS) **Service ID >100**
+- (PHP) v8.x.x (stable)
+- (Proxmox) VE v7/8 (current)
+- (Proxmox) 2 users (API/VNC)
 
-**SID >100:** The WHMCS Service ID requirement is critical, as Proxmox reserves VMIDs <100. _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough to reach SID 101._
+**SID >100:** The WHMCS Service ID requirement is CRITICAL, as Proxmox reserves VMIDs <100. _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._
 
 ## ✅ MODULE INSTALL & CONFIG ✅
 
 Once you have uploaded, activated and made the WHMCS Module available to Administrators, you need to:
 
+1. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
 1. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
 3. WHMCS Admin > Config > Products/Services > New Service
 
-For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc.
+For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc. This is out-dated though still helpful contextually - please read the note at the top of this README.
 
 ## 🥽 noVNC CONSOLE TUNNELING 🥽
 
@@ -41,7 +42,7 @@ To access VNC via WHMCS Client Area, you need to:
 
 \* = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
 
-\* = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to amend the code.
+\* = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
 
 ## 👥 PROXMOX USER REQUIREMENT 👥
 
@@ -58,7 +59,7 @@ For the VNC User in Proxmox you need to:
 
 ## 🤬 ABUSE - ZERO TOLERANCE 🤬
 
-**NOTE:** This module has been overhauled and remains in functional beta. 
+**NOTE:** This module has been overhauled and remains in functionally-OK beta. 
 
 Your support is welcomed per the spirit of FOSS (Free Open-source Software)!
 
