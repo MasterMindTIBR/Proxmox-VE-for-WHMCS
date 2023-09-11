@@ -105,13 +105,13 @@ function pvewhmcs_output($vars) {
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group btn-group-lg" role="group" aria-label="...">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
-	<i class="fa fa-list"></i>&nbsp; Plans List
+	<i class="fa fa-list"></i>&nbsp; List: VM Plans
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
-	<i class="fa fa-plus-square"></i>&nbsp; Add new KVM plan
+	<i class="fa fa-plus-square"></i>&nbsp; Add: KVM Plan
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
-	<i class="fa fa-plus-square"></i>&nbsp; Add new LXC plan
+	<i class="fa fa-plus-square"></i>&nbsp; Add: LXC Plan
 	</a>
 	</div>
 	';
@@ -237,10 +237,10 @@ function pvewhmcs_output($vars) {
 	<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 	<div class="btn-group">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
-	<i class="fa fa-list"></i>&nbsp; List IP Pools
+	<i class="fa fa-list"></i>&nbsp; List: IP Pools
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
-	<i class="fa fa-plus"></i>&nbsp; Add IP to Pool
+	<i class="fa fa-plus"></i>&nbsp; Add: IP to Pool
 	</a>
 	</div>
 	';
@@ -270,11 +270,11 @@ function pvewhmcs_output($vars) {
 	';
 	// Health Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h2>System Environment:</h2>Proxmox VE for WHMCS v' . pvewhmcs_version() . ' on PHP v' . phpversion() . ' (' . $_SERVER['SERVER_SOFTWARE'] . ')<br><br>');
-	echo ('<h2>Technical Support:</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc.<br><br>');
-	echo ('<h2>Updates & Codebase:</h2><b>Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<h2>Product & Reviewing</h2><b>Your 5-star review on WHMCS Marketplace will help the module grow!</b><br><a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
-	
+	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server<br><br>');
+	echo ('<h2>Updates & Codebase</h2><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<h2>Product & Reviewing</h2><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br><a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
+	echo ('<h2>Issues: Common Causes</h2>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
+	echo ('<h2>Module Tech Support</h2>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc.<br>Help is not guaranteed (FOSS). We will need your assistance. Thank you.<br><br>');
 	echo '</div>';
 
 	// Config Tab
