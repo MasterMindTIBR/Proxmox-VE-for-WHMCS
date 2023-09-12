@@ -9,7 +9,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
-## 🎯 MODULE SYSTEM REQUIREMENTS 🎯
+## 🎯 MODULE: SYSTEM REQUIREMENTS 🎯
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) **Service ID >100**
@@ -21,18 +21,19 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._
 
-## ✅ MODULE INSTALL & CONFIG ✅
+## ✅ MODULE: INSTALL & CONFIG ✅
 
 Once you have uploaded, activated and made the WHMCS Module available to Administrators, you need to:
 
 1. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
-1. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
-2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
-3. WHMCS Admin > Config > Products/Services > New Service
+2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
+3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
+4. WHMCS Admin > Config > Products/Services > New Service (create offering)
+5. " " > Newly-added Service > Tab 3 > SAVE (associates Plan/Pool to WHMCS Service type)
 
 For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc. This is out-dated though still helpful contextually - please read the note at the top of this README.
 
-## 🥽 noVNC CONSOLE TUNNELING 🥽
+## 🥽 noVNC: CONSOLE TUNNELING 🥽
 
 To access VNC via WHMCS Client Area, you need to:
 
@@ -46,7 +47,7 @@ To access VNC via WHMCS Client Area, you need to:
 
 \* = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
 
-## 👥 PROXMOX USER REQUIREMENT 👥
+## 👥 PROXMOX: USERS (ROOT & VNC) 👥
 
 You must have a root (etc) account to Create/Access services. Configured via WHMCS Config > Servers.
 
@@ -59,7 +60,7 @@ For the VNC User in Proxmox you need to:
 4. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
 5. Configure the WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret with 'vnc' password.
 
-## 🤬 ABUSE - ZERO TOLERANCE 🤬
+## 🤬 ABUSE: ZERO TOLERANCE 🤬
 
 **NOTE:** This module has been overhauled and remains in functionally-OK beta. 
 

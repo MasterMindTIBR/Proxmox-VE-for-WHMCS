@@ -35,16 +35,16 @@ function pvewhmcs_activate() {
 		$i++ ;
 	}
 	if (!$err)
-		return array('status'=>'success','description'=>'Proxmox for WHMCS was installed successfuly.');
+		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfuly.');
 
-	return array('status'=>'error','description'=>'Proxmox for WHMCS was not activated properly.');
+	return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly.');
 
 }
 
 function pvewhmcs_deactivate() {
 	Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
 		# Return Result
-	return array('status'=>'success','description'=>'Proxmox for WHMCS successfuly deactivated and all related tables deleted.');
+	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfuly deactivated and all related tables deleted.');
 }
 
 function pvewhmcs_output($vars) {
