@@ -60,6 +60,17 @@ function pvewhmcs_ConfigOptions() {
 }
 
 function pvewhmcs_CreateAccount($params) {
+	// Make sure "WHMCS Admin > Products/Services > Proxmox-based Service -> Plan + Pool" are set. Else, fail early. (Issue #36)
+	if (!isset($params['configoption1'], $params['configoption2'])) {
+		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+	}
+	if (empty($params['configoption1'])) {
+    	throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+	}
+	if (empty($params['configoption2'])) {
+    	throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+	}
+
     // Retrieve Plan from table
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
@@ -724,6 +735,11 @@ function pvewhmcs_vmStat($params) {
 }
 
 function pvewhmcs_noVNC($params) {
+	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
+	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')<15) {
+		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	}
+	// Get login credentials then make the Proxmox connection attempt.
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
@@ -741,12 +757,11 @@ function pvewhmcs_noVNC($params) {
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
-
+		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		// Build and deliver the noVNC Router hyperlink for access
 		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
-
 		return $vncreply;
-
 	} else {
 		$vncreply='Failed to prepare noVNC. Please contact Technical Support.';
 		return $vncreply;
@@ -754,6 +769,11 @@ function pvewhmcs_noVNC($params) {
 }
 
 function pvewhmcs_javaVNC($params){
+	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
+	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')<15) {
+		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	}
+	// Get login credentials then make the Proxmox connection attempt.
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
