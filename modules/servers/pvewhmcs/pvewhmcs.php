@@ -146,6 +146,7 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
 			$vm_settings['nameserver'] = '1.1.1.1';
+			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
 			$vm_settings['ostype'] = $plan->ostype;

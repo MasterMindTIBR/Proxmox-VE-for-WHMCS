@@ -17,6 +17,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🐛 Bug Fix
 - Admin, Create Service: Fails if Plan/Pool not assigned in WHMCS (#36)
 - Client, VNC: Fails early if VNC Secret is not set or adequate (#27)
+- On-boot Status: Enabled/Disabled now properly applied for CTs (#34)
 
 Note (\*): New column required in the mod_pvewhmcs_plans table
 
