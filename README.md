@@ -6,7 +6,7 @@ We're mostly done overhauling the Module to suit our internal needs at [LEOPARD.
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
-- Statistics/Graphing is available in the Client Area :)
+- Statistics/Graphing is available in the Client Area for services :)
 
 The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement. _The manual PDF files are due to be updated (these still mention licensing - ignore this)_
 
@@ -15,8 +15,8 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 ## 🎯 MODULE: SYSTEM REQUIREMENTS 🎯
 
 - (WHMCS) v8.x.x stable (HTTPS)
-- (WHMCS) **Service ID >100**
-- (PHP) v8.x.x (stable)
+- (WHMCS) **Service ID above 100**
+- (PHP) v8.x.x (stable version)
 - (Proxmox) VE v7/8 (current)
 - (Proxmox) 2 users (API/VNC)
 
@@ -41,8 +41,9 @@ For now, please use the Manual PDFs as supplementary information, re: ISO files,
 To access VNC via WHMCS Client Area, you need to:
 
 1. Follow the PVE User Requirement below
-2. PVE and WHMCS on the same Domain Name*
-3. Have valid PTR/rDNS for the PVE Address
+2. Public IPv4 for PVE, or proxy to VLAN
+3. PVE and WHMCS on the same Domain Name*
+4. Have valid PTR/rDNS for the PVE Address
 
 **WIP NOTE:** noVNC has been overhauled. It is not guaranteed, nor the project at all. :-)
 

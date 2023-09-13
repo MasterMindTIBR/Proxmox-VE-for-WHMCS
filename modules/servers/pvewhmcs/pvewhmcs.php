@@ -88,7 +88,7 @@ function pvewhmcs_CreateAccount($params) {
 
     // CREATE IF QEMU/KVM
 	if (!empty($params['customfields']['KVMTemplate'])) {
-		file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
+		// file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
 
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
