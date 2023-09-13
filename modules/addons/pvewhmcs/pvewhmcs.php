@@ -302,7 +302,7 @@ function pvewhmcs_output($vars) {
 	';
 	// Health Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as v' . get_pvewhmcs_latest_version() . ')' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
+	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
 	echo ('<h2>Updates & Codebase</h2><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
 	echo ('<h2>Product & Reviewing</h2><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<h2>Issues: Common Causes</h2>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
@@ -532,7 +532,7 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
@@ -607,7 +607,7 @@ function kvm_plan_add() {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="kvm" value="1" checked> Enable KVM hardware virtualisation. (Recommended)
+	<input type="checkbox" name="kvm" value="1" checked> Enable KVM hardware virtualisation. Requires support/enablement in BIOS. (Recommended)
 	</label>
 	</td>
 	</tr>
@@ -757,7 +757,7 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
-	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. NOTE: You can disable fair-scheduler configuration by setting this to 0.
+	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. NOTE: You can disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
@@ -811,7 +811,7 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
@@ -839,14 +839,14 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
-	Network Rate Limit in Megabit, Blank means unlimit.
+	Network Rate Limit in Megabit, Blank means unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
-	Monthly Bandwidth Limit in GigaByte, Blank means unlimit.
+	Monthly Bandwidth Limit in Gigabyte, Blank means unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -886,7 +886,7 @@ function kvm_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="kvm" value="1" '. ($plan->kvm=="1" ? "checked" : "").'> Enable KVM hardware virtualisation. (Recommended)
+	<input type="checkbox" name="kvm" value="1" '. ($plan->kvm=="1" ? "checked" : "").'> Enable KVM hardware virtualisation. Requires support/enablement in BIOS. (Recommended)
 	</label>
 	</td>
 	</tr>
@@ -953,11 +953,11 @@ function lxc_plan_add() {
 	<td class="fieldlabel">SSD/HDD - Disk</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required>
-	Disk space in Gigabayte e.g 1024 = 1TB
+	Disk space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
@@ -1081,7 +1081,7 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">PVE Storage - Name</td>
+	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
