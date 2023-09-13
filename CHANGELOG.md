@@ -4,6 +4,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ## [1.2.2b] - Not yet released
 
 ### 🚀 Feature
+- Version: Report in-use & latest versions in Health; ver alert (#21)
 - Power Actions: Now available in Admin Area as well as Client Area
 - (Note: Suspend/Unsuspend/Terminate remain admin-only functions)
 

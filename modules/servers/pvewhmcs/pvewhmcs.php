@@ -1,4 +1,5 @@
 <?php
+// Require the PHP API Class to interact with Proxmox VE
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
 	require_once('../modules/addons/pvewhmcs/proxmox.php');
 else
@@ -8,6 +9,7 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 
 global $guest ;
 
+// WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
 	// Reterive PVE for WHMCS Cluster
 	$server=Capsule::table('tblservers')->where('type', '=', 'pve-whmcs')->get()[0] ;
@@ -59,6 +61,7 @@ function pvewhmcs_ConfigOptions() {
 	return $configarray;
 }
 
+// PVE API FUNCTION: Create the Service on the Hypervisor
 function pvewhmcs_CreateAccount($params) {
 	// Make sure "WHMCS Admin > Products/Services > Proxmox-based Service -> Plan + Pool" are set. Else, fail early. (Issue #36)
 	if (!isset($params['configoption1'], $params['configoption2'])) {
@@ -245,7 +248,7 @@ function pvewhmcs_CreateAccount($params) {
 	}
 }
 
-
+// PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
 	try {
         // Call the service's connection test function.
@@ -274,6 +277,7 @@ function pvewhmcs_TestConnection(array $params) {
 	);
 }
 
+// PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
 function pvewhmcs_SuspendAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
@@ -292,6 +296,7 @@ function pvewhmcs_SuspendAccount(array $params) {
 	return "Error performing action. " . $response_message;
 }
 
+// PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
 function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
@@ -310,6 +315,7 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	return "Error performing action. " . $response_message;
 }
 
+// PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
 function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
@@ -331,7 +337,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 	return "Error performing action. " . $response_message;
 }
 
-// WHMCS Decrypter
+// GENERAL FUNCTION: WHMCS Decrypter
 class hash_encryption {
 	/**
 	 * Hashed value of the user provided encryption key
@@ -521,6 +527,7 @@ class hash_encryption {
 	}
 }
 
+// GENERAL FUNCTION: Server PW from WHMCS DB
 function get_server_pass_from_whmcs($enc_pass){
 	global $cc_encryption_hash;
 		// Include WHMCS database configuration file
@@ -532,6 +539,7 @@ function get_server_pass_from_whmcs($enc_pass){
 	return $hasher->decrypt($enc_pass);
 }
 
+// MODULE BUTTONS: Admin Interface button regos
 function pvewhmcs_AdminCustomButtonArray() {
 	$buttonarray = array(
 		"Start" => "vmStart",
@@ -542,6 +550,7 @@ function pvewhmcs_AdminCustomButtonArray() {
 	return $buttonarray;
 }
 
+// MODULE BUTTONS: Client Interface button regos
 function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
@@ -555,6 +564,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 	return $buttonarray;
 }
 
+// OUTPUT: Module output to the Client Area
 function pvewhmcs_ClientArea($params) {
 	// Retrieve virtual machine info from table mod_pvewhmcs_vms
 	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
@@ -730,10 +740,12 @@ function pvewhmcs_ClientArea($params) {
 	);
 }
 
+// OUTPUT: VM Statistics/Graphs render to Client Area
 function pvewhmcs_vmStat($params) {
 	return true ;
 }
 
+// VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')<15) {
@@ -768,6 +780,7 @@ function pvewhmcs_noVNC($params) {
 	}
 }
 
+// VNC: Console access to VM/CT via TigerVNC
 function pvewhmcs_javaVNC($params){
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')<15) {
@@ -806,6 +819,7 @@ function pvewhmcs_javaVNC($params){
 	}
 }
 
+// PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT
 function pvewhmcs_vmStart($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
@@ -835,6 +849,7 @@ function pvewhmcs_vmStart($params) {
 	return "Error performing action. " . $response_message;
 }
 
+// PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
 function pvewhmcs_vmReboot($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
@@ -864,6 +879,7 @@ function pvewhmcs_vmReboot($params) {
 	return "Error performing action. " . $response_message;
 }
 
+// PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
 function pvewhmcs_vmShutdown($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
@@ -893,6 +909,7 @@ function pvewhmcs_vmShutdown($params) {
 	return "Error performing action. " . $response_message;
 }
 
+// PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
 function pvewhmcs_vmStop($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
@@ -922,7 +939,7 @@ function pvewhmcs_vmStop($params) {
 	return "Error performing action. " . $response_message;
 }
 
-// convert subnet mask to CIDR
+// NETWORKING FUNCTION: Convert subnet mask to CIDR
 function mask2cidr($mask){
 	$long = ip2long($mask);
 	$base = ip2long('255.255.255.255');

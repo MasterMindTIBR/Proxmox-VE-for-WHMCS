@@ -1,12 +1,14 @@
 <?php
 use Illuminate\Database\Capsule\Manager as Capsule;
 define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
+// Require the PHP API Class to interact with Proxmox VE
 require_once('proxmox.php');
 
+// CONFIG: Declare key options to the WHMCS Addon Module framework.
 function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
-		"description" => "Proxmox Virtual Environment + WHMCS",
+		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
 		"version" => "1.2.1",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
@@ -14,26 +16,31 @@ function pvewhmcs_config() {
 	return $configarray;
 }
 
+// VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
     return "1.2.1";
 }
 
+// WHMCS MODULE: ACTIVATION
 function pvewhmcs_activate() {
-
+	// Pull in the SQL structure (includes VNC/etc tweaks)
 	$sql = file_get_contents(ROOTDIR.'/modules/addons/pvewhmcs/db.sql');
 	if (!$sql) {
 		return array('status'=>'error','description'=>'The db.sql file not found.');
 	}
+	// SQL file is good, let's proceed with pulling it in
 	$err=false;
 	$i=0;
 	$query_array=explode(';',$sql) ;
 	$query_count=count($query_array) ;
+	// Iterate through the SQL commands to finalise init.
 	foreach ( $query_array as $query) {
 		if ($i<$query_count-1)
 			if (!Capsule::statement($query.';'))
 		$err=true;
 		$i++ ;
 	}
+	// Return success or error.
 	if (!$err)
 		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfuly.');
 
@@ -41,17 +48,43 @@ function pvewhmcs_activate() {
 
 }
 
+// WHMCS MODULE: DEACTIVATION
 function pvewhmcs_deactivate() {
+	// Drop all module-related tables
 	Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
-		# Return Result
+	// Return the assumed result (change?)
 	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfuly deactivated and all related tables deleted.');
 }
 
-function pvewhmcs_output($vars) {
+// UPDATE CHECKER: live vs repo
+function is_pvewhmcs_outdated(){
+    if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
+        return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
+    }
+}
 
+// UPDATE CHECKER: return latest ver
+function get_pvewhmcs_latest_version(){
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    $result = curl_exec($ch);
+    curl_close ($ch);
+
+    return str_replace("\n", "", $result);
+}
+
+// ADMIN MODULE GUI: output (HTML etc)
+function pvewhmcs_output($vars) {
 	$modulelink = $vars['modulelink'];
 
-		// Messages
+	// Check for update and report if available
+	if (!empty(is_pvewhmcs_outdated()) {
+		$_SESSION['pvewhmcs']['infomsg']['title']='Proxmox VE for WHMCS: New version available!' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Please visit the GitHub repository > Releases page. https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases' ;
+	}
+		
+	// Print Messages to GUI before anything else
 	if (isset($_SESSION['pvewhmcs']['infomsg'])) {
 		echo '
 		<div class="infobox">
@@ -265,7 +298,7 @@ function pvewhmcs_output($vars) {
 	';
 	// Health Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server<br><br>');
+	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (latest is v' . get_pvewhmcs_latest_version() . ')' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server<br><br>');
 	echo ('<h2>Updates & Codebase</h2><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
 	echo ('<h2>Product & Reviewing</h2><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<h2>Issues: Common Causes</h2>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
@@ -301,7 +334,7 @@ function pvewhmcs_output($vars) {
 	}
 }
 
-/* commit module config to DB */
+// MODULE CONFIG: Commit changes to the database
 function save_config() {
 	try {
 		Capsule::connection()->transaction(
@@ -323,7 +356,7 @@ function save_config() {
 	}
 }
 
-/* adding a KVM plan */
+// MODULE FORM: Add new KVM Plan
 function kvm_plan_add() {
 	echo '
 	<form method="post">
@@ -587,7 +620,7 @@ function kvm_plan_add() {
 	';
 }
 
-/* editing a KVM plan */
+// MODULE FORM: Edit a KVM Plan
 function kvm_plan_edit($id) {
 	$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 	if (empty($plan)) {
@@ -859,8 +892,7 @@ function kvm_plan_edit($id) {
 	';
 }
 
-
-/* adding an LXC plan */
+// MODULE FORM: Add an LXC Plan
 function lxc_plan_add() {
 	echo '
 	<form method="post">
@@ -968,7 +1000,7 @@ function lxc_plan_add() {
 	';
 }
 
-/* editing an LXC plan */
+// MODULE FORM: Edit an LXC Plan
 function lxc_plan_edit($id) {
 	$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 	if (empty($plan)) {
@@ -1085,6 +1117,7 @@ function lxc_plan_edit($id) {
 	';
 }
 
+// MODULE FORM ACTION: Save KVM Plan
 function save_kvm_plan() {
 	try {
 		Capsule::connection()->transaction(
@@ -1128,6 +1161,7 @@ function save_kvm_plan() {
 	}
 }
 
+// MODULE FORM ACTION: Update KVM Plan
 function update_kvm_plan() {
 	Capsule::table('mod_pvewhmcs_plans')
 	->where('id', $_GET['id'])
@@ -1163,13 +1197,15 @@ function update_kvm_plan() {
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
-
+// MODULE FORM ACTION: Remove Plan
 function remove_plan($id) {
 	Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->delete();
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	$_SESSION['pvewhmcs']['infomsg']['title']='Plan Deleted.' ;
 	$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
 }
+
+// MODULE FORM ACTION: Save LXC Plan
 function save_lxc_plan() {
 	try {
 		Capsule::connection()->transaction(
@@ -1206,6 +1242,7 @@ function save_lxc_plan() {
 	}
 }
 
+// MODULE FORM ACTION: Update LXC Plan
 function update_lxc_plan() {
 	Capsule::table('mod_pvewhmcs_plans')
 	->where('id', $_GET['id'])
@@ -1234,7 +1271,7 @@ function update_lxc_plan() {
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
-	// List IP pools in table
+// IP POOLS: List all Pools
 function list_ip_pools() {
 	echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IP Pool</a>';
 	echo '<table class="datatable"><tr><th>ID</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
@@ -1252,7 +1289,7 @@ function list_ip_pools() {
 	echo '</table>';
 }
 
-	//create new IP pool
+// IP POOL FORM: Add IP Pool
 function add_ip_pool() {
 	echo '
 	<form method="post">
@@ -1274,6 +1311,7 @@ function add_ip_pool() {
 	';
 }
 
+// IP POOL FORM ACTION: Save Pool
 function save_ip_pool() {
 	try {
 		Capsule::connection()->transaction(
@@ -1296,6 +1334,7 @@ function save_ip_pool() {
 	}
 }
 
+// IP POOL FORM ACTION: Remove Pool
 function removeIpPool($id) {
 	Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
 	Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
@@ -1305,7 +1344,7 @@ function removeIpPool($id) {
 	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IP Pool successfully.' ;
 }
 
-	// add IP address/subnet to Pool
+// IP POOL FORM ACTION: Add IP to Pool
 function add_ip_2_pool() {
 	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
 	echo '<form method="post">
@@ -1365,7 +1404,7 @@ function add_ip_2_pool() {
 	}
 }
 
-	// List IP addresses in pool
+// IP POOL FORM: List IPs in Pool
 function list_ips() {
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
@@ -1382,7 +1421,7 @@ function list_ips() {
 
 }
 
-	// Remove IP Address
+// IP POOL FORM ACTION: Remove IP from Pool
 function removeip($id,$pool_id) {
 	Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
