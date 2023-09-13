@@ -19,7 +19,7 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 **SID >100:** The WHMCS Service ID requirement is CRITICAL, as Proxmox reserves VMIDs <100 (system). 
 
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
+_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ Else you're likely to see an error which explains this: `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
 
 ## ✅ MODULE: INSTALL & CONFIG ✅
 

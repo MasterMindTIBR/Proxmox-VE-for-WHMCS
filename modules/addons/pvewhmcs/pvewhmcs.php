@@ -215,6 +215,9 @@ function pvewhmcs_output($vars) {
 		NIC Model
 		</th>
 		<th>
+		VLAN ID
+		</th>
+		<th>
 		Rate
 		</th>
 		<th>
@@ -242,6 +245,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmodel . PHP_EOL .'</td>';
+			echo '<td>'.$vm->vlanid . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netrate . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bw . PHP_EOL .'</td>';
 			echo '<td>
@@ -591,6 +595,13 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">
 	Hardware Virt?
 	</td>
@@ -863,6 +874,13 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">
 	Hardware Virt?
 	</td>
@@ -964,6 +982,13 @@ function lxc_plan_add() {
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
 	Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -1084,6 +1109,13 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
@@ -1145,6 +1177,7 @@ function save_kvm_plan() {
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
 						'netmodel' => $_POST['netmodel'],
+						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
 						'bw' => $_POST['bw'],
 						'kvm' => $_POST['kvm'],
@@ -1186,6 +1219,7 @@ function update_kvm_plan() {
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
 			'netmodel' => $_POST['netmodel'],
+			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
 			'bw' => $_POST['bw'],
 			'kvm' => $_POST['kvm'],
@@ -1227,6 +1261,7 @@ function save_lxc_plan() {
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
 						'netmodel' => $_POST['netmodel'],
+						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
 						'bw' => $_POST['bw'],
 						'onboot' => $_POST['onboot'],
@@ -1261,6 +1296,7 @@ function update_lxc_plan() {
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
 			'netmodel' => $_POST['netmodel'],
+			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
 			'bw' => $_POST['bw'],
 			'onboot' => $_POST['onboot'],

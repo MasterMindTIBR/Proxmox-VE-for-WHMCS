@@ -142,6 +142,9 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			if(!empty($plan->vlanid)){
+				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
+			}
 			$vm_settings['nameserver'] = '1.1.1.1';
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
@@ -173,6 +176,9 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings['net0'] .= ',firewall=' . $plan->firewall;
 				if (!empty($plan->netrate)) {
 					$vm_settings['net0'] .= ',rate=' . $plan->netrate;
+				}
+				if (!empty($plan->vlanid)) {
+					$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 				}
 			}
 			/* end of network settings */
