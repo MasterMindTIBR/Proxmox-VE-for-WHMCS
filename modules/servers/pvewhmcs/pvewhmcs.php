@@ -100,12 +100,14 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
 			// DEBUG - Log the request parameters before it's fired
-			logModuleCall(
-				'pvewhmcs',
-				__FUNCTION__,
-				'vm_settings_and_v_1',
-				['vm_settings' => $vm_settings, 'v' => $v]
-			);
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					'vm_settings_and_v_1',
+					['vm_settings' => $vm_settings, 'v' => $v]
+				);
+			}
 			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			if ($response) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
@@ -205,12 +207,14 @@ function pvewhmcs_CreateAccount($params) {
 				}
 
 				// DEBUG - Log the request parameters before it's fired
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					'vm_settings_and_v_2',
-					['vm_settings' => $vm_settings, 'v' => $v]
-				);
+				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+					logModuleCall(
+						'pvewhmcs',
+						__FUNCTION__,
+						'vm_settings_and_v_2',
+						['vm_settings' => $vm_settings, 'v' => $v]
+					);
+				}
 				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
 				if ($response) {
 					unset($vm_settings);
@@ -241,14 +245,15 @@ function pvewhmcs_CreateAccount($params) {
 			}
 		} catch (PVE2_Exception $e) {
             // Record the error in WHMCS's module log.
-			logModuleCall(
-				'pvewhmcs',
-				__FUNCTION__,
-				$params,
-				$e->getMessage(),
-				$e->getTraceAsString()
-			);
-
+            if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					$params,
+					$e->getMessage(),
+					$e->getTraceAsString()
+				);
+			}
 			return $e->getMessage();
 		}
 		unset($vm_settings);
@@ -267,14 +272,16 @@ function pvewhmcs_TestConnection(array $params) {
 			$success = true;
 		$errorMsg = '';
 	} catch (Exception $e) {
-        // Record the error in WHMCS's module log.
-		logModuleCall(
-			'provisioningmodule',
-			__FUNCTION__,
-			$params,
-			$e->getMessage(),
-			$e->getTraceAsString()
-		);
+        // Record the error in WHMCS's module log, if debug mode is enabled.
+        if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+				'pvewhmcs',
+				__FUNCTION__,
+				$params,
+				$e->getMessage(),
+				$e->getTraceAsString()
+			);
+		}
 		$success = false;
 		$errorMsg = $e->getMessage();
 	}

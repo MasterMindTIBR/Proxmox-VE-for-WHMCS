@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `debug_mode` tinyint(1) unsigned DEFAULT '0',
   PRIMARY KEY (`id`)
 );
-INSERT INTO `mod_pvewhmcs` (`id`, `config`) VALUES	(1, NULL);
+INSERT INTO `mod_pvewhmcs` (`id`, `config`, `vnc_secret`) VALUES	(1, NULL, NULL);
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_addresses` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `pool_id` int(11) NOT NULL DEFAULT '0',
