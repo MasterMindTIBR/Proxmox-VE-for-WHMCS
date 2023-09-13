@@ -4,7 +4,7 @@ We're mostly done overhauling the Module to suit our internal needs at [LEOPARD.
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc specifics
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
-- Allow clients to view/manage VMs using WHMCS Client Area
+- Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area :)
 
@@ -22,7 +22,7 @@ https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 
 **SID >100:** The WHMCS Service ID requirement is CRITICAL, as Proxmox reserves VMIDs <100 (system). 
 
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ Else you're likely to see an error which explains this: `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
+_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
 
 ## ✅ MODULE: INSTALL & CONFIG ✅
 

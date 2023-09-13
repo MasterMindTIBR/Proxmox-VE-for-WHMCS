@@ -79,7 +79,7 @@ function pvewhmcs_output($vars) {
 	$modulelink = $vars['modulelink'];
 
 	// Check for update and report if available
-	if (!empty(is_pvewhmcs_outdated()) {
+	if (!empty(is_pvewhmcs_outdated())) {
 		$_SESSION['pvewhmcs']['infomsg']['title']='Proxmox VE for WHMCS: New version available!' ;
 		$_SESSION['pvewhmcs']['infomsg']['message']='Please visit the GitHub repository > Releases page. https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases' ;
 	}
@@ -302,7 +302,7 @@ function pvewhmcs_output($vars) {
 	';
 	// Health Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (latest is v' . get_pvewhmcs_latest_version() . ')' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server<br><br>');
+	echo ('<h2>System Environment</h2><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as v' . get_pvewhmcs_latest_version() . ')' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
 	echo ('<h2>Updates & Codebase</h2><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
 	echo ('<h2>Product & Reviewing</h2><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<h2>Issues: Common Causes</h2>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
@@ -597,7 +597,7 @@ function kvm_plan_add() {
 	<tr>
 	<td class="fieldlabel">Trunk - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	<input type="text" size="8" name="vlanid" id="vlanid">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
 	</td>
 	</tr>
@@ -876,7 +876,7 @@ function kvm_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Trunk - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	<input type="text" size="8" name="vlanid" id="vlanid">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
 	</td>
 	</tr>
@@ -987,7 +987,7 @@ function lxc_plan_add() {
 	<tr>
 	<td class="fieldlabel">Trunk - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	<input type="text" size="8" name="vlanid" id="vlanid">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
 	</td>
 	</tr>
@@ -1111,7 +1111,7 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Trunk - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value="0">
+	<input type="text" size="8" name="vlanid" id="vlanid">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
 	</td>
 	</tr>
