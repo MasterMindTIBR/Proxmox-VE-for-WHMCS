@@ -1,10 +1,10 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.2b] - Not yet released
+## [1.2.2] - Due in September 2023
 
 ### 🚀 Feature
-- VLAN ID: Set the required Virtual LAN against your VM/CT Plan (#35)*
+- VLAN ID: Set the required Virtual LAN ID against VM/CT Plan (#35)*
 - Version: Report in-use & latest versions in Health; ver alert (#21)
 - Power Actions: Now available in Admin Area as well as Client Area
 - (Note: Suspend/Unsuspend/Terminate remain admin-only functions)
@@ -19,7 +19,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Client, VNC: Fails early if VNC Secret is not set or adequate (#27)
 - On-boot Status: Enabled/Disabled now properly applied for CTs (#34)
 
-Note (\*): New column required in the mod_pvewhmcs_plans table
+Note (\*): New column required in mod_pvewhmcs_plans table (vlanid), see db.sql
 
 ## [1.2.1b] - 2023-06-19
 

@@ -2,8 +2,11 @@
 
 We're mostly done overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
-- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/)
+- Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc specifics
+- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using WHMCS Client Area
+- Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
+- Statistics/Graphing is available in the Client Area :)
 
 The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement. _The manual PDF files are due to be updated (these still mention licensing - ignore this)_
 
