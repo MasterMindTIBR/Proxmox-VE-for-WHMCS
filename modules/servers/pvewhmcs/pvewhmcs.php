@@ -756,7 +756,7 @@ function pvewhmcs_ClientArea($params) {
 
 // OUTPUT: VM Statistics/Graphs render to Client Area
 function pvewhmcs_vmStat($params) {
-	return true ;
+	return true;
 }
 
 // VNC: Console access to VM/CT via noVNC

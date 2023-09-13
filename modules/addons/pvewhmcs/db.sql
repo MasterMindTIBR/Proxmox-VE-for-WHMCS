@@ -41,13 +41,13 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `netmode` varchar(10) DEFAULT NULL,
   `bridge` varchar(20) NOT NULL DEFAULT 'vmbr',
   `vmbr` tinyint(1) unsigned NOT NULL DEFAULT '0',
-  `vlanid` varchar(10) DEFAULT NULL,
   `netmodel` varchar(10) DEFAULT NULL,
   `netrate` varchar(5) DEFAULT '0',
   `firewall` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `bw` int(6) unsigned DEFAULT '0',
   `kvm` tinyint(1) unsigned DEFAULT '0',
   `onboot` tinyint(1) unsigned DEFAULT '0',
+  `vlanid` varchar(10) DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (

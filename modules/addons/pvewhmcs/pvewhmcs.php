@@ -321,6 +321,14 @@ function pvewhmcs_output($vars) {
 	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info.
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">Debug Mode</td>
+	<td class="fieldarea">
+	<label class="checkbox-inline">
+	<input type="checkbox" name="debug_mode" value="'.$config->debug_mode.'"> Whether or not you want Debug Logging enabled (WHMCS Module Log for Debugging >> /admin/logs/module-log)
+	</label>
+	</td>
+	</tr>
 	</table>
 	<div class="btn-container">
 	<input type="submit" class="btn btn-primary" value="Save Changes" name="save_config" id="save_config">
@@ -348,6 +356,7 @@ function save_config() {
 				$connectionManager->table('mod_pvewhmcs')->update(
 					[
 						'vnc_secret' => $_POST['vnc_secret'],
+						'debug_mode' => $_POST['debug_mode'],
 					]
 				);
 			}
