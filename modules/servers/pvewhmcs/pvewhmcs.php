@@ -298,16 +298,15 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverpassword = $params["serverpassword"];
 	
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-	if ($proxmox->login()){
+	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		// find virtual machine
-		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/stop')) {
-			return "success";
-		}
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
+			return "success" ;
 	}
 	$response_message = json_encode($proxmox['data']['errors']);
 	return "Error performing action. " . $response_message;
@@ -320,16 +319,15 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverpassword = $params["serverpassword"];
 	
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-	if ($proxmox->login()){
+	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		// find virtual machine type
-		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/start')) {
-			return "success";
-		}
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
+			return "success" ;
 	}
 	$response_message = json_encode($proxmox['data']['errors']);
 	return "Error performing action. " . $response_message;
@@ -348,11 +346,11 @@ function pvewhmcs_TerminateAccount(array $params) {
 		$first_node = $nodes[0];
 		unset($nodes);
 		// find virtual machine type
-		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		// stop the service before terminating
-		$proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/stop') ;
-		sleep(10) ;
-		if ($proxmox->delete('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
+		$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop') ;
+		sleep(30) ;
+		if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
 			// delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
@@ -362,7 +360,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 	return "Error performing action. " . $response_message;
 }
 
-// GENERAL FUNCTION: WHMCS Decrypter
+// GENERAL CLASS: WHMCS Decrypter
 class hash_encryption {
 	/**
 	 * Hashed value of the user provided encryption key
@@ -865,8 +863,6 @@ function pvewhmcs_vmStart($params) {
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		// $pve_cmdparam['timeout'] = '60';
-
 		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
 			return "success" ;
 	}
