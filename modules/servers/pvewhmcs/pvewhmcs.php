@@ -797,7 +797,7 @@ function pvewhmcs_noVNC($params) {
 // VNC: Console access to VM/CT via TigerVNC
 function pvewhmcs_javaVNC($params){
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')<15) {
+	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
 	// Get login credentials then make the Proxmox connection attempt.
