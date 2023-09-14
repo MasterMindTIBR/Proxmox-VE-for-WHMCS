@@ -9,7 +9,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.1",
+		"version" => "1.2.2",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -18,7 +18,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.1";
+    return "1.2.2";
 }
 
 // WHMCS MODULE: ACTIVATION
