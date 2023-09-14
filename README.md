@@ -90,6 +90,14 @@ Please note that this is FOSS and Support is not guaranteed.
 
 This module is licensed via the GNU General Public License v3.0.
 
+## 🔄 UPDATING THE ADDON MODULE 🔄
+
+WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows updates.
+
+You can download the new version and upload it over the top, then run any SQL ops.
+
+Please consult the [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
+
 ## 🖥️ LIBRARIES & DEPENDENCIES 🖥️
 
 - [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
