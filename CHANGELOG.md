@@ -19,8 +19,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Client, VNC: Fails early if VNC Secret is not set or adequate (#27)
 - On-boot Status: Enabled/Disabled now properly applied for CTs (#34)
 
-1. (\*): New column required in mod_pvewhmcs_plans table (vlanid), see db.sql
-2. New column required in mod_pvewhmcs table (debug_mode) to allow configurability
+(\*): SQL Note: There are new columns in 2 of the module tables, see [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md)
 
 ## [1.2.1b] - 2023-06-19
 
