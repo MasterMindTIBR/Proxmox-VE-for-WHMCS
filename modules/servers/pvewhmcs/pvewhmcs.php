@@ -293,17 +293,20 @@ function pvewhmcs_TestConnection(array $params) {
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
 function pvewhmcs_SuspendAccount(array $params) {
-	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
+	
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		// find virtual machine type
+		// find virtual machine
 		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/suspend')) {
-			return "success" ;
+		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/stop')) {
+			return "success";
 		}
 	}
 	$response_message = json_encode($proxmox['data']['errors']);
@@ -312,7 +315,10 @@ function pvewhmcs_SuspendAccount(array $params) {
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
 function pvewhmcs_UnsuspendAccount(array $params) {
-	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
+	
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
 		# Get first node name.
@@ -321,8 +327,8 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		unset($nodes);
 		// find virtual machine type
 		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/resume')) {
-			return "success" ;
+		if ($proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/start')) {
+			return "success";
 		}
 	}
 	$response_message = json_encode($proxmox['data']['errors']);
@@ -331,7 +337,10 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
 function pvewhmcs_TerminateAccount(array $params) {
-	$serverip = $params["serverip"];	$serverusername = $params["serverusername"];	$serverpassword = $params["serverpassword"];
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
+
 	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
 		# Get first node name.
@@ -340,11 +349,13 @@ function pvewhmcs_TerminateAccount(array $params) {
 		unset($nodes);
 		// find virtual machine type
 		$vm=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+		// stop the service before terminating
 		$proxmox->post('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'].'/status/stop') ;
 		sleep(10) ;
 		if ($proxmox->delete('/nodes/'.$first_node.'/'.$vm->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
+			// delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-			return "success" ;
+			return "success";
 		}
 	}
 	$response_message = json_encode($proxmox['data']['errors']);

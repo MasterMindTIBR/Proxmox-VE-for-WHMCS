@@ -2,7 +2,7 @@
 
 We're mostly done overhauling the Module to suit our internal needs at [LEOPARD.host](https://leopard.host).
 
-- Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc specifics
+- Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
