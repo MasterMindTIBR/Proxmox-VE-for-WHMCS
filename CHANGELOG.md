@@ -1,9 +1,10 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.2] - Due in September 2023
+## [1.2.2] - 2023-09-15
 
 ### 🚀 Feature
+- Debugging Mode: Allow admin to turn on/off Module Log feed (#38)*
 - VLAN ID: Set the required Virtual LAN ID against VM/CT Plan (#35)*
 - Version: Report in-use & latest versions in Health; ver alert (#21)
 - Power Actions: Now available in Admin Area as well as Client Area
