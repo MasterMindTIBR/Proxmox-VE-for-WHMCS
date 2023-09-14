@@ -41,7 +41,7 @@ For now, please use the Manual PDFs as supplementary information, re: ISO files,
 To access VNC via WHMCS Client Area, you need to:
 
 1. Follow the PVE User Requirement below
-2. Public IPv4 for PVE, or proxy to VLAN
+2. Public IPv4 for PVE, or proxy to private subnet
 3. PVE and WHMCS on the same Domain Name*
 4. Have valid PTR/rDNS for the PVE Address
 
