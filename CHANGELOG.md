@@ -11,6 +11,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - (Note: Suspend/Unsuspend/Terminate remain admin-only functions)
 
 ### 💅 Polish
+- Suspend/Unsuspend: Functions changed to Stop/Start (fixes #34)
 - Client Area: Power Action wording amended (Soft Stop, Hard Stop)
 - Admin, Module Config: Explain what the VNC Secret field is about
 - Admin, Module Config: House-keeping to design, Support/Health tab
