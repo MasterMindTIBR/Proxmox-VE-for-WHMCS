@@ -98,6 +98,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.0] - 2017-01-26
 
+Thank you @cybercoder for open-sourcing your code! 
+
 ### 🚀 Feature
 - Open-sourced the previously commercial plugin
 
