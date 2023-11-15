@@ -1,5 +1,11 @@
 # Proxmox VE for WHMCS (Module) Provision & Manage
 
+- Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
+- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
+- Allow clients to view/manage VMs using the WHMCS Client Area
+- Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
+- Statistics/Graphing is available in the Client Area for services :)
+
 Salvation, a free and open-source solution for trusty PVE! If you love it, REVIEW & SHARE IT! ❤️
 
 > **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
@@ -9,12 +15,6 @@ Salvation, a free and open-source solution for trusty PVE! If you love it, REVIE
 We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
 
 PLEASE: Read the entire README.md file before getting started with Proxmox VE for WHMCS. Thanks!
-
-- Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
-- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
-- Allow clients to view/manage VMs using the WHMCS Client Area
-- Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
-- Statistics/Graphing is available in the Client Area for services :)
 
 ## 🎯 MODULE: PVE/WHMCS SYSTEM REQUIREMENTS 🎯
 
