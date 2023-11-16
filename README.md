@@ -36,18 +36,18 @@ Firstly, you need to upload, activate and make the WHMCS Module available to Adm
 
 Once you've done all of that, in order to get the module working properly, you need to:
 
-1. WHMCS Admin > Config > Servers > Add your PVE host/s (user: `root@pam` / `root@pve` etc)
+1. WHMCS Admin > Config > Servers > Add your PVE host/s (user: root; IP: PVE's)
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
 3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > SAVE (links Module Plan to WHMCS Service type)
 
-`Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.`
+> Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.
 
-#### PDF Files (Manual) 5-10 years old
+#### PDF File (Manual) 5-10 years old
 
-- For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc.
+- For now, please use the Manual PDF as supplementary information, re: ISO files, LXC templates, etc.
 - This is out-dated though still helpful contextually - please read the note at the top of README.md.
 
 ## 🥽 noVNC: Console Tunnel (Client Area) 🥽
@@ -64,12 +64,12 @@ After forking the module, we considered how to improve security of Console Tunne
 
 noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 
-- \* Take Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
-- \* Take Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
+- Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
+- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
 
 ## 👥 PVE: User Requirements (API & VNC) 👥
 
-**You must have a root@pam / root@pve account to use the Module at all.** Configured via WHMCS > Servers.
+**You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
 Additionally, to improve security, for VNC you must also have a Restricted User. Configured in the _Module_.
 
@@ -81,7 +81,7 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 4. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
 5. Configure the WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret with 'vnc' password.
 
-`Do NOT set less restrictive permissions. The above is designed for hypervisor security.`
+> Do NOT set less restrictive permissions. The above is designed for hypervisor security.
 
 ## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
 
@@ -145,7 +145,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 
 If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
 
-The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement. _The manual PDF files are due to be updated (these still mention licensing - ignore this)_
+The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement.
 
 We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. FOSS is only possible thanks to dedicated individuals!
 
