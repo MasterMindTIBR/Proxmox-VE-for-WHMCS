@@ -126,7 +126,7 @@ WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows update
 
 You can download the new version and upload it over the top, then run any needed SQL ops.
 
-Please consult the [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
+Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
 
 ## 🖥️ INC: Libraries & Dependencies 🖥️
 
