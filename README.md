@@ -16,7 +16,7 @@ We're pretty much done overhauling the Module to suit our needs at [The Network 
 
 PLEASE: Read the entire README.md file before getting started with Proxmox VE for WHMCS. Thanks!
 
-## 🎯 MODULE: PVE/WHMCS SYSTEM REQUIREMENTS 🎯
+## 🎯 MODULE: PVE/WHMCS System Requirements 🎯
 
 New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID < 100 case.
 
@@ -30,7 +30,7 @@ New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Ser
 
 _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
 
-## ✅ MODULE: INSTALLATION & CONFIGURATION ✅
+## ✅ MODULE: Installation & Configuration ✅
 
 Firstly, you need to upload, activate and make the WHMCS Module available to Administrators.
 
@@ -45,16 +45,16 @@ Once you've done all of that, in order to get the module working properly, you n
 
 `Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.`
 
-#### "MANUAL" PDF FILES (5-10 years old)
+#### PDF Files (Manual) 5-10 years old
 
 - For now, please use the Manual PDFs as supplementary information, re: ISO files, LXC templates, etc.
 - This is out-dated though still helpful contextually - please read the note at the top of README.md.
 
-## 🥽 noVNC: CONSOLE TUNNEL (CLIENT AREA) 🥽
+## 🥽 noVNC: Console Tunnel (Client Area) 🥽
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This requires more work to make it function, however improves security.
 
-#### To offer VNC via WHMCS Client Area:
+#### To offer VNC via WHMCS Client Area
 
 1. Install & configure the module properly
 2. Follow the PVE User Requirement info below
@@ -67,13 +67,13 @@ noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 - \* Take Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
 - \* Take Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
 
-## 👥 PVE: USER REQUIREMENTS (ROOT & VNC) 👥
+## 👥 PVE: User Requirements (API & VNC) 👥
 
 **You must have a root@pam / root@pve account to use the Module at all.** Configured via WHMCS > Servers.
 
 Additionally, to improve security, for VNC you must also have a Restricted User. Configured in the _Module_.
 
-#### Creating the VNC user within PVE:
+#### Creating the VNC user within PVE
 
 1. Create User Group "VNC" via PVE > Datacenter / Permissions / Group
 2. Create new User "vnc" > Datacenter / Permissions / Users - select Group: "VNC", Realm: pve
@@ -83,7 +83,7 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 `Do NOT set less restrictive permissions. The above is designed for hypervisor security.`
 
-## 🤬 ABUSE: ZERO TOLERANCE (ZT) 🤬
+## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
 
 This module has been overhauled and remains functionally-OK but not thoroughly tested nor reviewed.
 
@@ -93,7 +93,7 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 Be grateful & considerate - thank you!
 
-## 🆘 HELP: BEST-EFFORT SUPPORT 🆘
+## 🆘 HELP: Best-effort Support 🆘
 
 Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues), please check:
 
@@ -106,7 +106,7 @@ Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-f
 
 > Help: Including logs, details, steps to reproduce, etc, please raise a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
-#### Info we need in order to help you:
+#### Info we need in order to help you
 
 - (PHP) error_log contents
 - (WHMCS) Module Debug Log contents
@@ -120,7 +120,7 @@ Please note that this is FOSS and Support is not guaranteed.
 
 This module is licensed under the GNU General Public License (GPL) v3.0.
 
-## 🔄 UPDATING: PATCHING THE MODULE 🔄
+## 🔄 UPDATING: Patching the Module 🔄
 
 WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows updates.
 
@@ -128,20 +128,20 @@ You can download the new version and upload it over the top, then run any needed
 
 Please consult the [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
 
-## 🖥️ INC: LIBRARIES & DEPENDENCIES 🖥️
+## 🖥️ INC: Libraries & Dependencies 🖥️
 
 - [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
 - [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
 
-## 📄 DIY: DOCUMENTATION & RESOURCES 📄
+## 📄 DIY: Documentation & Resources 📄
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
 - noVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 
-## 🎉 FOSS: CONTRIBUTIONS & OPEN-SOURCE ❤️
+## 🎉 FOSS: Contributions & Open-source ❤️
 
 If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
 
@@ -149,7 +149,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. FOSS is only possible thanks to dedicated individuals!
 
-#### Links
+#### Links to TNC & Co.
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
 
