@@ -45,11 +45,6 @@ Once you've done all of that, in order to get the module working properly, you n
 
 > Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.
 
-#### PDF File (Manual) 5-10 years old
-
-- For now, please use the Manual PDF as supplementary information, re: ISO files, LXC templates, etc.
-- This is out-dated though still helpful contextually - please read the note at the top of README.md.
-
 ## 🥽 noVNC: Console Tunnel (Client Area) 🥽
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This requires more work to make it function, however improves security.
@@ -83,6 +78,38 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 > Do NOT set less restrictive permissions. The above is designed for hypervisor security.
 
+## ⚙️ VM/CT PLANS: Setting everything up ⚙️
+
+These steps explain the unique requirements per-option.
+
+Custom Fields: Values need to go in Name & Select Options.
+
+> **Unsure?** Consult the zMANUAL-PVE4.pdf _legacy_ manual file.
+
+#### VM Option 1: KVM, using PVE Template VM
+
+Firstly, create the Template in PVE. You need its unique PVE ID.
+
+Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
+
+> Note: `Name` is what's displayed in the WHMCS Client Area.
+
+#### VM Option 2: KVM, WHMCS Plan + PVE ISO
+
+Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
+
+Under the Service, you need to add a Custom Field `ISO` with the full location.
+
+#### CT Option: LXC, using PVE Template File
+
+Firstly, store the Template in PVE. You need its unique File Name.
+
+Use that full file name in the Custom Field `Template`, as in:
+
+`ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+
+Then make a 2nd Custom Field `Password` for the CT's root user.
+
 ## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
 
 This module has been overhauled and remains functionally-OK but not thoroughly tested nor reviewed.
@@ -91,11 +118,11 @@ Your support and assistance is always welcomed per the spirit of FOSS (Free Open
 
 If you cannot accept this, do not download nor use the code. Complaints, nasty reviews, and similar behaviour is against the spirit of FOSS and will not be tolerated. 
 
-Be grateful & considerate - thank you!
+**Be grateful & considerate - thank you!**
 
 ## 🆘 HELP: Best-effort Support 🆘
 
-Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues), please check:
+**Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues), please check:**
 
 1. The [Wiki](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki)
 2. The [README.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/tree/master)
@@ -109,16 +136,18 @@ Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-f
 #### Info we need in order to help you
 
 - (PHP) error_log contents
-- (WHMCS) Module Debug Log contents
+- (Visibility) Screenshots of it
+- (WHMCS) Module Debug Log contents*
 - (Configs) WHMCS/PHP/Module/Proxmox/etc
 - (PVE) Logs from Proxmox Host (pveproxy etc)
+- (Network) Proof WHMCS Server can talk to PVE OK
 - (Reproduction) pvesh/etc variants of failing calls
 
-The more info/context you provide up-front, the better.
+The more info/context you provide up-front, the quicker & easier it's fixed!
 
-Please note that this is FOSS and Support is not guaranteed.
+\* Debug: Make sure you enable Debug Logging in the Module Settings, as needed.
 
-This module is licensed under the GNU General Public License (GPL) v3.0.
+**Please note that this is FOSS and Support is not guaranteed.**
 
 ## 🔄 UPDATING: Patching the Module 🔄
 
@@ -149,10 +178,12 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. FOSS is only possible thanks to dedicated individuals!
 
+_This module is licensed under the GNU General Public License (GPL) v3.0._
+
 #### Links to TNC & Co.
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
 
 **[LEOPARD.host](https://leopard.host)**
 
-> MODULE SUPPORT: via [GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues) only
+> **MODULE SUPPORT:** via [GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues) _only_.
