@@ -49,7 +49,7 @@ Once you've done all of that, in order to get the module working properly, you n
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This requires more work to make it function, however improves security.
 
-#### To offer VNC via WHMCS Client Area
+### To offer VNC via WHMCS Client Area
 
 1. Install & configure the module properly
 2. Follow the PVE User Requirement info below
@@ -68,7 +68,7 @@ noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 
 Additionally, to improve security, for VNC you must also have a Restricted User. Configured in the _Module_.
 
-#### Creating the VNC user within PVE
+### Creating the VNC user within PVE
 
 1. Create User Group "VNC" via PVE > Datacenter / Permissions / Group
 2. Create new User "vnc" > Datacenter / Permissions / Users - select Group: "VNC", Realm: pve
@@ -86,7 +86,7 @@ Custom Fields: Values need to go in Name & Select Options.
 
 > **Unsure?** Consult the zMANUAL-PVE4.pdf _legacy_ manual file.
 
-#### VM Option 1: KVM, using PVE Template VM
+### VM Option 1: KVM, using PVE Template VM
 
 Firstly, create the Template in PVE. You need its unique PVE ID.
 
@@ -94,13 +94,13 @@ Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
 > Note: `Name` is what's displayed in the WHMCS Client Area.
 
-#### VM Option 2: KVM, WHMCS Plan + PVE ISO
+### VM Option 2: KVM, WHMCS Plan + PVE ISO
 
 Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
 Under the Service, you need to add a Custom Field `ISO` with the full location.
 
-#### CT Option: LXC, using PVE Template File
+### CT Option: LXC, using PVE Template File
 
 Firstly, store the Template in PVE. You need its unique File Name.
 
@@ -133,7 +133,7 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 > Help: Including logs, details, steps to reproduce, etc, please raise a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
-#### Info we need in order to help you
+### Info we need in order to help you
 
 - (PHP) error_log contents
 - (Visibility) Screenshots of it
@@ -180,7 +180,7 @@ We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@Waldp
 
 _This module is licensed under the GNU General Public License (GPL) v3.0._
 
-#### Links to TNC & Co.
+### Links to TNC & Co.
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
 
