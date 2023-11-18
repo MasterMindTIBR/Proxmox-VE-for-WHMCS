@@ -178,12 +178,16 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. FOSS is only possible thanks to dedicated individuals!
 
-_This module is licensed under the GNU General Public License (GPL) v3.0._
+## Usage License (GPLv3) & Links to TNC & Co.
 
-### Links to TNC & Co.
+_**This module is licensed under the GNU General Public License (GPL) v3.0.**_
+
+GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
 
 **[LEOPARD.host](https://leopard.host)**
 
-> **MODULE SUPPORT:** via [GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues) _only_.
+### Support: Best-effort via GitHub Issues
+
+Browse issues, raise a new one: **[GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues)**
