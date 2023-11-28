@@ -60,7 +60,7 @@ After forking the module, we considered how to improve security of Console Tunne
 noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 
 - Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
-- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend novnc_router.php - ideally we/someone will optimise this to better cater to all formats.
+- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this to better cater to all formats.
 
 ## 👥 PVE: User Requirements (API & VNC) 👥
 
@@ -127,26 +127,28 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 1. The [Wiki](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki)
 2. The [README.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/tree/master)
 3. Open [GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues)
-4. WHMCS Web Server, PHP, WHMCS & debug logs.
-5. Proxmox VE logs; check best practices.
-6. Also, take screenshots of the issue.
+4. HTTP, PHP, WHMCS & debug logs (see below).
+5. PVE logs; best practices; network; etc.
+6. Read the errors. Do they explain it?
 
 > Help: Including logs, details, steps to reproduce, etc, please raise a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
+>
+> Logs: We work to ensure that Proxmox VE for WHMCS passes through error details to you.
 
 ### Issues/etc raised must include:
 
 #### Logging & Debug Logging
 
-- (Logs: PHP) error_log contents
+- (Logs: PHP) `error_log` contents
 - (Logs: WHMCS) Module Debug Logging*
 - (Logs: Config) WHMCS Display/Log Errors = ON
-- (Logs: PVE) Logs from Proxmox Host (pveproxy etc)
+- (Logs: PVE) Logs from Proxmox Host (`pveproxy` etc)
 
 #### Other Support Requirements
 
 - (Visibility) Screenshots of the issue
 - (Configs) WHMCS/PHP/Module/Proxmox/etc
-- (Reproduction) pvesh/etc variants of failing calls
+- (Reproduction) `pvesh` etc variants of failing calls
 - (Network) Proof WHMCS Server can talk to PVE OK
 - (PEBKAC) _PROOF THAT YOU'VE FOLLOWED THIS README!_
 
