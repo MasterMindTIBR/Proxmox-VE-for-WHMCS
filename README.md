@@ -133,21 +133,30 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 > Help: Including logs, details, steps to reproduce, etc, please raise a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
 
-### Info we need in order to help you
+### Issues/etc raised must include:
 
-- (PHP) error_log contents
-- (Visibility) Screenshots of it
-- (WHMCS) Module Debug Log contents*
+#### Logging & Debug Logging
+
+- (Logs: PHP) error_log contents
+- (Logs: WHMCS) Module Debug Logging*
+- (Logs: Config) WHMCS Display/Log Errors = ON
+- (Logs: PVE) Logs from Proxmox Host (pveproxy etc)
+
+#### Other Support Requirements
+
+- (Visibility) Screenshots of the issue
 - (Configs) WHMCS/PHP/Module/Proxmox/etc
-- (PVE) Logs from Proxmox Host (pveproxy etc)
-- (Network) Proof WHMCS Server can talk to PVE OK
 - (Reproduction) pvesh/etc variants of failing calls
+- (Network) Proof WHMCS Server can talk to PVE OK
+- (PEBKAC) _PROOF THAT YOU'VE FOLLOWED THIS README!_
 
-The more info/context you provide up-front, the quicker & easier it's fixed!
+The more info/context you provide up-front, the quicker & easier it will be!
 
 \* Debug: Make sure you enable Debug Logging in the Module Settings, as needed.
 
-**Please note that this is FOSS and Support is not guaranteed.**
+**Please note that this is FOSS and Support is not guaranteed at all.**
+
+**If you don't read, listen or actively try, no help given.**
 
 ## 🔄 UPDATING: Patching the Module 🔄
 
