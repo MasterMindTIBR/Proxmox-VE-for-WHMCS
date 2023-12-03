@@ -189,7 +189,11 @@ If you'd like to contribute to the Module, please open a [PR](https://github.com
 
 The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement.
 
-We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. FOSS is only possible thanks to dedicated individuals!
+We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. 
+
+Thank you to [psyborg®](https://www.psyborg.com.au/graphic-design-services-newcastle/logo-design/) for the module's logo design! 
+
+FOSS is only possible thanks to dedicated individuals!
 
 ## Usage License (GPLv3) & Links to TNC & Co.
 
