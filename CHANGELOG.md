@@ -4,7 +4,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ## [1.2.3] - TBC
 
 ### 🚀 Feature
-- x86-64-ABI: Add options; Emulation default now x86-64-v2-AES
+- x86-64-ABI: Add options; Emulation default now `x86-64-v2-AES`
 
 ### 💅 Polish
 - README.md: Add VM/CT creation explanations from old manual

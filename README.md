@@ -123,13 +123,13 @@ Please make sure you create an IP Pool with sufficient scope/size to be able to 
 
 ### IPv6: Not yet functional! 😐
 
-Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is not yet functional IPv6 in this module. You can of course add this via PVE/pvesh manually, however it isn't module-supported as of late 2023.
+Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is not yet functional IPv6 in this module. 
+
+You can of course add this via PVE/`pvesh` manually, however it isn't module-supported as of late 2023.
 
 ## 💅 FEATURES: PVE v8.0/8.1 bling 💅
 
 There are new features deployed into Proxmox VE upstream in the v8 branch which are exciting and should be added to this module.
-
-Reference: https://pve.proxmox.com/wiki/Roadmap
 
 ### Proxmox v8.0
 
@@ -142,6 +142,8 @@ Reference: https://pve.proxmox.com/wiki/Roadmap
 2. Software Defined Networking (SDN).
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
+
+Reference: https://pve.proxmox.com/wiki/Roadmap
 
 ## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
 
