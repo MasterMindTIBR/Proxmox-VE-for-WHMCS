@@ -1,6 +1,19 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.2.3] - TBC
+
+### 🚀 Feature
+- x86-64-ABI: Add options; Emulation default now x86-64-v2-AES
+
+### 💅 Polish
+- README.md: Add VM/CT creation explanations from old manual
+- Manual PDFs: Remove pointless one, archive good one, merge in
+- Logo: Per request from Proxmox Server Solutions, we got a logo :)
+
+### 🐛 Bug Fix
+- PHP v8.0/8.1: Verified no problems operating on the v8 branch
+
 ## [1.2.2] - 2023-09-15
 
 ### 🚀 Feature
