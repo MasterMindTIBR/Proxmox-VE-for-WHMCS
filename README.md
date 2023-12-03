@@ -18,7 +18,7 @@ We're pretty much done overhauling the Module to suit our needs at [The Network 
 
 PLEASE: Read the entire README.md file before getting started with Proxmox VE for WHMCS. Thanks!
 
-## 🎯 MODULE: PVE/WHMCS System Requirements 🎯
+## 🎯 MODULE: System Requirements (PVE/WHMCS) 🎯
 
 New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID < 100 case.
 
@@ -34,16 +34,19 @@ _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id),
 
 ## ✅ MODULE: Installation & Configuration ✅
 
+**DON'T SKIP ANY PART OF THIS README.md - please don't raise pointless Issues - thank you!**
+
 Firstly, you need to upload, activate and make the WHMCS Module available to Administrators.
 
 Once you've done all of that, in order to get the module working properly, you need to:
 
+0. Proxmox VE > Create an additional VNC-only user, per instructions below
 1. WHMCS Admin > Config > Servers > Add your PVE host/s (user: root; IP: PVE's)
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
 3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
-6. " " > Newly-added Service > Tab 3 > SAVE (links Module Plan to WHMCS Service type)
+6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 
 > Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.
 
@@ -111,6 +114,34 @@ Use that full file name in the Custom Field `Template`, as in:
 `ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
+
+## 🌐 IPv4/v6: Networking (IP Pools) 🌐
+
+Please make sure you create an IP Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
+
+**Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
+
+### IPv6: Not yet functional! :(
+
+Per Issue #33, there is not yet functional IPv6 in this module. You can of course add this via PVE/pvesh manually, however it isn't module-supported as of late 2023.
+
+## 💅 FEATURES: PVE v8.0/8.1 bling 💅
+
+There are new features deployed into Proxmox VE upstream in the v8 branch which are exciting and should be added to this module.
+
+Reference: https://pve.proxmox.com/wiki/Roadmap
+
+### Proxmox v8.0
+
+1. Create, manage and assign resource mappings for PCI and USB devices for use in virtual machines (VMs) via API and web UI. 
+2. (DONE) Add virtual machine CPU models based on the x86-64 psABI Micro-Architecture Levels and use the widely supported x86-64-v2-AES as default for new VMs created via the web UI. 
+
+### Proxmox v8.1
+
+1. Secure Boot support.
+2. Software Defined Networking (SDN).
+3. New flexible notification system (SMTP & Gotify).
+4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
 ## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
 
@@ -182,6 +213,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
 - noVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
+- x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
 
 ## 🎉 FOSS: Contributions & Open-source ❤️
 
@@ -191,7 +223,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. 
 
-Thank you to [psyborg®](https://www.psyborg.com.au/graphic-design-services-newcastle/logo-design/) for the module's logo design! 
+Thank you to [psyborg®](https://www.psyborg.com.au/graphic-design-services-newcastle/logo-design/) for the module's logo design! We love it.
 
 FOSS is only possible thanks to dedicated individuals!
 

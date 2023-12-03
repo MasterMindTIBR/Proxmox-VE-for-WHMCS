@@ -427,10 +427,14 @@ function kvm_plan_add() {
 	<select class="form-control select-inline" name="cpuemu">
 	<option value="host">(Host) Host</option>
 	<option value="kvm32">(QEMU) kvm32</option>
-	<option value="kvm64" selected="">(QEMU) kvm64</option>
+	<option value="kvm64">(QEMU) kvm64</option>
 	<option value="max">(QEMU) Max</option>
 	<option value="qemu32">(QEMU) qemu32</option>
 	<option value="qemu64">(QEMU) qemu64</option>
+	<option value="x86-64-v2">(x86-64-ABI) v2 Nehalem/Opteron_G3</option>
+	<option value="x86-64-v2-AES" selected="">(x86-64-ABI) v2-AES Westmere/Opteron_G4</option>
+	<option value="x86-64-v3">(x86-64-ABI) v3 Broadwell/EPYC</option>
+	<option value="x86-64-v4">(x86-64-ABI) v4 Skylake/EPYCv4</option>
 	<option value="486">(Intel) 486</option>
 	<option value="Broadwell">(Intel) Broadwell</option>
 	<option value="Broadwell-IBRS">(Intel) Broadwell-IBRS</option>
@@ -710,6 +714,10 @@ function kvm_plan_edit($id) {
 	<option value="max" ' . ($plan->cpuemu == "max" ? "selected" : "") . '>(QEMU) Max</option>
 	<option value="qemu32" ' . ($plan->cpuemu == "qemu32" ? "selected" : "") . '>(QEMU) qemu32</option>
 	<option value="qemu64" ' . ($plan->cpuemu == "qemu64" ? "selected" : "") . '>(QEMU) qemu64</option>
+	<option value="x86-64-v2" ' . ($plan->cpuemu == "x86-64-v2" ? "selected" : "") . '>(x86-64-ABI) v2 Nehalem/Opteron_G3</option>
+	<option value="x86-64-v2-AES" ' . ($plan->cpuemu == "x86-64-v2-AES" ? "selected" : "") . '>(x86-64-ABI) v2-AES Westmere/Opteron_G4</option>
+	<option value="x86-64-v3" ' . ($plan->cpuemu == "x86-64-v3" ? "selected" : "") . '>(x86-64-ABI) v3 Broadwell/EPYC</option>
+	<option value="x86-64-v4" ' . ($plan->cpuemu == "x86-64-v4" ? "selected" : "") . '>(x86-64-ABI) v4 Skylake/EPYCv4</option>
 	<option value="486" ' . ($plan->cpuemu == "486" ? "selected" : "") . '>(Intel) 486</option>
 	<option value="Broadwell" ' . ($plan->cpuemu == "Broadwell" ? "selected" : "") . '>(Intel) Broadwell</option>
 	<option value="Broadwell-IBRS" ' . ($plan->cpuemu == "Broadwell-IBRS" ? "selected" : "") . '>(Intel) Broadwell-IBRS</option>
