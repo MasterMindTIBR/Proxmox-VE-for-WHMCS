@@ -1,7 +1,7 @@
 <?php
 // FILE: /modules/servers/pvewhmcs/pvewhmcs.php
 // TASK: Handles the server interactions with PVE
-// NEED: The PHP API Class to interact w/ Proxmox VE
+// NEED: The PHP API Class to interact w/ Proxmox VE API
 // REPO: GitHub.com/The-Network-Crew/Proxmox-VE-for-WHMCS
 
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
@@ -112,6 +112,7 @@ function pvewhmcs_CreateAccount($params) {
 					['vm_settings' => $vm_settings, 'v' => $v]
 				);
 			}
+			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			if ($response) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
@@ -125,6 +126,15 @@ function pvewhmcs_CreateAccount($params) {
 						'created' => date("Y-m-d H:i:s"),
 					]
 				);
+				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
+				$cloned_tweaks['memory'] = $plan->memory;
+				$cloned_tweaks['ostype'] = $plan->ostype;
+				$cloned_tweaks['sockets'] = $plan->cpus;
+				$cloned_tweaks['cores'] = $plan->cores;
+				$cloned_tweaks['cpu'] = $plan->cpuemu;
+				$cloned_tweaks['kvm'] = $plan->kvm;
+				$cloned_tweaks['onboot'] = $plan->onboot;
+				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config'. $cloned_tweaks);
 				return true;
 			} else {
 				if (is_array($response) && isset($response['data']['errors'])) {
@@ -139,7 +149,7 @@ function pvewhmcs_CreateAccount($params) {
 		} else {
 			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 		}
-        // CREATE IF LXC/CONTAINER
+    // PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES
 	} else {
 		$vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
@@ -195,6 +205,7 @@ function pvewhmcs_CreateAccount($params) {
 		$vm_settings['cpulimit'] = $plan->cpulimit;
 		$vm_settings['memory'] = $plan->memory;
 
+		// CREATION: Attempt to create the QEMU/LXC instance on Proxmox VE via API
 		try {
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
@@ -219,6 +230,7 @@ function pvewhmcs_CreateAccount($params) {
 						['vm_settings' => $vm_settings, 'v' => $v]
 					);
 				}
+				// ACTION - Fire the attempt to create
 				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
 				if ($response) {
 					unset($vm_settings);

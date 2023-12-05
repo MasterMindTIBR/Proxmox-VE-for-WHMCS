@@ -1,6 +1,15 @@
 <?php
+// FILE: /modules/addons/pvewhmcs/pvewhmcs.php
+// TASK: Handles the Admin and Client Area GUIs etc
+// NEED: The PHP API Class to interact w/ Proxmox VE API
+// REPO: GitHub.com/The-Network-Crew/Proxmox-VE-for-WHMCS
+
+// Pull in the WHMCS database handler Capsule for SQL
 use Illuminate\Database\Capsule\Manager as Capsule;
+
+// Define where the module operates in the Admin GUI
 define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
+
 // Require the PHP API Class to interact with Proxmox VE
 require_once('proxmox.php');
 
@@ -21,7 +30,8 @@ function pvewhmcs_version(){
     return "1.2.2";
 }
 
-// WHMCS MODULE: ACTIVATION
+// WHMCS MODULE: ACTIVATION of the ADDON MODULE
+// This consists of importing the SQL structure, and then crudely returning yay or nay (needs improving)
 function pvewhmcs_activate() {
 	// Pull in the SQL structure (includes VNC/etc tweaks)
 	$sql = file_get_contents(ROOTDIR.'/modules/addons/pvewhmcs/db.sql');
@@ -442,7 +452,12 @@ function kvm_plan_add() {
 	<option value="Broadwell-noTSX-IBRS">(Intel) Broadwell-noTSX-IBRS</option>
 	<option value="Cascadelake-Server">(Intel) Cascadelake-Server</option>
 	<option value="Cascadelake-Server-noTSX">(Intel) Cascadelake-Server-noTSX</option>
+	<option value="Cascadelake-Server-v2">(Intel) Cascadelake-Server-v2</option>
+	<option value="Cascadelake-Server-v4">(Intel) Cascadelake-Server-v4</option>
+	<option value="Cascadelake-Server-v5">(Intel) Cascadelake-Server-v5</option>
 	<option value="Conroe">(Intel) Conroe</option>
+	<option value="Cooperlake">(Intel) Cooperlake</option>
+	<option value="Cooperlake-v2">(Intel) Cooperlake-v2</option>
 	<option value="Haswell">(Intel) Haswell</option>
 	<option value="Haswell-IBRS">(Intel) Haswell-IBRS</option>
 	<option value="Haswell-noTSX">(Intel) Haswell-noTSX</option>
@@ -451,6 +466,10 @@ function kvm_plan_add() {
 	<option value="Icelake-Client-noTSX">(Intel) Icelake-Client-noTSX</option>
 	<option value="Icelake-Server">(Intel) Icelake-Server</option>
 	<option value="Icelake-Server-noTSX">(Intel) Icelake-Server-noTSX</option>
+	<option value="Icelake-Server-v3">(Intel) Icelake-Server-v3</option>
+	<option value="Icelake-Server-v4">(Intel) Icelake-Server-v4</option>
+	<option value="Icelake-Server-v5">(Intel) Icelake-Server-v5</option>
+	<option value="Icelake-Server-v6">(Intel) Icelake-Server-v6</option>
 	<option value="IvyBridge">(Intel) IvyBridge</option>
 	<option value="IvyBridge-IBRS">(Intel) IvyBridge-IBRS</option>
 	<option value="KnightsMill">(Intel) KnightsMill</option>
@@ -459,12 +478,16 @@ function kvm_plan_add() {
 	<option value="Penryn">(Intel) Penryn</option>
 	<option value="SandyBridge">(Intel) SandyBridge</option>
 	<option value="SandyBridge-IBRS">(Intel) SandyBridge-IBRS</option>
+	<option value="SapphireRapids">(Intel) SapphireRapids</option>
 	<option value="Skylake-Client">(Intel) Skylake-Client</option>
 	<option value="Skylake-Client-IBRS">(Intel) Skylake-Client-IBRS</option>
 	<option value="Skylake-Client-noTSX-IBRS">(Intel) Skylake-Client-noTSX-IBRS</option>
+	<option value="Skylake-Client-v4">(Intel) Skylake-Client-v4</option>
 	<option value="Skylake-Server">(Intel) Skylake-Server</option>
 	<option value="Skylake-Server-IBRS">(Intel) Skylake-Server-IBRS</option>
 	<option value="Skylake-Server-noTSX-IBRS">(Intel) Skylake-Server-noTSX-IBRS</option>
+	<option value="Skylake-Server-v4">(Intel) Skylake-Server-v4</option>
+	<option value="Skylake-Server-v5">(Intel) Skylake-Server-v5</option>
 	<option value="Westmere">(Intel) Westmere</option>
 	<option value="Westmere-IBRS">(Intel) Westmere-IBRS</option>
 	<option value="pentium">(Intel) Pentium I</option>
@@ -478,13 +501,15 @@ function kvm_plan_add() {
 	<option value="EPYC-IBPB">(AMD) EPYC-IBPB</option>
 	<option value="EPYC-Milan">(AMD) EPYC-Milan</option>
 	<option value="EPYC-Rome">(AMD) EPYC-Rome</option>
+	<option value="EPYC-Rome-v2">(AMD) EPYC-Rome-v2</option>
+	<option value="EPYC-v3">(AMD) EPYC-v3</option>
 	<option value="Opteron_G1">(AMD) Opteron_G1</option>
 	<option value="Opteron_G2">(AMD) Opteron_G2</option>
 	<option value="Opteron_G3">(AMD) Opteron_G3</option>
 	<option value="Opteron_G4">(AMD) Opteron_G4</option>
 	<option value="Opteron_G5">(AMD) Opteron_G5</option>
 	</select>
-	CPU emulation type. Default is KVM64
+	CPU emulation type. Default is x86-64 psABI v2-AES
 	</td>
 	</tr>
 
@@ -725,7 +750,12 @@ function kvm_plan_edit($id) {
 	<option value="Broadwell-noTSX-IBRS" ' . ($plan->cpuemu == "Broadwell-noTSX-IBRS" ? "selected" : "") . '>(Intel) Broadwell-noTSX-IBRS</option>
 	<option value="Cascadelake-Server" ' . ($plan->cpuemu == "Cascadelake-Server" ? "selected" : "") . '>(Intel) Cascadelake-Server</option>
 	<option value="Cascadelake-Server-noTSX" ' . ($plan->cpuemu == "Cascadelake-Server-noTSX" ? "selected" : "") . '>(Intel) Cascadelake-Server-noTSX</option>
+	<option value="Cascadelake-Server-v2" ' . ($plan->cpuemu == "Cascadelake-Server-v2" ? "selected" : "") . '>(Intel) Cascadelake-Server V2</option>
+	<option value="Cascadelake-Server-v4" ' . ($plan->cpuemu == "Cascadelake-Server-v4" ? "selected" : "") . '>(Intel) Cascadelake-Server V4</option>
+	<option value="Cascadelake-Server-v5" ' . ($plan->cpuemu == "Cascadelake-Server-v5" ? "selected" : "") . '>(Intel) Cascadelake-Server V5</option>
 	<option value="Conroe" ' . ($plan->cpuemu == "Conroe" ? "selected" : "") . '>(Intel) Conroe</option>
+	<option value="Cooperlake" ' . ($plan->cpuemu == "Cooperlake" ? "selected" : "") . '>(Intel) Cooperlake</option>
+	<option value="Cooperlake-v2" ' . ($plan->cpuemu == "Cooperlake-v2" ? "selected" : "") . '>(Intel) Cooperlake V2</option>
 	<option value="Haswell" ' . ($plan->cpuemu == "Haswell" ? "selected" : "") . '>(Intel) Haswell</option>
 	<option value="Haswell-IBRS" ' . ($plan->cpuemu == "Haswell-IBRS" ? "selected" : "") . '>(Intel) Haswell-IBRS</option>
 	<option value="Haswell-noTSX" ' . ($plan->cpuemu == "Haswell-noTSX" ? "selected" : "") . '>(Intel) Haswell-noTSX</option>
@@ -734,6 +764,10 @@ function kvm_plan_edit($id) {
 	<option value="Icelake-Client-noTSX" ' . ($plan->cpuemu == "Icelake-Client-noTSX" ? "selected" : "") . '>(Intel) Icelake-Client-noTSX</option>
 	<option value="Icelake-Server" ' . ($plan->cpuemu == "Icelake-Server" ? "selected" : "") . '>(Intel) Icelake-Server</option>
 	<option value="Icelake-Server-noTSX" ' . ($plan->cpuemu == "Icelake-Server-noTSX" ? "selected" : "") . '>(Intel) Icelake-Server-noTSX</option>
+	<option value="Icelake-Server-v3" ' . ($plan->cpuemu == "Icelake-Server-v3" ? "selected" : "") . '>(Intel) Icelake-Server V3</option>
+	<option value="Icelake-Server-v4" ' . ($plan->cpuemu == "Icelake-Server-v4" ? "selected" : "") . '>(Intel) Icelake-Server V4</option>
+	<option value="Icelake-Server-v5" ' . ($plan->cpuemu == "Icelake-Server-v5" ? "selected" : "") . '>(Intel) Icelake-Server V5</option>
+	<option value="Icelake-Server-v6" ' . ($plan->cpuemu == "Icelake-Server-v6" ? "selected" : "") . '>(Intel) Icelake-Server V6</option>
 	<option value="IvyBridge" ' . ($plan->cpuemu == "IvyBridge" ? "selected" : "") . '>(Intel) IvyBridge</option>
 	<option value="IvyBridge-IBRS" ' . ($plan->cpuemu == "IvyBridge-IBRS" ? "selected" : "") . '>(Intel) IvyBridge-IBRS</option>
 	<option value="KnightsMill" ' . ($plan->cpuemu == "KnightsMill" ? "selected" : "") . '>(Intel) KnightsMill</option>
@@ -742,12 +776,16 @@ function kvm_plan_edit($id) {
 	<option value="Penryn" ' . ($plan->cpuemu == "Penryn" ? "selected" : "") . '>(Intel) Penryn</option>
 	<option value="SandyBridge" ' . ($plan->cpuemu == "SandyBridge" ? "selected" : "") . '>(Intel) SandyBridge</option>
 	<option value="SandyBridge-IBRS" ' . ($plan->cpuemu == "SandyBridge-IBRS" ? "selected" : "") . '>(Intel) SandyBridge-IBRS</option>
+	<option value="SapphireRapids" ' . ($plan->cpuemu == "SapphireRapids" ? "selected" : "") . '>(Intel) Sapphire Rapids</option>
 	<option value="Skylake-Client" ' . ($plan->cpuemu == "Skylake-Client" ? "selected" : "") . '>(Intel) Skylake-Client</option>
 	<option value="Skylake-Client-IBRS" ' . ($plan->cpuemu == "Skylake-Client-IBRS" ? "selected" : "") . '>(Intel) Skylake-Client-IBRS</option>
 	<option value="Skylake-Client-noTSX-IBRS" ' . ($plan->cpuemu == "Skylake-Client-noTSX-IBRS" ? "selected" : "") . '>(Intel) Skylake-Client-noTSX-IBRS</option>
+	<option value="Skylake-Client-v4" ' . ($plan->cpuemu == "Skylake-Client-v4" ? "selected" : "") . '>(Intel) Skylake-Client V4</option>
 	<option value="Skylake-Server" ' . ($plan->cpuemu == "Skylake-Server" ? "selected" : "") . '>(Intel) Skylake-Server</option>
 	<option value="Skylake-Server-IBRS" ' . ($plan->cpuemu == "Skylake-Server-IBRS" ? "selected" : "") . '>(Intel) Skylake-Server-IBRS</option>
 	<option value="Skylake-Server-noTSX-IBRS" ' . ($plan->cpuemu == "Skylake-Server-noTSX-IBRS" ? "selected" : "") . '>(Intel) Skylake-Server-noTSX-IBRS</option>
+	<option value="Skylake-Server-v4" ' . ($plan->cpuemu == "Skylake-Server-v4" ? "selected" : "") . '>(Intel) Skylake-Server V4</option>
+	<option value="Skylake-Server-v5" ' . ($plan->cpuemu == "Skylake-Server-v5" ? "selected" : "") . '>(Intel) Skylake-Server V5</option>
 	<option value="Westmere" ' . ($plan->cpuemu == "Westmere" ? "selected" : "") . '>(Intel) Westmere</option>
 	<option value="Westmere-IBRS" ' . ($plan->cpuemu == "Westmere-IBRS" ? "selected" : "") . '>(Intel) Westmere-IBRS</option>
 	<option value="pentium" ' . ($plan->cpuemu == "pentium" ? "selected" : "") . '>(Intel) Pentium I</option>
@@ -761,13 +799,15 @@ function kvm_plan_edit($id) {
 	<option value="EPYC-IBPB" ' . ($plan->cpuemu == "EPYC-IBPB" ? "selected" : "") . '>(AMD) EPYC-IBPB</option>
 	<option value="EPYC-Milan" ' . ($plan->cpuemu == "EPYC-Milan" ? "selected" : "") . '>(AMD) EPYC-Milan</option>
 	<option value="EPYC-Rome" ' . ($plan->cpuemu == "EPYC-Rome" ? "selected" : "") . '>(AMD) EPYC-Rome</option>
+	<option value="EPYC-Rome-v2" ' . ($plan->cpuemu == "EPYC-Rome-v2" ? "selected" : "") . '>(AMD) EPYC-Rome-v2</option>
+	<option value="EPYC-v3" ' . ($plan->cpuemu == "EPYC-v3" ? "selected" : "") . '>(AMD) EPYC-v3</option>
 	<option value="Opteron_G1" ' . ($plan->cpuemu == "Opteron_G1" ? "selected" : "") . '>(AMD) Opteron_G1</option>
 	<option value="Opteron_G2" ' . ($plan->cpuemu == "Opteron_G2" ? "selected" : "") . '>(AMD) Opteron_G2</option>
 	<option value="Opteron_G3" ' . ($plan->cpuemu == "Opteron_G3" ? "selected" : "") . '>(AMD) Opteron_G3</option>
 	<option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
 	<option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 	</select>
-	CPU emulation type. Default is KVM64
+	CPU emulation type. Default is x86-64 psABI v2-AES
 	</td>
 	</tr>
 

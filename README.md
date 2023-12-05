@@ -2,13 +2,13 @@
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! ❤️
 
-<img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
-
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
+
+<img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
 
 > **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 > 
@@ -47,8 +47,6 @@ Once you've done all of that, in order to get the module working properly, you n
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IP Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
-
-> Note: At the moment, the new Connection Test in WHMCS shows an empty red box. Try an action to test.
 
 ## 🥽 noVNC: Console Tunnel (Client Area) 🥽
 
@@ -212,9 +210,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 ## 📄 DIY: Documentation & Resources 📄
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
-- SPICE: https://gitlab.freedesktop.org/spice/spice-html5
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
-- Xterm.js: https://github.com/xtermjs/xterm.js/
 - noVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 - x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
