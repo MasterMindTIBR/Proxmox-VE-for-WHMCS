@@ -266,8 +266,7 @@ function pvewhmcs_CreateAccount($params) {
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
-    $success = false; // Initialize success as false
-    $errorMsg = '';   // Initialize errorMsg as an empty string
+    $success = true; // Assume success by default
 
     try {
         // Call the service's connection test function.
@@ -276,8 +275,8 @@ function pvewhmcs_TestConnection(array $params) {
         $serverpassword = $params["serverpassword"];
         $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
-        if ($proxmox->login()) {
-            $success = true; // Set success to true only if login is successful
+        if (!$proxmox->login()) {
+            $success = false; // Set success to false if login fails
         }
     } catch (Exception $e) {
         // Record the error in WHMCS's module log, if debug mode is enabled.
@@ -290,17 +289,10 @@ function pvewhmcs_TestConnection(array $params) {
                 $e->getTraceAsString()
             );
         }
-        $errorMsg = $e->getMessage(); // Set the error message from the exception
+        $success = $e->getMessage(); // Set the error message as the success value
     }
 
-    // Prepare the return array
-    $returnArray = array('success' => $success);
-    if (!$success) {
-        $returnArray['error'] = $errorMsg; // Include error message only if success is false
-    }
-
-    // Return success boolean, and error is not successful
-    return $returnArray;
+    return array('success' => $success); // Return either true or the error
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
