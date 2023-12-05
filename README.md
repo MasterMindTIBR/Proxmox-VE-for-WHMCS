@@ -212,7 +212,9 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 ## 📄 DIY: Documentation & Resources 📄
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
+- SPICE: https://gitlab.freedesktop.org/spice/spice-html5
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
+- Xterm.js: https://github.com/xtermjs/xterm.js/
 - noVNC: https://github.com/novnc/noVNC/wiki
 - WHMCS: https://developers.whmcs.com/
 - x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
