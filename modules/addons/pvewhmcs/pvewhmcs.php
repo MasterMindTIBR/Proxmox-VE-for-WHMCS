@@ -315,7 +315,7 @@ function pvewhmcs_output($vars) {
 	// NODES / CLUSTER tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 	echo ('<strong><h2>PVE: /cluster/resources</h2></strong>');
-	echo ('Coming in v1.2.3');
+	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>PVE: Cluster Action Viewer</h2></strong>');
 	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>PVE: Failed Actions (emailed)</h2></strong>');
@@ -325,9 +325,9 @@ function pvewhmcs_output($vars) {
 	// ACTIONS / LOGS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
 	echo ('<strong><h2>Module: Action History</h2></strong>');
-	echo ('Coming in v1.2.3');
+	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming in v1.2.3');
+	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
 	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u> (Module Config > Debug Mode = ON)<br><br>');
 	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');

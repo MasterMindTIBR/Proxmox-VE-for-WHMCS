@@ -2,21 +2,23 @@
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! ❤️
 
+<img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
+
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
 
-<img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
+## ❤️ RTFM: Read the Manual & Review the Module! ❤️
+
+**Please read the entire README.md file before getting started with Proxmox VE for WHMCS.** Thanks!
+
+We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
 
 > **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
 > 
 > If you want it to remain free and fabulous, it could use a moment of your time in reviewing it. Thanks!
-
-We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
-
-PLEASE: Read the entire README.md file before getting started with Proxmox VE for WHMCS. Thanks!
 
 ## 🎯 MODULE: System Requirements (PVE/WHMCS) 🎯
 
@@ -206,6 +208,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 - [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
 - [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
+- [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
 
 ## 📄 DIY: Documentation & Resources 📄
 

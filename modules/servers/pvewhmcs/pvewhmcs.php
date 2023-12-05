@@ -103,17 +103,18 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['newid'] = $params["serviceid"];
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
+			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
+			$logrequest = '/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
+			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			// DEBUG - Log the request parameters before it's fired
 			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 				logModuleCall(
 					'pvewhmcs',
 					__FUNCTION__,
-					'vm_settings_and_v_1',
-					['vm_settings' => $vm_settings, 'v' => $v]
+					$logrequest,
+					json_decode($response)
 				);
 			}
-			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
-			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 			if ($response) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
 					[
@@ -221,17 +222,18 @@ function pvewhmcs_CreateAccount($params) {
 					$v = 'lxc';
 				}
 
-				// DEBUG - Log the request parameters before it's fired
+				// ACTION - Fire the attempt to create
+				$logrequest = '/nodes/' . $first_node . '/' . $v . $vm_settings;
+				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
+				// DEBUG - Log the request parameters after it's fired
 				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 					logModuleCall(
 						'pvewhmcs',
 						__FUNCTION__,
-						'vm_settings_and_v_2',
-						['vm_settings' => $vm_settings, 'v' => $v]
+						$logrequest,
+						json_decode($response)
 					);
 				}
-				// ACTION - Fire the attempt to create
-				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
 				if ($response) {
 					unset($vm_settings);
 					Capsule::table('mod_pvewhmcs_vms')->insert(
@@ -266,8 +268,7 @@ function pvewhmcs_CreateAccount($params) {
 					'pvewhmcs',
 					__FUNCTION__,
 					$params,
-					$e->getMessage(),
-					$e->getTraceAsString()
+					$e->getMessage() . $e->getTraceAsString()
 				);
 			}
 			return $e->getMessage();
@@ -297,8 +298,7 @@ function pvewhmcs_TestConnection(array $params) {
                 'pvewhmcs',
                 __FUNCTION__,
                 $params,
-                $e->getMessage(),
-                $e->getTraceAsString()
+                $e->getMessage() . $e->getTraceAsString()
             );
         }
         $success = $e->getMessage(); // Set the error message as the success value
@@ -321,11 +321,26 @@ function pvewhmcs_SuspendAccount(array $params) {
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
@@ -342,11 +357,26 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start');
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
@@ -819,6 +849,41 @@ function pvewhmcs_noVNC($params) {
 	}
 }
 
+// VNC: Console access to VM/CT via SPICE
+function pvewhmcs_SPICE($params) {
+	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
+	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
+		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	}
+	// Get login credentials then make the Proxmox connection attempt.
+	$serverip = $params["serverip"];
+	$serverusername = 'vnc';
+	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	if ($proxmox->login()) {
+		# Get first node name.
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
+
+		// Get both tickets prepared
+		$pveticket = $proxmox->getTicket();
+		$vncticket = $vm_vncproxy['ticket'];
+		// $path should only contain the actual path without any query parameters
+		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		// Construct the SPICE Router URL with the path already prepared now
+		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		// Build and deliver the SPICE Router hyperlink for access
+		$vncreply='<center><strong>Console (SPICE) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		return $vncreply;
+	} else {
+		$vncreply='Failed to prepare SPICE. Please contact Technical Support.';
+		return $vncreply;
+	}
+}
+
 // VNC: Console access to VM/CT via TigerVNC
 function pvewhmcs_javaVNC($params){
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
@@ -879,11 +944,26 @@ function pvewhmcs_vmStart($params) {
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
@@ -908,12 +988,26 @@ function pvewhmcs_vmReboot($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam);
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
@@ -938,12 +1032,26 @@ function pvewhmcs_vmShutdown($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown' , $pve_cmdparam);
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
@@ -968,12 +1076,26 @@ function pvewhmcs_vmStop($params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-
-		if ($proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam))
-			return "success" ;
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['data']['errors'])) {
+	    return "success";
+	} else {
+	    // Handle the case where there are errors
+	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    return "Error performing action. " . $response_message;
+	}
 }
 
 // NETWORKING FUNCTION: Convert subnet mask to CIDR

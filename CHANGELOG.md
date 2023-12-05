@@ -1,18 +1,25 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.3] - TBC
+## [1.2.3] - TBC 2023-12-xx
 
 ### 🚀 Feature
 - x86-64-ABI: Add options; Emulation default now `x86-64-v2-AES`
+- Intel/AMD: Add new CPU Emulation options (8~ Intel, 2x EPYC)
+- Templated VMs: Post-creation, will now amend to Plan (#32)
 
 ### 💅 Polish
+- Debug Logs: Improved quality & scope of logged info
+- SECURITY.md: Add file to repository, clarifying process
 - README.md: Add VM/CT creation explanations from old manual
 - Manual PDFs: Remove pointless one, archive good one, merge in
 - Logo: Per request from Proxmox Server Solutions, we got a logo :)
+- SPICE: Ground-work for future potential addition of 2nd HTML5 VNC
 
 ### 🐛 Bug Fix
-- PHP v8.0/8.1: Verified no problems operating on the v8 branch
+- PHP v8.1: Verified no problems operating on v8 old-stable ver.
+- Connection Test: Fixed, so it reports OK/Green or an error (#29)
+- Admin, Edit Service: Should now populate existing config OK (#36)
 
 ## [1.2.2] - 2023-09-15
 
