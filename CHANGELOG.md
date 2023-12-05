@@ -4,16 +4,15 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ## [1.2.3] - TBC 2023-12-xx
 
 ### 🚀 Feature
-- x86-64-ABI: Add options; Emulation default now `x86-64-v2-AES`
-- Intel/AMD: Add new CPU Emulation options (8~ Intel, 2x EPYC)
+- x86-64-ABI: Add options; Emulation default now `x86-64-v2-AES` (#58)
+- Intel/AMD: Add new CPU Emulation options (8~ Intel, 2x EPYC) (#58)
 - Templated VMs: Post-creation, will now amend to Plan (#32)
 
 ### 💅 Polish
-- Debug Logs: Improved quality & scope of logged info
-- SECURITY.md: Add file to repository, clarifying process
-- README.md: Add VM/CT creation explanations from old manual
-- Manual PDFs: Remove pointless one, archive good one, merge in
-- Logo: Per request from Proxmox Server Solutions, we got a logo :)
+- Debug Logs: Improved quality & scope of logged info (#59)
+- SECURITY.md: Add file to repository, clarifying process (#61)
+- README.md: Add VM/CT creation explanations from old manual (#57)
+- Logo: Per request from Proxmox Server Solutions, we got a logo (#56)
 - SPICE: Ground-work for future potential addition of 2nd HTML5 VNC
 
 ### 🐛 Bug Fix
