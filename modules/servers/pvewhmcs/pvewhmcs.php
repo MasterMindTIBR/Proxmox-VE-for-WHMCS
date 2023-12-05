@@ -1,5 +1,9 @@
 <?php
-// Require the PHP API Class to interact with Proxmox VE
+// FILE: /modules/servers/pvewhmcs/pvewhmcs.php
+// TASK: Handles the server interactions with PVE
+// NEED: The PHP API Class to interact w/ Proxmox VE
+// REPO: GitHub.com/The-Network-Crew/Proxmox-VE-for-WHMCS
+
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
 	require_once('../modules/addons/pvewhmcs/proxmox.php');
 else
@@ -11,16 +15,15 @@ global $guest ;
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
-	// Reterive PVE for WHMCS Cluster
-	$server=Capsule::table('tblservers')->where('type', '=', 'pve-whmcs')->get()[0] ;
+	// Retrieve PVE for WHMCS Cluster
+	$server=Capsule::table('tblservers')->where('type', '=', 'pvewhmcs')->get()[0] ;
 
-
-	// Reterive Plans
+	// Retrieve Plans
 	foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $plan) {
 		$plans[$plan->id]=$plan->vmtype.'&nbsp;:&nbsp;'.$plan->title ;
 	}
 
-	// Reterive IP Pools
+	// Retrieve IP Pools
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $ippool) {
 		$ippools[$ippool->id]=$ippool->title ;
 	}
@@ -41,7 +44,8 @@ function pvewhmcs_ConfigOptions() {
 		}
 	}
 	*/
-	// Options for the Service
+	// OPTIONS FOR THE QEMU/LXC PACKAGE; ties WHMCS PRODUCT to MODULE PLAN/POOL
+	// Ref: https://developers.whmcs.com/provisioning-modules/config-options/
 	// SQL/Param: configoption1 configoption2
 	$configarray = array(
 		"Plan" => array(
@@ -262,33 +266,41 @@ function pvewhmcs_CreateAccount($params) {
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
-	try {
+    $success = false; // Initialize success as false
+    $errorMsg = '';   // Initialize errorMsg as an empty string
+
+    try {
         // Call the service's connection test function.
-		$serverip = $params["serverip"];
-		$serverusername = $params["serverusername"];
-		$serverpassword = $params["serverpassword"];
-		$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-		if ($proxmox->login())
-			$success = true;
-		$errorMsg = '';
-	} catch (Exception $e) {
+        $serverip = $params["serverip"];
+        $serverusername = $params["serverusername"];
+        $serverpassword = $params["serverpassword"];
+        $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+
+        if ($proxmox->login()) {
+            $success = true; // Set success to true only if login is successful
+        }
+    } catch (Exception $e) {
         // Record the error in WHMCS's module log, if debug mode is enabled.
         if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-			logModuleCall(
-				'pvewhmcs',
-				__FUNCTION__,
-				$params,
-				$e->getMessage(),
-				$e->getTraceAsString()
-			);
-		}
-		$success = false;
-		$errorMsg = $e->getMessage();
-	}
-	return array(
-		'success' => $success,
-		'error' => $errorMsg,
-	);
+            logModuleCall(
+                'pvewhmcs',
+                __FUNCTION__,
+                $params,
+                $e->getMessage(),
+                $e->getTraceAsString()
+            );
+        }
+        $errorMsg = $e->getMessage(); // Set the error message from the exception
+    }
+
+    // Prepare the return array
+    $returnArray = array('success' => $success);
+    if (!$success) {
+        $returnArray['error'] = $errorMsg; // Include error message only if success is false
+    }
+
+    // Return success boolean, and error is not successful
+    return $returnArray;
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
