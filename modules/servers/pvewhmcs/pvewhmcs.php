@@ -334,11 +334,11 @@ function pvewhmcs_SuspendAccount(array $params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }
@@ -370,11 +370,11 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }
@@ -662,6 +662,18 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
 		$cluster_resources = $proxmox->get('/cluster/resources');
 		$vm_status = null;
+
+		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
+		$cluster_encoded = json_encode($cluster_resources);
+		$vmspecs_encoded = json_encode($vm_config);
+		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+				'pvewhmcs',
+				__FUNCTION__,
+				'CLUSTER INFO: ' . $cluster_encoded,
+				'GUEST CONFIG: ' . $vmspecs_encoded
+			);
+		}
 
 		# Loop through data, find ID
 		foreach ($cluster_resources as $vm) {
@@ -957,11 +969,11 @@ function pvewhmcs_vmStart($params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }
@@ -1001,11 +1013,11 @@ function pvewhmcs_vmReboot($params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }
@@ -1045,11 +1057,11 @@ function pvewhmcs_vmShutdown($params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }
@@ -1089,11 +1101,11 @@ function pvewhmcs_vmStop($params) {
 		);
 	}
 	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['data']['errors'])) {
+	if (isset($response) && !isset($response['errors'])) {
 	    return "success";
 	} else {
 	    // Handle the case where there are errors
-	    $response_message = isset($response['data']['errors']) ? json_encode($response['data']['errors']) : "Unknown Error, consider using Debug Mode.";
+	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 	    return "Error performing action. " . $response_message;
 	}
 }

@@ -17,7 +17,7 @@
 			</div>
 			<div class="col col-md-2">
 				<img src="/modules/servers/pvewhmcs/img/{$vm_status['status']}.png"/><br/>
-				<span style="text-transform: uppercase"><strong>{$vm_status['status']}</strong></span><br/>
+				<span style="text-transform: uppercase"><strong><i>{$vm_status['status']}</i></strong></span><br/>
 				Up:&nbsp;{$vm_status['uptime']}
 				
 			</div>
@@ -25,16 +25,16 @@
 				<div class="row">
 					<script src="/modules/servers/pvewhmcs/js/CircularLoader.js"></script>
 					<div class="col col-md-3" style="height:106px;">
-						<div id="c1" class="circle" data-percent="{$vm_status['cpu']}">CPU</div>
+						<div id="c1" class="circle" data-percent="{$vm_status['cpu']}"><strong>CPU</strong></div>
 					</div>
 					<div class="col col-md-3">
-						<div id="c2" class="circle" data-percent="{$vm_status['memusepercent']}">RAM</div>
+						<div id="c2" class="circle" data-percent="{$vm_status['memusepercent']}"><strong>RAM</strong></div>
 					</div>
 					<div class="col col-md-3">
-						<div id="c3" class="circle" data-percent="{$vm_status['diskusepercent']}">Disk</div>
+						<div id="c3" class="circle" data-percent="{$vm_status['diskusepercent']}"><strong>Disk</strong></div>
 					</div>
 					<div class="col col-md-3">
-						<div id="c4" class="circle" data-percent="{$vm_status['swapusepercent']}">Swap</div>
+						<div id="c4" class="circle" data-percent="{$vm_status['swapusepercent']}"><strong>Swap</strong></div>
 					</div>
 				</div>
 				<script>
@@ -57,30 +57,31 @@
 
 	<table class="table table-bordered table-striped">
 		<tr>
-			<td>Network Addressing</td><td><strong>{$vm_config['ipv4']}</strong><br/>Subnet Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
+			<td><strong>IP</strong> (Addressing)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Subnet Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
-			<td>OS (Type)</td>
-			<td>Kernel/System:&nbsp;{$vm_config['ostype']}</td>
+			<td><strong>OS/etc</strong> (System)</td>
+			<td>Kernel:&nbsp;{$vm_config['ostype']}</td>
 		</tr>
 		<tr>
-			<td>CPU (Spec)</td>
-			<td>{$vm_config['sockets']}&nbsp;socket/s,&nbsp;{$vm_config['cores']}&nbsp;core/s ({$vm_config['cpu']})</td>
+			<td><strong>Compute</strong> (CPU)</td>
+			<td>{$vm_config['sockets']}&nbsp;socket/s,&nbsp;{$vm_config['cores']}&nbsp;core/s<br />
+			Emulation: {$vm_config['cpu']}</td>
 		</tr>
 		<tr>
-			<td>Memory (RAM)</td>
+			<td><strong>Memory</strong> (RAM)</td>
 			<td>{$vm_config['memory']}MB</td>
 		</tr>
 		<tr>
-			<td>Network Interface #1</td>
+			<td><strong>NIC</strong> (Interface #1)</td>
 			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
 		</tr>
 		<tr>
-			<td>Network Interface #2</td>
+			<td><strong>NIC</strong> (Interface #2)</td>
 			<td>{$vm_config['net1']}</td>
 		</tr>
 		<tr>
-			<td>Storage (SSD/HDD)</td>
+			<td><strong>Storage</strong> (SSD/HDD)</td>
 			<td>
 			{$rootfs=(","|explode:$vm_config['rootfs'])}
 			{$disk=(","|explode:$vm_config['ide0'])}
