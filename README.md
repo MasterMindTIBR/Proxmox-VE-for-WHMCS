@@ -28,8 +28,8 @@ New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Ser
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) **Service ID above 100**
-- (PHP) v8.x.x (stable version)
-- (Proxmox) VE v7/8 (current)
+- (PHP) v8.x (stable version)
+- (Proxmox) VE v8.x (current)
 - (Proxmox) 2 users (API/VNC)
 
 _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
