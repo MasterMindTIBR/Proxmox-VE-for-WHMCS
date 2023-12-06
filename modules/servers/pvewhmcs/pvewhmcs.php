@@ -671,7 +671,7 @@ function pvewhmcs_ClientArea($params) {
 				'pvewhmcs',
 				__FUNCTION__,
 				'CLUSTER INFO: ' . $cluster_encoded,
-				'GUEST CONFIG: ' . $vmspecs_encoded
+				'GUEST CONFIG (Service #' . $params['serviceid'] . ' / Client #' . $params['clientsdetails']['userid'] . '): ' . $vmspecs_encoded
 			);
 		}
 
