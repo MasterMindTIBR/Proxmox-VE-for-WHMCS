@@ -5,7 +5,7 @@
 <img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
-- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-ve/features) from [WHMCS](https://www.whmcs.com/tour/) easily
+- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-virtual-environment/features) from [WHMCS](https://www.whmcs.com/tour/) easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
