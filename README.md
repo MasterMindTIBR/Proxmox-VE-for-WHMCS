@@ -209,6 +209,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 - [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
 - [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
 - [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
+- [IPv4/SN Validation](https://github.com/tapmodo/php-ipv4/)
 
 ## 📄 DIY: Documentation & Resources 📄
 
