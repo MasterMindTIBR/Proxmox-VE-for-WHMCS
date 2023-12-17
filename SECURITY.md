@@ -1,6 +1,6 @@
 # Security Policy
 
-## Supported Versions
+## 🏥 Supported Versions
 
 The single latest available release is the only release supported by this Security Policy.
 
@@ -54,4 +54,4 @@ Updates can be provided as promptly as days apart, however this depends on sever
 
 ## ❤️ Thank you for responsibly disclosing
 
-We and the entire FOSS community thank you for reviewing this file and being aware of how to improve the project.
+We & the entire FOSS community thank you for reviewing this file & being aware of how to improve the project.
