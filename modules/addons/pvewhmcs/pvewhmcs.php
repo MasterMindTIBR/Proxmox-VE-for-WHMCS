@@ -1,8 +1,25 @@
 <?php
-// FILE: /modules/addons/pvewhmcs/pvewhmcs.php
-// TASK: Handles the Admin and Client Area GUIs etc
-// NEED: The PHP API Class to interact w/ Proxmox VE API
-// REPO: GitHub.com/The-Network-Crew/Proxmox-VE-for-WHMCS
+
+/*  
+	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
+	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+	File: /modules/addons/pvewhmcs/pvewhmcs.php (GUI Work)
+
+	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+*/
 
 // Pull in the WHMCS database handler Capsule for SQL
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -10,7 +27,7 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 // Define where the module operates in the Admin GUI
 define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
 
-// Require the PHP API Class to interact with Proxmox VE
+// DEP: Require the PHP API Class to interact with Proxmox VE
 require_once('proxmox.php');
 
 // CONFIG: Declare key options to the WHMCS Addon Module framework.
@@ -52,7 +69,7 @@ function pvewhmcs_activate() {
 	}
 	// Return success or error.
 	if (!$err)
-		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfuly.');
+		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully.');
 
 	return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly.');
 
@@ -63,7 +80,7 @@ function pvewhmcs_deactivate() {
 	// Drop all module-related tables
 	Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
 	// Return the assumed result (change?)
-	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfuly deactivated and all related tables deleted.');
+	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated and all related tables deleted.');
 }
 
 // UPDATE CHECKER: live vs repo
