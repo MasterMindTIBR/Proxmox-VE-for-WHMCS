@@ -205,10 +205,11 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 
 ## 🖥️ INC: Libraries & Dependencies 🖥️
 
-- [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
-- [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
-- [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
-- [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
+- (MIT) [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
+- (GPLv2) [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
+- (MPLv2) [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
+- (GPLv3) [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
+- (MIT) [IPv4/SN Validation](https://github.com/tapmodo/php-ipv4/) (August 2012)
 
 ## 📄 DIY: Documentation & Resources 📄
 
