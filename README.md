@@ -10,7 +10,7 @@
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
 
-## ❤️ RTFM: Read the Manual & Review the Module! ❤️
+## ❤️ RTFM: Read the Manual & Review the Module!
 
 **Please read the entire README.md file before getting started with Proxmox VE for WHMCS.** Thanks!
 
@@ -20,7 +20,7 @@ We're pretty much done overhauling the Module to suit our needs at [The Network 
 > 
 > If you want it to remain free and fabulous, it could use a moment of your time in reviewing it. Thanks!
 
-## 🎯 MODULE: System Requirements (PVE/WHMCS) 🎯
+## 🎯 MODULE: System Requirements (PVE/WHMCS)
 
 New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID < 100 case.
 
@@ -34,7 +34,7 @@ New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Ser
 
 _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
 
-## ✅ MODULE: Installation & Configuration ✅
+## ✅ MODULE: Installation & Configuration
 
 **DON'T SKIP ANY PART OF THIS README.md - please don't raise pointless Issues - thank you!**
 
@@ -50,7 +50,7 @@ Once you've done all of that, in order to get the module working properly, you n
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 
-## 🥽 noVNC: Console Tunnel (Client Area) 🥽
+## 🥽 noVNC: Console Tunnel (Client Area)
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This requires more work to make it function, however improves security.
 
@@ -67,7 +67,7 @@ noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 - Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
 - Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this to better cater to all formats.
 
-## 👥 PVE: User Requirements (API & VNC) 👥
+## 👥 PVE: User Requirements (API & VNC)
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
@@ -83,7 +83,7 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 > Do NOT set less restrictive permissions. The above is designed for hypervisor security.
 
-## ⚙️ VM/CT PLANS: Setting everything up ⚙️
+## ⚙️ VM/CT PLANS: Setting everything up
 
 These steps explain the unique requirements per-option.
 
@@ -115,7 +115,7 @@ Use that full file name in the Custom Field `Template`, as in:
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
 
-## 🌐 IPv4/v6: Networking (IP Pools) 🌐
+## 🌐 IPv4/v6: Networking (IP Pools)
 
 Please make sure you create an IP Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
@@ -127,7 +127,7 @@ Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is not yet functional IPv6 in
 
 You can of course add this via PVE/`pvesh` manually, however it isn't module-supported as of late 2023.
 
-## 💅 FEATURES: PVE v8.0/8.1 bling 💅
+## 💅 FEATURES: PVE v8.0/8.1 bling
 
 There are new features deployed into Proxmox VE upstream in the v8 branch which are exciting and should be added to this module.
 
@@ -145,7 +145,7 @@ There are new features deployed into Proxmox VE upstream in the v8 branch which 
 
 Reference: https://pve.proxmox.com/wiki/Roadmap
 
-## 🤬 ABUSE: Zero Tolerance (ZT) 🤬
+## 🤬 ABUSE: Zero Tolerance (ZT)
 
 This module has been overhauled and remains functionally-OK but not thoroughly tested nor reviewed.
 
@@ -155,7 +155,7 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 **Be grateful & considerate - thank you!**
 
-## 🆘 HELP: Best-effort Support 🆘
+## 🆘 HELP: Best-effort Support
 
 **Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues), please check:**
 
@@ -195,7 +195,7 @@ The more info/context you provide up-front, the quicker & easier it will be!
 
 **If you don't read, listen or actively try, no help given.**
 
-## 🔄 UPDATING: Patching the Module 🔄
+## 🔄 UPDATING: Patching the Module
 
 WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows updates.
 
@@ -203,7 +203,7 @@ You can download the new version and upload it over the top, then run any needed
 
 Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
 
-## 🖥️ INC: Libraries & Dependencies 🖥️
+## 🖥️ INC: Libraries & Dependencies
 
 - (MIT) [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
 - (GPLv2) [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
@@ -211,7 +211,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 - (GPLv3) [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
 - (MIT) [IPv4/SN Validation](https://github.com/tapmodo/php-ipv4/) (August 2012)
 
-## 📄 DIY: Documentation & Resources 📄
+## 📄 DIY: Documentation & Resources
 
 - Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
 - TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
@@ -219,7 +219,7 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 - WHMCS: https://developers.whmcs.com/
 - x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
 
-## 🎉 FOSS: Contributions & Open-source ❤️
+## 🎉 FOSS: Contributions & Open-source
 
 If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
 
