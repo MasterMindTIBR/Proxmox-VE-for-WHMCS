@@ -1,26 +1,25 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.3] - TBC 2023-12-xx
+## [1.2.3] - 2023-12-31 - _"NY Tidy-up 123"_
 
 ### 🚀 Feature
 - x86-64-ABI: Add options; Emulation default now `x86-64-v2-AES` (#58)
 - Intel/AMD: Add new CPU Emulation options (8~ Intel, 2x EPYC) (#58)
-- Templated VMs: Post-creation, will now amend to Plan (#32)
 
 ### 💅 Polish
 - Debug Logs: Improved quality & scope of logged info (#59)
 - SECURITY.md: Add file to repository, clarifying process (#61)
-- README.md: Add VM/CT creation explanations from old manual (#57)
+- README.md: Add VM/CT creation explanations from old Manual (#57)
 - Logo: Per request from Proxmox Server Solutions, we got a logo (#56)
-- SPICE: Ground-work for future potential addition of 2nd HTML5 VNC
+- SPICE: Ground-work for future potential addition of 2nd HTML5/etc VNC
 
 ### 🐛 Bug Fix
 - PHP v8.1: Verified no problems operating on v8 old-stable ver.
 - Connection Test: Fixed, so it reports OK/Green or an error (#29)
 - Admin, Edit Service: Should now populate existing config OK (#36)
 
-## [1.2.2] - 2023-09-15
+## [1.2.2] - 2023-09-15 - _"Nice refinements"_
 
 ### 🚀 Feature
 - Debugging Mode: Allow admin to turn on/off Module Log feed (#38)*
@@ -42,7 +41,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 (\*): SQL Note: There are new columns in 2 of the module tables, see [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md)
 
-## [1.2.1b] - 2023-06-19
+## [1.2.1b] - 2023-06-19 - _"Working, including VNC!"_
 
 ### 🚀 Feature
 - Module Config tab, allowing for configuration of the VNC Secret
@@ -62,7 +61,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Client Area actions (Power Off/On, etc) fixed for LXC (QEMU OK)
 - Error with both VNC methods. We are going to remove TigerVNC
 
-## [1.2.0b] - 2023-06-18
+## [1.2.0b] - 2023-06-18 - _"Loads of key fixes"_
 
 ### 🚀 Feature
 - Link off to GitHub Issues for Support from the Module page in WHMCS
@@ -95,7 +94,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Client Area pages/actions now fixed (fixes #19)
 - Font Awesome icons fixed in the Client Area
 
-## [1.1b] - 2023-06-06
+## [1.1b] - 2023-06-06 - _"The overhaul begins!"_
  
 ### 🚀 Feature
 - Swap space editing for plans; back-end existed but not GUI editing
@@ -115,9 +114,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Removed I/O Priority setting, to re-do via Throttling
 - Catch exception in Client Area if can't reach Proxmox
 
-## [1.0] - 2017-01-26
+## [1.0] - 2017-01-26 - _"FOSS Foundations"_
 
-Thank you @cybercoder for open-sourcing your code! 
+**_Thank you @cybercoder for open-sourcing your code!_**
 
 ### 🚀 Feature
 - Open-sourced the previously commercial plugin
