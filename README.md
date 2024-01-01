@@ -9,6 +9,9 @@
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
+- Leverage the power of QEMU & LXC with PVE's convenience
+
+[GitHub Repo for this WHMCS Module](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/) (FOSS)
 
 ## ❤️ RTFM: Read the Manual & Review the Module!
 
@@ -16,9 +19,9 @@
 
 We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
 
-> **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
+> **Please review the module!** [https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews](https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews)
 > 
-> If you want it to remain free and fabulous, it could use a moment of your time in reviewing it. Thanks!
+> _If you want it to remain free and fabulous, it could use a moment of your time in reviewing it._ **Thanks!**
 
 ## 🎯 MODULE: System Requirements (PVE/WHMCS)
 
@@ -103,15 +106,14 @@ Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
 Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
-Under the Service, you need to add a Custom Field `ISO` with the full location.
+> Under the Service, you need to add a Custom Field `ISO` with the full location.
 
 ### CT Option: LXC, using PVE Template File
 
 Firstly, store the Template in PVE. You need its unique File Name.
 
-Use that full file name in the Custom Field `Template`, as in:
-
-`ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+> Use that full file name in the Custom Field `Template`, as in:<br>
+> `ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
 
@@ -143,7 +145,7 @@ There are new features deployed into Proxmox VE upstream in the v8 branch which 
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
-Reference: https://pve.proxmox.com/wiki/Roadmap
+Reference: [https://pve.proxmox.com/wiki/Roadmap](https://pve.proxmox.com/wiki/Roadmap)
 
 ## 🤬 ABUSE: Zero Tolerance (ZT)
 
@@ -189,11 +191,11 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 The more info/context you provide up-front, the quicker & easier it will be!
 
-\* Debug: Make sure you enable Debug Logging in the Module Settings, as needed.
+\* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
 
 **Please note that this is FOSS and Support is not guaranteed at all.**
 
-**If you don't read, listen or actively try, no help given.**
+**If you don't read, listen or actively try, no help is given.**
 
 ## 🔄 UPDATING: Patching the Module
 
@@ -213,10 +215,10 @@ Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-V
 
 ## 📄 DIY: Documentation & Resources
 
-- Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
-- TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
-- noVNC: https://github.com/novnc/noVNC/wiki
-- WHMCS: https://developers.whmcs.com/
+- Proxmox API: [https://pve.proxmox.com/pve-docs/api-viewer/](https://pve.proxmox.com/pve-docs/api-viewer/)
+- TigerVNC: [https://github.com/TigerVNC/tigervnc/wiki](https://github.com/TigerVNC/tigervnc/wiki)
+- noVNC: [https://github.com/novnc/noVNC/wiki](https://github.com/novnc/noVNC/wiki)
+- WHMCS: [https://developers.whmcs.com/](https://developers.whmcs.com/)
 - x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
 
 ## 🎉 FOSS: Contributions & Open-source
@@ -235,7 +237,7 @@ FOSS is only possible thanks to dedicated individuals!
 
 _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
 
-GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)
+GPLv3: [https://www.gnu.org/licenses/gpl-3.0.txt](https://www.gnu.org/licenses/gpl-3.0.txt) (by the Free Software Foundation)
 
 **[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
 
