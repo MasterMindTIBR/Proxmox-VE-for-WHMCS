@@ -106,7 +106,7 @@ Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
 Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
-Under the Service, you need to add a Custom Field `ISO` with the full location.
+> Under the Service, you need to add a Custom Field `ISO` with the full location.
 
 ### CT Option: LXC, using PVE Template File
 
@@ -114,7 +114,7 @@ Firstly, store the Template in PVE. You need its unique File Name.
 
 Use that full file name in the Custom Field `Template`, as in:
 
-`ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+> `ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
 
