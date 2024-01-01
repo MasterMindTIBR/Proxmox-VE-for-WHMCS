@@ -9,6 +9,7 @@
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
+- Leverage the power of QEMU & LXC with PVE's convenience
 
 ## ❤️ RTFM: Read the Manual & Review the Module!
 
@@ -16,9 +17,9 @@
 
 We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
 
-> **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs
+> **Please review the module!** [https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews](https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews)
 > 
-> If you want it to remain free and fabulous, it could use a moment of your time in reviewing it. Thanks!
+> _If you want it to remain free and fabulous, it could use a moment of your time in reviewing it._ **Thanks!**
 
 ## 🎯 MODULE: System Requirements (PVE/WHMCS)
 
