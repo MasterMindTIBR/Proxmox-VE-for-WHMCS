@@ -51,9 +51,9 @@ function pvewhmcs_version(){
 // This consists of importing the SQL structure, and then crudely returning yay or nay (needs improving)
 function pvewhmcs_activate() {
 	// Pull in the SQL structure (includes VNC/etc tweaks)
-	$sql = file_get_contents(ROOTDIR.'/modules/addons/pvewhmcs/db.sql');
+	$sql = file_get_contents('db.sql');
 	if (!$sql) {
-		return array('status'=>'error','description'=>'The db.sql file not found.');
+		return array('status'=>'error','description'=>'The db.sql file was not found.');
 	}
 	// SQL file is good, let's proceed with pulling it in
 	$err=false;
@@ -69,7 +69,7 @@ function pvewhmcs_activate() {
 	}
 	// Return success or error.
 	if (!$err)
-		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully.');
+		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully!');
 
 	return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly.');
 
