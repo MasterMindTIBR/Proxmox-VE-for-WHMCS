@@ -112,8 +112,7 @@ Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
 Firstly, store the Template in PVE. You need its unique File Name.
 
-Use that full file name in the Custom Field `Template`, as in:
-
+> Use that full file name in the Custom Field `Template`, as in:<br>
 > `ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
