@@ -51,7 +51,7 @@ function pvewhmcs_version(){
 // This consists of importing the SQL structure, and then crudely returning yay or nay (needs improving)
 function pvewhmcs_activate() {
 	// Pull in the SQL structure (includes VNC/etc tweaks)
-	$sql = file_get_contents('./db.sql');
+	$sql = file_get_contents(__DIR__ . '/db.sql');
 	if (!$sql) {
 		return array('status'=>'error','description'=>'The db.sql file was not found.');
 	}
