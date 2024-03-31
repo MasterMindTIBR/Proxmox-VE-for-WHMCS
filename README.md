@@ -17,7 +17,7 @@
 
 **Please read the entire README.md file before getting started with Proxmox VE for WHMCS.** Thanks!
 
-We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://thenetworkcrew.com.au).
+We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://tnc.works).
 
 > **Please review the module!** [https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews](https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews)
 > 
@@ -239,9 +239,9 @@ _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
 
 GPLv3: [https://www.gnu.org/licenses/gpl-3.0.txt](https://www.gnu.org/licenses/gpl-3.0.txt) (by the Free Software Foundation)
 
-**[The Network Crew Pty Ltd](https://thenetworkcrew.com.au)**
+**[The Network Crew Pty Ltd](https://tnc.works)**
 
-**[LEOPARD.host](https://leopard.host)**
+**[Merlot Digital](https://merlot.digital)**
 
 ### Support: Best-effort via GitHub Issues
 
