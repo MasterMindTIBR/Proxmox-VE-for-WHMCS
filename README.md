@@ -5,21 +5,21 @@
 <img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
-- Automatically Provision VMs & CTs in [Proxmox VE](https://proxmox.com/en/proxmox-virtual-environment/features) from [WHMCS](https://www.whmcs.com/tour/) easily
+- Automatically Provision VMs & CTs in **Proxmox VE** from **WHMCS** easily
 - Allow clients to view/manage VMs using the WHMCS Client Area
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
 - Leverage the power of QEMU & LXC with PVE's convenience
 
-[GitHub Repo for this WHMCS Module](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/) (FOSS)
+Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 ## ❤️ RTFM: Read the Manual & Review the Module!
 
 **Please read the entire README.md file before getting started with Proxmox VE for WHMCS.** Thanks!
 
-We're pretty much done overhauling the Module to suit our needs at [The Network Crew Pty Ltd (TNC)](https://tnc.works).
+We're pretty much done overhauling the Module to suit our needs at The Network Crew Pty Ltd & Merlot Digital.
 
-> **Please review the module!** [https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews](https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews)
+> **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews
 > 
 > _If you want it to remain free and fabulous, it could use a moment of your time in reviewing it._ **Thanks!**
 
@@ -55,7 +55,7 @@ Once you've done all of that, in order to get the module working properly, you n
 
 ## 🥽 noVNC: Console Tunnel (Client Area)
 
-After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This requires more work to make it function, however improves security.
+After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This is due to be re-built again to further enhance security.
 
 ### To offer VNC via WHMCS Client Area
 
@@ -145,7 +145,14 @@ There are new features deployed into Proxmox VE upstream in the v8 branch which 
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
-Reference: [https://pve.proxmox.com/wiki/Roadmap](https://pve.proxmox.com/wiki/Roadmap)
+### Proxmox 8.2
+
+1. Import Wizard for Guests.
+2. Unattended PVE Install (answer file).
+3. Backup Fleecing (local disk as data block buffer).
+4. Firewall Preview (based on nftables).
+
+PVE Roadmap: https://pve.proxmox.com/wiki/Roadmap
 
 ## 🤬 ABUSE: Zero Tolerance (ZT)
 
@@ -159,16 +166,16 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 ## 🆘 HELP: Best-effort Support
 
-**Before raising a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues), please check:**
+**Before raising a GitHub Issue, please check:**
 
-1. The [Wiki](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki)
-2. The [README.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/tree/master)
-3. Open [GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues)
+1. The Wiki.
+2. The README.md.
+3. Open GitHub Issues on the repo.
 4. HTTP, PHP, WHMCS & debug logs (see below).
 5. PVE logs; best practices; network; etc.
 6. Read the errors. Do they explain it?
 
-> Help: Including logs, details, steps to reproduce, etc, please raise a [GitHub Issue](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues).
+> Help: Including logs, details, steps to reproduce, etc, please raise a **GitHub Issue**.
 >
 > Logs: We work to ensure that Proxmox VE for WHMCS passes through error details to you.
 
@@ -203,33 +210,33 @@ WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows update
 
 You can download the new version and upload it over the top, then run any needed SQL ops.
 
-Please consult the [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md) file, open your WHMCS DB & run the statements. Then you're done.
+Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statements. Then you're done.
 
 ## 🖥️ INC: Libraries & Dependencies
 
-- (MIT) [PHP Client for PVE2 API](https://github.com/CpuID/pve2-api-php-client) (Dec 5th, 2022)
-- (GPLv2) [TigerVNC VncViewer.jar](https://sourceforge.net/projects/tigervnc/files/stable/) (v1.13.1 in repo)
-- (MPLv2) [noVNC HTML5 Viewer](https://github.com/novnc/noVNC) (v1.4.0 in repo)
-- (GPLv3) [SPICE HTML5 Viewer](https://gitlab.freedesktop.org/spice/spice-html5) (v0.3 in repo)
-- (MIT) [IPv4/SN Validation](https://github.com/tapmodo/php-ipv4/) (August 2012)
+- (MIT) PHP Client for PVE2 API (Dec 5th, 2022) https://github.com/CpuID/pve2-api-php-client
+- (GPLv2) TigerVNC VncViewer.jar (v1.13.1 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
+- (MPLv2) noVNC HTML5 Viewer (v1.4.0 in repo) https://github.com/novnc/noVNC
+- (GPLv3) SPICE HTML5 Viewer (v0.3 in repo) https://gitlab.freedesktop.org/spice/spice-html5
+- (MIT) IPv4/SN Validation (August 2012) https://github.com/tapmodo/php-ipv4/
 
 ## 📄 DIY: Documentation & Resources
 
-- Proxmox API: [https://pve.proxmox.com/pve-docs/api-viewer/](https://pve.proxmox.com/pve-docs/api-viewer/)
-- TigerVNC: [https://github.com/TigerVNC/tigervnc/wiki](https://github.com/TigerVNC/tigervnc/wiki)
-- noVNC: [https://github.com/novnc/noVNC/wiki](https://github.com/novnc/noVNC/wiki)
-- WHMCS: [https://developers.whmcs.com/](https://developers.whmcs.com/)
-- x86-64-ABI: [latest PDF download](https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build)
+- Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
+- TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
+- noVNC: https://github.com/novnc/noVNC/wiki
+- WHMCS: https://developers.whmcs.com/
+- x86-64-ABI: https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
 
 ## 🎉 FOSS: Contributions & Open-source
 
-If you'd like to contribute to the Module, please open a [PR](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/pulls).
+If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS
 
 The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement.
 
-We would like to thank [@cybercoder](https://github.com/cybercoder/) and [@WaldperlachFabi](https://github.com/WaldperlachFabi) for their original contributions and troubleshooting assistance respectively. 
+We would like to thank @cybercoder and @WaldperlachFabi for their original contributions and troubleshooting assistance respectively. 
 
-Thank you to [psyborg®](https://www.psyborg.com.au/graphic-design-services-newcastle/logo-design/) for the module's logo design! We love it.
+Thank you to psyborg® for the module's logo design! We love it.
 
 FOSS is only possible thanks to dedicated individuals!
 
@@ -237,12 +244,14 @@ FOSS is only possible thanks to dedicated individuals!
 
 _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
 
-GPLv3: [https://www.gnu.org/licenses/gpl-3.0.txt](https://www.gnu.org/licenses/gpl-3.0.txt) (by the Free Software Foundation)
+GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)
 
-**[The Network Crew Pty Ltd](https://tnc.works)**
+### Corporate Sites: TNC & Merlot Digital
 
-**[Merlot Digital](https://merlot.digital)**
+**The Network Crew Pty Ltd** :: https://tnc.works
+
+**Merlot Digital** :: https://merlot.digital
 
 ### Support: Best-effort via GitHub Issues
 
-Browse issues, raise a new one: **[GitHub Issues](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues)**
+Browse issues, raise a new one: **GitHub Issues**
