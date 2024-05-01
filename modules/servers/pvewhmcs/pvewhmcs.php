@@ -96,7 +96,7 @@ function pvewhmcs_CreateAccount($params) {
     	throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 
-    // Retrieve Plan from table
+    	// Retrieve Plan from table
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
 	$serverip = $params["serverip"];
@@ -105,16 +105,16 @@ function pvewhmcs_CreateAccount($params) {
 
 	$vm_settings = array();
 
-    // Select an IP address from pool
+    	// Select an IP address from pool
 	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
-    // CREATE IF QEMU/KVM
+    	// CREATE IF QEMU/KVM
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		// file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
 
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
-            // Get first node name.
+            		// Get first node name.
 			$nodes = $proxmox->get_node_list();
 			$first_node = $nodes[0];
 			unset($nodes);
@@ -168,28 +168,30 @@ function pvewhmcs_CreateAccount($params) {
 		} else {
 			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 		}
-    // PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES
+    	// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES
 	} else {
 		$vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
+			// Process LXC preparation
 			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',ip6=auto';
 			if(!empty($plan->vlanid)){
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
-			$vm_settings['nameserver'] = '1.1.1.1';
+			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
+			// Process QEMU preparation
 			$vm_settings['ostype'] = $plan->ostype;
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
-			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
-			$vm_settings['nameserver'] = '1.1.1.1';
+			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',ip6=auto';
+			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['kvm'] = $plan->kvm;
 			$vm_settings['onboot'] = $plan->onboot;
 
@@ -198,12 +200,12 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
 			}
 
-            // Assign ISO File
+            		// Assign ISO File
 			if (isset($params['customfields']['ISO'])) {
 				$vm_settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
 			}
 
-			/* Network settings */
+			/* Network Specifics - Bridge, Rate & Trunk/VLAN */
 			if ($plan->netmode != 'none') {
 				$vm_settings['net0'] = $plan->netmodel;
 				if ($plan->netmode == 'bridge') {
@@ -229,7 +231,7 @@ function pvewhmcs_CreateAccount($params) {
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
 			if ($proxmox->login()) {
-                // Get first node name.
+                		// Get first node name.
 				$nodes = $proxmox->get_node_list();
 				$first_node = $nodes[0];
 				unset($nodes);
@@ -319,10 +321,11 @@ function pvewhmcs_TestConnection(array $params) {
                 $e->getMessage() . $e->getTraceAsString()
             );
         }
-        $success = $e->getMessage(); // Set the error message as the success value
+    	// Set the error message as the success value
+        $success = $e->getMessage(); 
     }
-
-    return array('success' => $success); // Return either true or the error
+    // Return either true or the error
+    return array('success' => $success); 
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
@@ -431,22 +434,24 @@ class hash_encryption {
 	 * @var	string
 	 **/
 	var $hash_key;
+	
 	/**
 	 * String length of hashed values using the current algorithm
 	 * @var	int
 	 **/
 	var $hash_lenth;
+	
 	/**
 	 * Switch base64 enconding on / off
 	 * @var	bool	true = use base64, false = binary output / input
 	 **/
 	var $base64;
+	
 	/**
 	 * Secret value added to randomize output and protect the user provided key
 	 * @var	string	Change this value to add more randomness to your encryption
 	 **/
 	var $salt = 'Change this to any secret value you like. "d41d8cd98f00b204e9800998ecf8427e" might be a good example.';
-
 
 	/**
 	 * Constructor method
@@ -714,7 +719,7 @@ function pvewhmcs_ClientArea($params) {
 				$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
 			}
 		} else {
-		    // Handle the VM not found in the cluster resources (Optional)
+	    		// Handle the VM not found in the cluster resources (Optional)
 			echo "VM/CT not found in Cluster Resources.";
 		}
 
