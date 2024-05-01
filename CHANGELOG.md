@@ -3,6 +3,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.2.4] - TBC
 
+### 🚀 Feature
+- IPv6: By default, new instances will be created with SLAAC configured. (#33)
+
 ### 🐛 Bug Fix
 - db.sql: Improve logic with SQL import to pull from relative dir. (#67)
 
