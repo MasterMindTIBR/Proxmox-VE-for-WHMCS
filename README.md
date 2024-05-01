@@ -123,11 +123,11 @@ Please make sure you create an IP Pool with sufficient scope/size to be able to 
 
 **Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
 
-### IPv6: Not yet functional! 😐
+### IPv6: SLAAC by Default! (else = WIP)
 
-Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is not yet functional IPv6 in this module. 
+Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is only SLAAC available as of May 2024.
 
-You can of course add this via PVE/`pvesh` manually, however it isn't module-supported as of late 2023.
+You can of course add different config via PVE/`pvesh` manually, if you need to specify.
 
 ## 💅 FEATURES: PVE v8.0/8.1 bling
 
