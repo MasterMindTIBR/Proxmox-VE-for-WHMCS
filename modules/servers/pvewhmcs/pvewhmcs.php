@@ -46,14 +46,14 @@ function pvewhmcs_ConfigOptions() {
 		$ippools[$ippool->id]=$ippool->title ;
 	}
 	/*
-	$proxmox=new PVE2_API($server->ipaddress, $server->username, "pam", get_server_pass_from_whmcs($server->password));
+	$proxmox = new PVE2_API($server->ipaddress, $server->username, "pam", get_server_pass_from_whmcs($server->password));
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 
-		$storage_contents=$proxmox->get('/nodes/'.$first_node.'/storage/local/content') ;
+		$storage_contents = $proxmox->get('/nodes/'.$first_node.'/storage/local/content') ;
 
 		foreach ($storage_contents as $storage_content) {
 			if ($storage_content['content']=='vztmpl') {
@@ -376,7 +376,7 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
 	
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -412,7 +412,7 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
 	
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -448,7 +448,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
 
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -715,7 +715,7 @@ function pvewhmcs_ClientArea($params) {
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -724,7 +724,7 @@ function pvewhmcs_ClientArea($params) {
 		unset($nodes);
 
 		# Get and set VM variables
-		$vm_config=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
+		$vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
 		$cluster_resources = $proxmox->get('/cluster/resources');
 		$vm_status = null;
 
@@ -757,7 +757,7 @@ function pvewhmcs_ClientArea($params) {
 			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
 
 			if ($guest->vtype == 'lxc') {
-				$ct_specific=$proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'] .'/status/current') ;
+				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'] .'/status/current') ;
 				$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
 			}
 		} else {
@@ -767,108 +767,108 @@ function pvewhmcs_ClientArea($params) {
 
 		// Max CPU usage Yearly
 		$rrd_params = '?timeframe=year&ds=cpu&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] . '/rrd' . $rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['year']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] . '/rrd' . $rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['year'] = base64_encode($vm_rrd['image']);
 
 		// Max CPU usage monthly
 		$rrd_params = '?timeframe=month&ds=cpu&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['month']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['month'] = base64_encode($vm_rrd['image']);
 
 		// Max CPU usage weekly
 		$rrd_params = '?timeframe=week&ds=cpu&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['week']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['week'] = base64_encode($vm_rrd['image']);
 
 		// Max CPU usage daily
 		$rrd_params = '?timeframe=day&ds=cpu&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['day']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['day'] = base64_encode($vm_rrd['image']);
 
 		// Max memory Yearly
 		$rrd_params = '?timeframe=year&ds=maxmem&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['year']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['year'] = base64_encode($vm_rrd['image']);
 
 		// Max memory monthly
 		$rrd_params = '?timeframe=month&ds=maxmem&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['month']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['month'] = base64_encode($vm_rrd['image']);
 
 		// Max memory weekly
 		$rrd_params = '?timeframe=week&ds=maxmem&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['week']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['week'] = base64_encode($vm_rrd['image']);
 
 		// Max memory daily
 		$rrd_params = '?timeframe=day&ds=maxmem&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['day']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['day'] = base64_encode($vm_rrd['image']);
 
 		// Network rate Yearly
 		$rrd_params = '?timeframe=year&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['year']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['year'] = base64_encode($vm_rrd['image']);
 
 		// Network rate monthly
 		$rrd_params = '?timeframe=month&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['month']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['month'] = base64_encode($vm_rrd['image']);
 
 		// Network rate weekly
 		$rrd_params = '?timeframe=week&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['week']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['week'] = base64_encode($vm_rrd['image']);
 
 		// Network rate daily
 		$rrd_params = '?timeframe=day&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['day']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['day'] = base64_encode($vm_rrd['image']);
 
 		// Max IO Yearly
 		$rrd_params = '?timeframe=year&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['year']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['year'] = base64_encode($vm_rrd['image']);
 
 		// Max IO monthly
 		$rrd_params = '?timeframe=month&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['month']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['month'] = base64_encode($vm_rrd['image']);
 
 		// Max IO weekly
 		$rrd_params = '?timeframe=week&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['week']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['week'] = base64_encode($vm_rrd['image']);
 
 		// Max IO daily
 		$rrd_params = '?timeframe=day&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd=$proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
-		$vm_rrd['image']=utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['day']=base64_encode($vm_rrd['image']);
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['day'] = base64_encode($vm_rrd['image']);
 
 		unset($vm_rrd) ;
 
-		$vm_config['vtype']=$guest->vtype ;
-		$vm_config['ipv4']=$guest->ipaddress ;
-		$vm_config['netmask4']=$guest->subnetmask ;
-		$vm_config['gateway4']=$guest->gateway ;
-		$vm_config['created']=$guest->created ;
-		$vm_config['v6prefix']=$guest->v6prefix ;
+		$vm_config['vtype'] = $guest->vtype ;
+		$vm_config['ipv4'] = $guest->ipaddress ;
+		$vm_config['netmask4'] = $guest->subnetmask ;
+		$vm_config['gateway4'] = $guest->gateway ;
+		$vm_config['created'] = $guest->created ;
+		$vm_config['v6prefix'] = $guest->v6prefix ;
 	}
 	else {
 		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
@@ -879,10 +879,10 @@ function pvewhmcs_ClientArea($params) {
 		'templatefile' => 'clientarea',
 		'vars' => array(
 			'params' => $params,
-			'vm_config'=>$vm_config,
-			'vm_status'=>$vm_status,
-			'vm_statistics'=>$vm_statistics,
-			'vm_vncproxy'=>$vm_vncproxy,
+			'vm_config' => $vm_config,
+			'vm_status' => $vm_status,
+			'vm_statistics' => $vm_statistics,
+			'vm_vncproxy' => $vm_vncproxy,
 		),
 	);
 }
@@ -902,14 +902,14 @@ function pvewhmcs_noVNC($params) {
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
@@ -919,10 +919,10 @@ function pvewhmcs_noVNC($params) {
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
-		$vncreply='<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply = '<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 		return $vncreply;
 	} else {
-		$vncreply='Failed to prepare noVNC. Please contact Technical Support.';
+		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
 		return $vncreply;
 	}
 }
@@ -937,14 +937,14 @@ function pvewhmcs_SPICE($params) {
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
@@ -954,10 +954,10 @@ function pvewhmcs_SPICE($params) {
 		// Construct the SPICE Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
-		$vncreply='<center><strong>Console (SPICE) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply = '<center><strong>Console (SPICE) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 		return $vncreply;
 	} else {
-		$vncreply='Failed to prepare SPICE. Please contact Technical Support.';
+		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
 		return $vncreply;
 	}
 }
@@ -972,31 +972,31 @@ function pvewhmcs_javaVNC($params){
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox=new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 
 		$vncparams = array();
-		$vm_vncproxy=$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', $vncparams) ;
+		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', $vncparams) ;
 
-		$javaVNCparams=array() ;
-		$javaVNCparams[0]=$serverip ;
-		$javaVNCparams[1]=str_replace("\n","|",$vm_vncproxy['cert']) ;
-		$javaVNCparams[2]=$vm_vncproxy['port'] ;
-		$javaVNCparams[3]=$vm_vncproxy['user'] ;
-		$javaVNCparams[4]=$vm_vncproxy['ticket'] ;
+		$javaVNCparams = array() ;
+		$javaVNCparams[0] = $serverip ;
+		$javaVNCparams[1] = str_replace("\n","|",$vm_vncproxy['cert']) ;
+		$javaVNCparams[2] = $vm_vncproxy['port'] ;
+		$javaVNCparams[3] = $vm_vncproxy['user'] ;
+		$javaVNCparams[4] = $vm_vncproxy['ticket'] ;
 
-		$url='./modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
-		$vncreply='<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
+		$url = './modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
+		$vncreply = '<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
 		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
 		return $vncreply;
 	} else {
-		$vncreply='Failed to prepare TigerVNC. Please contact Technical Support.';
+		$vncreply = 'Failed to prepare TigerVNC. Please contact Technical Support.';
 		return $vncreply;
 	}
 }
@@ -1004,9 +1004,8 @@ function pvewhmcs_javaVNC($params){
 // PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT
 function pvewhmcs_vmStart($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
 
@@ -1014,13 +1013,13 @@ function pvewhmcs_vmStart($params) {
 	    'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
 		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
@@ -1047,9 +1046,8 @@ function pvewhmcs_vmStart($params) {
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
 function pvewhmcs_vmReboot($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
 
@@ -1057,13 +1055,13 @@ function pvewhmcs_vmReboot($params) {
 	    'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
@@ -1091,8 +1089,8 @@ function pvewhmcs_vmReboot($params) {
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
 function pvewhmcs_vmShutdown($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
@@ -1101,13 +1099,13 @@ function pvewhmcs_vmShutdown($params) {
 	    'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/shutdown';
@@ -1135,9 +1133,8 @@ function pvewhmcs_vmShutdown($params) {
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
 function pvewhmcs_vmStop($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
 
@@ -1145,13 +1142,13 @@ function pvewhmcs_vmStop($params) {
 	    'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox=new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
