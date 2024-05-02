@@ -76,7 +76,7 @@ function pvewhmcs_ConfigOptions() {
 			"FriendlyName" => "IP Pool",
 			"Type" => "dropdown",
 			'Options'=> $ippools,
-			"Description" => "Pool to assign VM IP from."
+			"Description" => "IPv4 : Allocation Pool"
 		),
 	);
 
@@ -143,6 +143,7 @@ function pvewhmcs_CreateAccount($params) {
 						'subnetmask' => $ip->mask,
 						'gateway' => $ip->gateway,
 						'created' => date("Y-m-d H:i:s"),
+						'v6prefix' => $plan->ipv6,
 					]
 				);
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
@@ -177,7 +178,27 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',ip6=auto';
+			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+			    // Handling different IPv6 configs
+			    switch ($plan->ipv6) {
+			        case 'auto':
+			            // Passes 'auto' directly, triggering SLAAC
+			            $vm_settings['net0'] .= ',ip6=auto';
+			            break;
+			        case 'dhcp':
+			            // Passes 'dhcp' directly
+			            $vm_settings['net0'] .= ',ip6=dhcp';
+			            break;
+			        case 'prefix':
+			            // Placeholder for future development - currently does nothing
+			            // TODO: Handle 'prefix' case once prefix allocation logic is developed
+			            break;
+			        default:
+			            // Handle any unexpected IPv6 settings - logging, etc
+			            break;
+			    }
+			}
 			if(!empty($plan->vlanid)){
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
@@ -190,7 +211,27 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
-			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',ip6=auto';
+			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+			    // Handling different IPv6 configs
+			    switch ($plan->ipv6) {
+			        case 'auto':
+			            // Passes 'auto' directly, triggering SLAAC
+			            $vm_settings['net0'] .= ',ip6=auto';
+			            break;
+			        case 'dhcp':
+			            // Passes 'dhcp' directly
+			            $vm_settings['net0'] .= ',ip6=dhcp';
+			            break;
+			        case 'prefix':
+			            // Placeholder for future development - currently does nothing
+			            // TODO: Handle 'prefix' case once prefix allocation logic is developed
+			            break;
+			        default:
+			            // Handle any unexpected ipv6 settings, possibly log this case
+			            break;
+			    }
+			}
 			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['kvm'] = $plan->kvm;
 			$vm_settings['onboot'] = $plan->onboot;
@@ -265,6 +306,7 @@ function pvewhmcs_CreateAccount($params) {
 							'subnetmask' => $ip->mask,
 							'gateway' => $ip->gateway,
 							'created' => date("Y-m-d H:i:s"),
+							'v6prefix' => $plan->ipv6,
 						]
 					);
 					return true;
@@ -826,6 +868,7 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['netmask4']=$guest->subnetmask ;
 		$vm_config['gateway4']=$guest->gateway ;
 		$vm_config['created']=$guest->created ;
+		$vm_config['v6prefix']=$guest->v6prefix ;
 	}
 	else {
 		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
