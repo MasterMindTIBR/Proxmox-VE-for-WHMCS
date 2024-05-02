@@ -78,13 +78,15 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 ### Creating the VNC user within PVE
 
-1. Create User Group "VNC" via PVE > Datacenter / Permissions / Group
-2. Create new User "vnc" > Datacenter / Permissions / Users - select Group: "VNC", Realm: pve
-3. Create new Role -> Datacenter / Permissions / Roles - select Name: "VNC", Privileges: VM.Console (only)
-4. Add permission to access VNC -> Datacenter / Node / VM / Permissions / Add Group Permissions - select Group: "VNC", Role: "VNC"
+1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
+2. Create new User "vnc" > `Datacenter / Permissions / Users` - select Group: "VNC", Realm: pve
+3. Create new Role -> `Datacenter / Permissions / Roles` - select Name: "VNC", Privileges: VM.Console (only)
+4. Add permission to access VNC -> `Datacenter / Node / VM / Permissions / Add Group Permissions` - select Group: "VNC", Role: "VNC"
 5. Configure the WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret with 'vnc' password.
 
 > Do NOT set less restrictive permissions. The above is designed for hypervisor security.
+> 
+> However, if you wish for proper security, wait for VNC to be further improved.
 
 ## ⚙️ VM/CT PLANS: Setting everything up
 
@@ -129,9 +131,9 @@ Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is off/DHCP/SLAAC available (
 
 You can of course add different config via PVE/`pvesh` manually, if you need to specify a prefix.
 
-We're exploring the expansion of IPv6 support through the Issue Tracker. **ie. fork to eth1.**
+We're exploring the expansion of IPv6 support through the Issue Tracker. (**ie. fork to eth1.**)
 
-## 💅 FEATURES: PVE v8.0/8.1 bling
+## 💅 FEATURES: PVE v8.x bling
 
 There are new features deployed into Proxmox VE upstream in the v8 branch which are exciting and should be added to this module.
 
