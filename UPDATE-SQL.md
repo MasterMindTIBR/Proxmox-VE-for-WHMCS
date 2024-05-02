@@ -1,5 +1,12 @@
 # SQL Statements for Updates (nav to DB first)
 
+### v1.2.3 to v1.2.4
+
+```
+ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `v6prefix` varchar(128) DEFAULT NULL;
+ALTER TABLE mod_pvewhmcs_plans ADD COLUMN `ipv6` varchar(10) DEFAULT 'auto';
+```
+
 ### v1.2.1 to v1.2.2
 
 ```
