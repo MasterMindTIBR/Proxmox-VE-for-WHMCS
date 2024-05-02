@@ -252,6 +252,9 @@ function pvewhmcs_output($vars) {
 		<th>
 		BW
 		</th>
+  		<th>
+		IPv6
+		</th>
 		<th>
 		Actions
 		</th>
@@ -277,6 +280,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->vlanid . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netrate . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bw . PHP_EOL .'</td>';
+			echo '<td>'.$vm->ipv6 . PHP_EOL .'</td>';
 			echo '<td>
 			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=editplan&amp;id='.$vm->id.'&amp;vmtype='.$vm->vmtype.'"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
 			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=removeplan&amp;id='.$vm->id.'" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
@@ -534,21 +538,21 @@ function kvm_plan_add() {
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="1" required>
-	The number of CPU sockets. 1 - 4.
+	The number of CPU Sockets. 1 - 4.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cores" id="cores" value="1" required>
-	The number of CPU cores per socket. 1 - 32.
+	The number of CPU Cores per socket. 1 - 32.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpulimit" id="cpulimit" value="0" required>
-	Limit of CPU usage. Note if the Server has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
+	Limit of CPU Usage. Note if the Server has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
@@ -645,6 +649,17 @@ function kvm_plan_add() {
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
 	Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldarea">
+	<select class="form-control select-inline" name="ipv6">
+	<option value="0">Off</option>
+	<option value="auto">SLAAC</option>
+	<option value="dhcp">DHCPv6</option>
+	<option value="prefix">Prefix</option>
+	</select>
 	</td>
 	</tr>
 	<tr>
@@ -945,6 +960,17 @@ function kvm_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabyte, Blank means unlimited.
 	</td>
 	</tr>
+  	<tr>
+	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldarea">
+	<select class="form-control select-inline" name="ipv6">
+	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
+	<option value="auto" '. ($plan->ipv6=="auto" ? "selected" : "").'>SLAAC</option>
+	<option value="dhcp" '. ($plan->ipv6=="dhcp" ? "selected" : "").'>DHCPv6</option>
+	<option value="prefix" '. ($plan->ipv6=="prefix" ? "selected" : "").'>Prefix</option>
+	</select>
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Mode</td>
 	<td class="fieldarea">
@@ -1101,6 +1127,17 @@ function lxc_plan_add() {
 	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
 	</td>
 	</tr>
+  	<tr>
+	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldarea">
+	<select class="form-control select-inline" name="ipv6">
+	<option value="0">Off</option>
+	<option value="auto">SLAAC</option>
+	<option value="dhcp">DHCPv6</option>
+	<option value="prefix">Prefix</option>
+	</select>
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">
 	On-boot CT?
@@ -1225,6 +1262,17 @@ function lxc_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
 	</td>
 	</tr>
+   	<tr>
+	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldarea">
+	<select class="form-control select-inline" name="ipv6">
+	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
+	<option value="auto" '. ($plan->ipv6=="auto" ? "selected" : "").'>SLAAC</option>
+	<option value="dhcp" '. ($plan->ipv6=="dhcp" ? "selected" : "").'>DHCPv6</option>
+	<option value="prefix" '. ($plan->ipv6=="prefix" ? "selected" : "").'>Prefix</option>
+	</select>
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">
 	On-boot CT?
@@ -1276,6 +1324,7 @@ function save_kvm_plan() {
 						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
 						'bw' => $_POST['bw'],
+						'ipv6' => $_POST['ipv6'],
 						'kvm' => $_POST['kvm'],
 						'onboot' => $_POST['onboot'],
 					]
@@ -1318,6 +1367,7 @@ function update_kvm_plan() {
 			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
 			'bw' => $_POST['bw'],
+			'ipv6' => $_POST['ipv6'],
 			'kvm' => $_POST['kvm'],
 			'onboot' => $_POST['onboot'],
 		]
@@ -1360,6 +1410,7 @@ function save_lxc_plan() {
 						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
 						'bw' => $_POST['bw'],
+						'ipv6' => $_POST['ipv6'],
 						'onboot' => $_POST['onboot'],
 					]
 				);
@@ -1395,6 +1446,7 @@ function update_lxc_plan() {
 			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
 			'bw' => $_POST['bw'],
+			'ipv6' => $_POST['ipv6'],
 			'onboot' => $_POST['onboot'],
 		]
 	);
