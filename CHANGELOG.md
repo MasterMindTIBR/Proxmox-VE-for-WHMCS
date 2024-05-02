@@ -7,6 +7,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - IPv6: By default, new instances will be created with SLAAC configured. (#33)
 - IPv6: Ability to configure off/DHCP/SLAAC via VM/CT Plan setting. (#33)
 
+### 💅 Polish
+- CT Specs: Now amended post-clone, to ensure they match the Plan. (#32)
+
 ### 🐛 Bug Fix
 - db.sql: Improve logic with SQL import to pull from relative dir. (#67)
 
