@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `kvm` tinyint(1) unsigned DEFAULT '0',
   `onboot` tinyint(1) unsigned DEFAULT '0',
   `vlanid` varchar(10) DEFAULT NULL,
+  `ipv6` varchar(10) unsigned DEFAULT 'auto',
   PRIMARY KEY (`id`)
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
@@ -58,5 +59,6 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `subnetmask` varchar(255) NOT NULL,
   `gateway` varchar(255) NOT NULL,
   `created` datetime DEFAULT NULL,
+  `v6prefix` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
