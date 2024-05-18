@@ -12,6 +12,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 🐛 Bug Fix
 - db.sql: Improve logic with SQL import to pull from relative dir. (#67)
+- Connection Test (WHMCS Server): Refine fallback/normal logic (re: #70)
 
 ## [1.2.3] - 2023-12-31 - _"NY Tidy-up 123"_
 
