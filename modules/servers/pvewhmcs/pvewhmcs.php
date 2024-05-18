@@ -341,33 +341,35 @@ function pvewhmcs_CreateAccount($params) {
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
-    $success = true; // Assume success by default
-
-    try {
-        // Call the service's connection test function.
-        $serverip = $params["serverip"];
-        $serverusername = $params["serverusername"];
-        $serverpassword = $params["serverpassword"];
-        $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-
-        if (!$proxmox->login()) {
-            $success = false; // Set success to false if login fails
-        }
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log, if debug mode is enabled.
-        if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-            logModuleCall(
-                'pvewhmcs',
-                __FUNCTION__,
-                $params,
-                $e->getMessage() . $e->getTraceAsString()
-            );
-        }
-    	// Set the error message as the success value
-        $success = $e->getMessage(); 
-    }
-    // Return either true or the error
-    return array('success' => $success); 
+	// Assume failure by default
+	$success = false;
+	
+	try {
+		// Call the service's connection test function.
+		$serverip = $params["serverip"];
+		$serverusername = $params["serverusername"];
+		$serverpassword = $params["serverpassword"];
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		
+		if ($proxmox->login()) {
+			// Set success if login succeeded
+			$success = true;
+		}
+	} catch (Exception $e) {
+		// Record the error in WHMCS's module log, if debug mode is enabled.
+		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$params,
+			$e->getMessage() . $e->getTraceAsString()
+			);
+		}
+		// Set the error message as the success value
+		$success = $e->getMessage(); 
+	}
+	// Return outcome or error
+	return array('success' => $success); 
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
