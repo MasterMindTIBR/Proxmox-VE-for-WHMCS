@@ -79,10 +79,10 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 ### Creating the VNC user within PVE
 
 1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
-2. Create new User "vnc" > `Datacenter / Permissions / Users` - select Group: "VNC", Realm: pve
-3. Create new Role -> `Datacenter / Permissions / Roles` - select Name: "VNC", Privileges: VM.Console (only)
-4. Add permission to access VNC -> `Datacenter / Permissions / Add Group Permissions` - select Group: "VNC", Role: "VNC"
-5. Configure the WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret with 'vnc' password.
+2. Create new User "vnc" > `Datacenter / Permissions / Users` - Group: "VNC", Realm: pve
+3. Create new Role -> `Datacenter / Permissions / Roles` - Name: "VNC", Privileges: VM.Console (only)
+4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
+5. WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
 
 > Do NOT set less restrictive permissions. The above is designed for hypervisor security.
 > 
