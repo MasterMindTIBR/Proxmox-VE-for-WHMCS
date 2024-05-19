@@ -182,22 +182,26 @@ function pvewhmcs_CreateAccount($params) {
 	} else {
 		$vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
-			// Process LXC preparation
+			/////////////////////////////
+			// Process LXC preparation //
+			/////////////////////////////
 			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+				// Standard prep for the 2nd int.
+				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr;
 				// Handling different IPv6 configs
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Passes 'auto' directly, triggering SLAAC
-						$vm_settings['net0'] .= ',ip6=auto';
+						$vm_settings['net1'] .= ',ip6=auto';
 						break;
 					case 'dhcp':
 						// Passes 'dhcp' directly
-						$vm_settings['net0'] .= ',ip6=dhcp';
+						$vm_settings['net1'] .= ',ip6=dhcp';
 						break;
 					case 'prefix':
 						// Placeholder for future development - currently does nothing
@@ -207,7 +211,12 @@ function pvewhmcs_CreateAccount($params) {
 						// Handle any unexpected IPv6 settings - logging, etc
 						break;
 				}
+				// VLAN tag, only for v6
+				if(!empty($plan->vlanid)){
+					$vm_settings['net1'] .= ',trunk=' . $plan->vlanid;
+				}
 			}
+			// VLAN tag, only for v4
 			if(!empty($plan->vlanid)){
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
@@ -215,7 +224,9 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
-			// Process QEMU preparation
+			//////////////////////////////
+			// Process QEMU preparation //
+			//////////////////////////////
 			$vm_settings['ostype'] = $plan->ostype;
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
@@ -226,18 +237,18 @@ function pvewhmcs_CreateAccount($params) {
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Passes 'auto' directly, triggering SLAAC
-						$vm_settings['net0'] .= ',ip6=auto';
+						$vm_settings['ipconfig1'] = 'ip6=auto';
 						break;
 					case 'dhcp':
 						// Passes 'dhcp' directly
-						$vm_settings['net0'] .= ',ip6=dhcp';
+						$vm_settings['ipconfig1'] = 'ip6=dhcp';
 						break;
 					case 'prefix':
 						// Placeholder for future development - currently does nothing
 						// TODO: Handle 'prefix' case once prefix allocation logic is developed
 						break;
 					default:
-						// Handle any unexpected ipv6 settings, possibly log this case
+						// Handle any unexpected IPv6 settings - logging, etc
 						break;
 				}
 			}
@@ -257,6 +268,7 @@ function pvewhmcs_CreateAccount($params) {
 
 			/* Network Specifics - Bridge, Rate & Trunk/VLAN */
 			if ($plan->netmode != 'none') {
+				// Perform the additions for IPv4 (net0/ipconfig0)
 				$vm_settings['net0'] = $plan->netmodel;
 				if ($plan->netmode == 'bridge') {
 					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
@@ -267,6 +279,20 @@ function pvewhmcs_CreateAccount($params) {
 				}
 				if (!empty($plan->vlanid)) {
 					$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
+				}
+				// Check if ipconfig1 exists, and then do the same for net1 if so
+				if (isset($vm_settings['ipconfig1'])) {
+					$vm_settings['net1'] = $plan->netmodel;
+					if ($plan->netmode == 'bridge') {
+						$vm_settings['net1'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
+					}
+					$vm_settings['net1'] .= ',firewall=' . $plan->firewall;
+					if (!empty($plan->netrate)) {
+						$vm_settings['net1'] .= ',rate=' . $plan->netrate;
+					}
+					if (!empty($plan->vlanid)) {
+						$vm_settings['net1'] .= ',trunk=' . $plan->vlanid;
+					}
 				}
 			}
 			/* end of network settings */
