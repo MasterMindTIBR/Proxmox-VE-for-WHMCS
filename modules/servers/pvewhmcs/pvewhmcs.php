@@ -354,16 +354,14 @@ function pvewhmcs_TestConnection(array $params) {
 			$errorMsg = '';
 		}
 	} catch (Exception $e) {
-		// Record the error in WHMCS's module log, if debug mode is enabled.
-		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-			logModuleCall(
-				'pvewhmcs',
-				__FUNCTION__,
-				$params,
-				$e->getMessage(),
-				$e->getTraceAsString()
-			);
-		}
+		// Record the error in WHMCS's module log
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$params,
+			$e->getMessage(),
+			$e->getTraceAsString()
+		);
 		// Set the error message as a failure
 		$success = false;
 		$errorMsg = $e->getMessage(); 
