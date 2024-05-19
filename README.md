@@ -125,13 +125,11 @@ Please make sure you create an IP Pool with sufficient scope/size to be able to 
 
 **Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
 
-### IPv6: SLAAC default, same vNIC
+### IPv6: SLAAC default, 2nd vNIC
 
-Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there is off/DHCP/SLAAC available (dual-stack vNIC) as of May 2024.
+Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there's SLAAC/DHCP/off available (2x vNICs) (May 2024).
 
 You can of course add different config via PVE/`pvesh` manually, if you need to specify a prefix.
-
-We're exploring the expansion of IPv6 support through the Issue Tracker. (**ie. fork to eth1.**)
 
 ## 💅 FEATURES: PVE v8.x bling
 
