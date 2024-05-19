@@ -27,9 +27,11 @@ if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
 else
 	require_once(ROOTDIR.'/modules/addons/pvewhmcs/proxmox.php');
 
+// Import SQL Connectivity (WHMCS)
 use Illuminate\Database\Capsule\Manager as Capsule;
 
-global $guest ;
+// Prepare to source Guest type
+global $guest;
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
@@ -45,6 +47,7 @@ function pvewhmcs_ConfigOptions() {
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $ippool) {
 		$ippools[$ippool->id]=$ippool->title ;
 	}
+	
 	/*
 	$proxmox = new PVE2_API($server->ipaddress, $server->username, "pam", get_server_pass_from_whmcs($server->password));
 	if ($proxmox->login()) {
@@ -62,6 +65,7 @@ function pvewhmcs_ConfigOptions() {
 		}
 	}
 	*/
+	
 	// OPTIONS FOR THE QEMU/LXC PACKAGE; ties WHMCS PRODUCT to MODULE PLAN/POOL
 	// Ref: https://developers.whmcs.com/provisioning-modules/config-options/
 	// SQL/Param: configoption1 configoption2
@@ -80,6 +84,7 @@ function pvewhmcs_ConfigOptions() {
 		),
 	);
 
+	// Deliver the options back into WHMCS
 	return $configarray;
 }
 
@@ -90,25 +95,29 @@ function pvewhmcs_CreateAccount($params) {
 		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 	if (empty($params['configoption1'])) {
-    	throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+    		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 	if (empty($params['configoption2'])) {
-    	throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+    		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 
     	// Retrieve Plan from table
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
+	// PVE Host - Connection Info
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
 
+	// Prepare the service config array
 	$vm_settings = array();
 
-    	// Select an IP address from pool
+    	// Select an IP Address from Pool
 	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
-    	// CREATE IF QEMU/KVM
+	////////////////////////
+    	// CREATE IF QEMU/KVM //
+	////////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		// file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
 
@@ -180,24 +189,24 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-			    // Handling different IPv6 configs
-			    switch ($plan->ipv6) {
-			        case 'auto':
-			            // Passes 'auto' directly, triggering SLAAC
-			            $vm_settings['net0'] .= ',ip6=auto';
-			            break;
-			        case 'dhcp':
-			            // Passes 'dhcp' directly
-			            $vm_settings['net0'] .= ',ip6=dhcp';
-			            break;
-			        case 'prefix':
-			            // Placeholder for future development - currently does nothing
-			            // TODO: Handle 'prefix' case once prefix allocation logic is developed
-			            break;
-			        default:
-			            // Handle any unexpected IPv6 settings - logging, etc
-			            break;
-			    }
+				// Handling different IPv6 configs
+				switch ($plan->ipv6) {
+					case 'auto':
+						// Passes 'auto' directly, triggering SLAAC
+						$vm_settings['net0'] .= ',ip6=auto';
+						break;
+					case 'dhcp':
+						// Passes 'dhcp' directly
+						$vm_settings['net0'] .= ',ip6=dhcp';
+						break;
+					case 'prefix':
+						// Placeholder for future development - currently does nothing
+						// TODO: Handle 'prefix' case once prefix allocation logic is developed
+						break;
+					default:
+						// Handle any unexpected IPv6 settings - logging, etc
+						break;
+				}
 			}
 			if(!empty($plan->vlanid)){
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
@@ -213,24 +222,24 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['cpu'] = $plan->cpuemu;
 			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-			    // Handling different IPv6 configs
-			    switch ($plan->ipv6) {
-			        case 'auto':
-			            // Passes 'auto' directly, triggering SLAAC
-			            $vm_settings['net0'] .= ',ip6=auto';
-			            break;
-			        case 'dhcp':
-			            // Passes 'dhcp' directly
-			            $vm_settings['net0'] .= ',ip6=dhcp';
-			            break;
-			        case 'prefix':
-			            // Placeholder for future development - currently does nothing
-			            // TODO: Handle 'prefix' case once prefix allocation logic is developed
-			            break;
-			        default:
-			            // Handle any unexpected ipv6 settings, possibly log this case
-			            break;
-			    }
+				// Handling different IPv6 configs
+				switch ($plan->ipv6) {
+					case 'auto':
+						// Passes 'auto' directly, triggering SLAAC
+						$vm_settings['net0'] .= ',ip6=auto';
+						break;
+					case 'dhcp':
+						// Passes 'dhcp' directly
+						$vm_settings['net0'] .= ',ip6=dhcp';
+						break;
+					case 'prefix':
+						// Placeholder for future development - currently does nothing
+						// TODO: Handle 'prefix' case once prefix allocation logic is developed
+						break;
+					default:
+						// Handle any unexpected ipv6 settings, possibly log this case
+						break;
+				}
 			}
 			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['kvm'] = $plan->kvm;
@@ -267,7 +276,9 @@ function pvewhmcs_CreateAccount($params) {
 		$vm_settings['cpulimit'] = $plan->cpulimit;
 		$vm_settings['memory'] = $plan->memory;
 
-		// CREATION: Attempt to create the QEMU/LXC instance on Proxmox VE via API
+		////////////////////////////////////////////////////
+		// CREATION: Attempt to Create Guest via PVE2 API //
+		////////////////////////////////////////////////////
 		try {
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
@@ -324,8 +335,8 @@ function pvewhmcs_CreateAccount($params) {
 				throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 			}
 		} catch (PVE2_Exception $e) {
-            // Record the error in WHMCS's module log.
-            if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			// Record the error in WHMCS's module log.
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 				logModuleCall(
 					'pvewhmcs',
 					__FUNCTION__,
@@ -401,11 +412,11 @@ function pvewhmcs_SuspendAccount(array $params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
@@ -437,11 +448,11 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
@@ -667,7 +678,7 @@ class hash_encryption {
 // GENERAL FUNCTION: Server PW from WHMCS DB
 function get_server_pass_from_whmcs($enc_pass){
 	global $cc_encryption_hash;
-		// Include WHMCS database configuration file
+	// Include WHMCS database configuration file
 	include_once(dirname(dirname(dirname(dirname(__FILE__)))).'/configuration.php');
 	$key1 = md5 (md5 ($cc_encryption_hash));
 	$key2 = md5 ($cc_encryption_hash);
@@ -714,7 +725,7 @@ function pvewhmcs_ClientArea($params) {
 	$serverusername = $pveserver->username;
 
 	$api_data = array(
-	    'password2' => $pveserver->password,
+		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 
@@ -875,7 +886,7 @@ function pvewhmcs_ClientArea($params) {
 	}
 	else {
 		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
-		die;
+		exit;
 	}
 
 	return array(
@@ -901,19 +912,21 @@ function pvewhmcs_noVNC($params) {
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
+	
 	// Get login credentials then make the Proxmox connection attempt.
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
-		# Get first node name.
+		// Get first node name
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
+		// Early prep work
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
-
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
@@ -936,19 +949,21 @@ function pvewhmcs_SPICE($params) {
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
+	
 	// Get login credentials then make the Proxmox connection attempt.
 	$serverip = $params["serverip"];
 	$serverusername = 'vnc';
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
-		# Get first node name.
+		// Get first node name
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
+		// Early prep work
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', array( 'websocket' => '1' )) ;
-
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
@@ -977,23 +992,22 @@ function pvewhmcs_javaVNC($params){
 	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
-		# Get first node name.
+		// Get first node name
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-
+		// Early prep work
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-
 		$vncparams = array();
 		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/vncproxy', $vncparams) ;
-
+		// Java-specific params
 		$javaVNCparams = array() ;
 		$javaVNCparams[0] = $serverip ;
 		$javaVNCparams[1] = str_replace("\n","|",$vm_vncproxy['cert']) ;
 		$javaVNCparams[2] = $vm_vncproxy['port'] ;
 		$javaVNCparams[3] = $vm_vncproxy['user'] ;
 		$javaVNCparams[4] = $vm_vncproxy['ticket'] ;
-
+		// URL preparation to deliver in hyperlink message
 		$url = './modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
 		$vncreply = '<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
 		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
@@ -1013,7 +1027,7 @@ function pvewhmcs_vmStart($params) {
 	$serverusername = $pveserver->username;
 
 	$api_data = array(
-	    'password2' => $pveserver->password,
+		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
@@ -1038,11 +1052,11 @@ function pvewhmcs_vmStart($params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
@@ -1055,7 +1069,7 @@ function pvewhmcs_vmReboot($params) {
 	$serverusername = $pveserver->username;
 
 	$api_data = array(
-	    'password2' => $pveserver->password,
+		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
@@ -1081,11 +1095,11 @@ function pvewhmcs_vmReboot($params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
@@ -1099,7 +1113,7 @@ function pvewhmcs_vmShutdown($params) {
 	$serverusername = $pveserver->username;
 
 	$api_data = array(
-	    'password2' => $pveserver->password,
+		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
@@ -1125,11 +1139,11 @@ function pvewhmcs_vmShutdown($params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
@@ -1142,7 +1156,7 @@ function pvewhmcs_vmStop($params) {
 	$serverusername = $pveserver->username;
 
 	$api_data = array(
-	    'password2' => $pveserver->password,
+		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
@@ -1168,11 +1182,11 @@ function pvewhmcs_vmStop($params) {
 	}
 	// Return success only if no errors returned by PVE
 	if (isset($response) && !isset($response['errors'])) {
-	    return "success";
+		return "success";
 	} else {
-	    // Handle the case where there are errors
-	    $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-	    return "Error performing action. " . $response_message;
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
 	}
 }
 
