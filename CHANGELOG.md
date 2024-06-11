@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.2.5] - 2024-##-##
+
+### 🐛 Bug Fix
+- db.sql: Resolve syntax issues, to ensure table/content creation. (#77)
+
 ## [1.2.4] - 2024-05-19 - _"Fine tuning"_
 
 ### 🚀 Feature
