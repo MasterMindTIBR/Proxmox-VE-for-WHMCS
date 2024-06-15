@@ -5,6 +5,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 🐛 Bug Fix
 - db.sql: Resolve syntax issues, to ensure table/content creation. (#77)
+- db.sql: Options table INSERT to INSERT IGNORE (fix upgrade case). (#78)
 
 ## [1.2.4] - 2024-05-19 - _"Fine tuning"_
 
