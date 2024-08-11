@@ -3,6 +3,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.2.5] - 2024-##-##
 
+### 💅 Polish
+- noVNC: Update from v1.4.0 to v1.5.0 (#80)
+- TigerVNC: Update from v1.13.1 to v1.14.0 (#81)
+
 ### 🐛 Bug Fix
 - db.sql: Resolve syntax issues, to ensure table/content creation. (#77)
 - db.sql: Options table INSERT to INSERT IGNORE (fix upgrade case). (#78)
