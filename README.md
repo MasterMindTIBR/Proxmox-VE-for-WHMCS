@@ -217,8 +217,8 @@ Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statemen
 ## 🖥️ INC: Libraries & Dependencies
 
 - (MIT) PHP Client for PVE2 API (Dec 5th, 2022) https://github.com/CpuID/pve2-api-php-client
-- (GPLv2) TigerVNC VncViewer.jar (v1.13.1 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
-- (MPLv2) noVNC HTML5 Viewer (v1.4.0 in repo) https://github.com/novnc/noVNC
+- (GPLv2) TigerVNC VncViewer.jar (v1.14.0 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
+- (MPLv2) noVNC HTML5 Viewer (v1.5.0 in repo) https://github.com/novnc/noVNC
 - (GPLv3) SPICE HTML5 Viewer (v0.3 in repo) https://gitlab.freedesktop.org/spice/spice-html5
 - (MIT) IPv4/SN Validation (August 2012) https://github.com/tapmodo/php-ipv4/
 
