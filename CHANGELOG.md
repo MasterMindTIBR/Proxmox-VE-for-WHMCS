@@ -7,7 +7,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Old VM: Assign client VM where it exists already. (#75)
 - SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
 
-## [1.2.5] - 2024-08-22
+## [1.2.5] - 2024-08-22 - _"Updates & Updates"_
 
 ### 💅 Polish
 - noVNC: Update from v1.4.0 to v1.5.0 (#80)
