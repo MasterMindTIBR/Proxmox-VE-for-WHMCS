@@ -1,7 +1,13 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.5] - 2024-##-##
+## [1.2.6] - TBC 2024-??-??
+
+### 🚀 Feature
+- Old VM: Assign client VM where it exists already. (#75)
+- SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
+
+## [1.2.5] - 2024-08-22
 
 ### 💅 Polish
 - noVNC: Update from v1.4.0 to v1.5.0 (#80)
