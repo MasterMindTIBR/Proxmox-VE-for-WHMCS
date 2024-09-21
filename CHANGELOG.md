@@ -1,11 +1,16 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.6] - TBC 2024-??-??
+## [1.2.7] - TBC 2024-??-??
 
 ### 🚀 Feature
-- Old VM: Assign client VM where it exists already. (#75)
+- Old VM: Assign WHMCS Guest where it exists in PVE. (#75)
 - SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
+
+## [1.2.6] - TBC 2024-09-?? - _"Big Kahunas"_
+
+### 🐛 Bug Fix
+- Guest Create: Check UPID to avoid long job time-outs. (#83)
 
 ## [1.2.5] - 2024-08-22 - _"Updates & Updates"_
 
