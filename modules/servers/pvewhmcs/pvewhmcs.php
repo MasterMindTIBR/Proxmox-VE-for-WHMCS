@@ -25,7 +25,7 @@
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
 	require_once('../modules/addons/pvewhmcs/proxmox.php');
 else
-	require_once(ROOTDIR.'/modules/addons/pvewhmcs/proxmox.php');
+	require_once(ROOTDIR . '/modules/addons/pvewhmcs/proxmox.php');
 
 // Import SQL Connectivity (WHMCS)
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -71,13 +71,13 @@ function pvewhmcs_ConfigOptions() {
 	// SQL/Param: configoption1 configoption2
 	$configarray = array(
 		"Plan" => array(
-			"FriendlyName" => "Plan",
+			"FriendlyName" => "PVE Plan",
 			"Type" => "dropdown",
 			'Options' => $plans ,
 			"Description" => "KVM/LXC : Plan Name"
 		),
 		"IPPool" => array(
-			"FriendlyName" => "IP Pool",
+			"FriendlyName" => "IPv4 Pool",
 			"Type" => "dropdown",
 			'Options'=> $ippools,
 			"Description" => "IPv4 : Allocation Pool"
@@ -95,13 +95,13 @@ function pvewhmcs_CreateAccount($params) {
 		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 	if (empty($params['configoption1'])) {
-    		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 	if (empty($params['configoption2'])) {
-    		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
+		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 
-    	// Retrieve Plan from table
+	// Retrieve Plan from table
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
 	// PVE Host - Connection Info
@@ -112,18 +112,17 @@ function pvewhmcs_CreateAccount($params) {
 	// Prepare the service config array
 	$vm_settings = array();
 
-    	// Select an IP Address from Pool
+	// Select an IP Address from Pool
 	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
 	////////////////////////
-    	// CREATE IF QEMU/KVM //
+	// CREATE IF QEMU/KVM //
 	////////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
-		// file_put_contents('d:\log.txt', $params['customfields']['KVMTemplate']);
-
+		// KVM TEMPLATE - CREATION LOGIC
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
-            		// Get first node name.
+			// Get first node name.
 			$nodes = $proxmox->get_node_list();
 			$first_node = $nodes[0];
 			unset($nodes);
@@ -133,6 +132,7 @@ function pvewhmcs_CreateAccount($params) {
 			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$logrequest = '/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
 			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
+
 			// DEBUG - Log the request parameters before it's fired
 			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 				logModuleCall(
@@ -142,7 +142,37 @@ function pvewhmcs_CreateAccount($params) {
 					json_decode($response)
 				);
 			}
-			if ($response) {
+
+			// Check for a successful response and get the task UPID
+			if (isset($response['data']) && isset($response['data']['upid'])) {
+				$task_upid = $response['data']['upid'];
+
+				// Poll for task completion
+				$max_retries = 10;  // Total retries (avoid infinite loop)
+				$retry_interval = 15;  // Delay in seconds between retries
+				$completed = false;  // Starting - not complete until done
+
+				for ($i = 0; $i < $max_retries; $i++) {
+					// Check task status
+					$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $task_upid . '/status');
+
+					if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
+						$completed = true;
+						break;
+					} elseif (isset($task_status['data']['status']) && $task_status['data']['status'] === 'running') {
+						// Task is still running, wait and retry
+						sleep($retry_interval);
+					} else {
+						// Task failed, handle error
+						throw new Exception("Proxmox Error: Task failed with status: " . json_encode($task_status));
+					}
+				}
+
+				if (!$completed) {
+					throw new Exception("Proxmox Error: Task did not complete in time. Adjust ~/modules/servers/pvewhmcs/pvewhmcs.php >> max_retries option (2 locations).");
+				}
+
+				// Task is completed, now update the database with VM details.
 				Capsule::table('mod_pvewhmcs_vms')->insert(
 					[
 						'id' => $params['serviceid'],
@@ -166,25 +196,20 @@ function pvewhmcs_CreateAccount($params) {
 				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
 				return true;
 			} else {
-				if (is_array($response) && isset($response['data']['errors'])) {
-					$response_message = json_encode($response['data']['errors']);
-				} elseif (is_string($response) || is_numeric($response)) {
-					$response_message = (string)$response;
-				} else {
-					$response_message = "Unexpected Error/Response. Type: " . gettype($response) . ", Contents: " . print_r($response, true);
-				}
-				throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
+				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
 			}
 		} else {
 			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
 		}
-    	// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES
+		/////////////////////////////////////////////////
+		// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES //
+		/////////////////////////////////////////////////
 	} else {
 		$vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
-			/////////////////////////////
-			// Process LXC preparation //
-			/////////////////////////////
+			///////////////////////////
+			// LXC: Preparation Work //
+			///////////////////////////
 			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
@@ -193,62 +218,54 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
 				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr;
-				// Handling different IPv6 configs
 				switch ($plan->ipv6) {
 					case 'auto':
-						// Passes 'auto' directly, triggering SLAAC
+						// Pass in auto, triggering SLAAC
 						$vm_settings['net1'] .= ',ip6=auto';
 						break;
 					case 'dhcp':
-						// Passes 'dhcp' directly
+						// DHCP for IPv6 option
 						$vm_settings['net1'] .= ',ip6=dhcp';
 						break;
 					case 'prefix':
-						// Placeholder for future development - currently does nothing
-						// TODO: Handle 'prefix' case once prefix allocation logic is developed
+						// Future development
 						break;
 					default:
-						// Handle any unexpected IPv6 settings - logging, etc
 						break;
 				}
-				// VLAN tag, only for v6
-				if(!empty($plan->vlanid)){
+				if (!empty($plan->vlanid)) {
 					$vm_settings['net1'] .= ',trunk=' . $plan->vlanid;
 				}
 			}
-			// VLAN tag, only for v4
-			if(!empty($plan->vlanid)){
+			if (!empty($plan->vlanid)) {
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
 			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
-			//////////////////////////////
-			// Process QEMU preparation //
-			//////////////////////////////
+			////////////////////////////
+			// QEMU: Preparation Work //
+			////////////////////////////
 			$vm_settings['ostype'] = $plan->ostype;
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
 			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-				// Handling different IPv6 configs
 				switch ($plan->ipv6) {
 					case 'auto':
-						// Passes 'auto' directly, triggering SLAAC
+						// Pass in auto, triggering SLAAC
 						$vm_settings['ipconfig1'] = 'ip6=auto';
 						break;
 					case 'dhcp':
-						// Passes 'dhcp' directly
+						// DHCP for IPv6 option
 						$vm_settings['ipconfig1'] = 'ip6=dhcp';
 						break;
 					case 'prefix':
-						// Placeholder for future development - currently does nothing
-						// TODO: Handle 'prefix' case once prefix allocation logic is developed
+						// Future development
 						break;
 					default:
-						// Handle any unexpected IPv6 settings - logging, etc
 						break;
 				}
 			}
@@ -261,14 +278,13 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
 			}
 
-            		// Assign ISO File
+			// ISO: Attach file to the guest
 			if (isset($params['customfields']['ISO'])) {
 				$vm_settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
 			}
 
-			/* Network Specifics - Bridge, Rate & Trunk/VLAN */
+			// NET: Config specifics for guest networking
 			if ($plan->netmode != 'none') {
-				// Perform the additions for IPv4 (net0/ipconfig0)
 				$vm_settings['net0'] = $plan->netmodel;
 				if ($plan->netmode == 'bridge') {
 					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
@@ -280,7 +296,7 @@ function pvewhmcs_CreateAccount($params) {
 				if (!empty($plan->vlanid)) {
 					$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 				}
-				// Check if ipconfig1 exists, and then do the same for net1 if so
+				// IPv6: Same configs for second interface
 				if (isset($vm_settings['ipconfig1'])) {
 					$vm_settings['net1'] = $plan->netmodel;
 					if ($plan->netmode == 'bridge') {
@@ -295,7 +311,6 @@ function pvewhmcs_CreateAccount($params) {
 					}
 				}
 			}
-			/* end of network settings */
 		}
 
 		$vm_settings['cpuunits'] = $plan->cpuunits;
@@ -309,7 +324,7 @@ function pvewhmcs_CreateAccount($params) {
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
 			if ($proxmox->login()) {
-                		// Get first node name.
+				// Get first node name.
 				$nodes = $proxmox->get_node_list();
 				$first_node = $nodes[0];
 				unset($nodes);
@@ -323,6 +338,7 @@ function pvewhmcs_CreateAccount($params) {
 				// ACTION - Fire the attempt to create
 				$logrequest = '/nodes/' . $first_node . '/' . $v . $vm_settings;
 				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
+
 				// DEBUG - Log the request parameters after it's fired
 				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 					logModuleCall(
@@ -332,8 +348,37 @@ function pvewhmcs_CreateAccount($params) {
 						json_decode($response)
 					);
 				}
-				if ($response) {
-					unset($vm_settings);
+
+				// Check for a successful response and get the task UPID
+				if (isset($response['data']) && isset($response['data']['upid'])) {
+					$task_upid = $response['data']['upid'];
+
+					// Poll for task completion
+					$max_retries = 10;  // Total retries (avoid infinite loop)
+					$retry_interval = 15;  // Number of seconds between retries
+					$completed = false;
+
+					for ($i = 0; $i < $max_retries; $i++) {
+						// Check task status
+						$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $task_upid . '/status');
+
+						if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
+							$completed = true;
+							break;
+						} elseif (isset($task_status['data']['status']) && $task_status['data']['status'] === 'running') {
+							// Task is still running, wait and retry
+							sleep($retry_interval);
+						} else {
+							// Task failed, handle error
+							throw new Exception("Proxmox Error: Task failed with status: " . json_encode($task_status));
+						}
+					}
+
+					if (!$completed) {
+						throw new Exception("Proxmox Error: Task did not complete in time. Adjust ~/modules/servers/pvewhmcs/pvewhmcs.php >> max_retries option (2 locations).");
+					}
+
+					// Task is completed, now update the database with VM details.
 					Capsule::table('mod_pvewhmcs_vms')->insert(
 						[
 							'id' => $params['serviceid'],
@@ -348,14 +393,7 @@ function pvewhmcs_CreateAccount($params) {
 					);
 					return true;
 				} else {
-					if (is_array($response) && isset($response['data']['errors'])) {
-						$response_message = json_encode($response['data']['errors']);
-					} elseif (is_string($response) || is_numeric($response)) {
-						$response_message = (string)$response;
-					} else {
-						$response_message = "Unexpected Error/Response. Type: " . gettype($response) . ", Contents: " . print_r($response, true);
-					}
-					throw new Exception("Proxmox Error: Failed to create Service. Response: " . $response_message);
+					throw new Exception("Proxmox Error: Failed to initiate creation. Response: " . json_encode($response));
 				}
 			} else {
 				throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
