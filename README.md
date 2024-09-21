@@ -31,7 +31,8 @@ New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Ser
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) **Service ID above 100**
-- (PHP) v8.x (stable version)
+- (PHP) v8.x.x (latest stable version)
+- (PHP) max_execution_time = 300
 - (Proxmox) VE v8.x (current)
 - (Proxmox) 2 users (API/VNC)
 
