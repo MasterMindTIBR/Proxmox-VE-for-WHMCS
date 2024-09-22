@@ -145,7 +145,7 @@ function pvewhmcs_CreateAccount($params) {
 
 			// Extract UPID from the response (Proxmox returns colon-delimited string)
 			if (strpos($response, 'UPID:') === 0) {
-				$upid = explode(':', $response)[1]; // Extract the UPID from the colon-delimited response
+				$upid = trim($response); // Extract the entire UPID including "UPID:"
 
 				// Poll for task completion
 				$max_retries = 10;  // Total retries (avoid infinite loop)
@@ -351,7 +351,7 @@ function pvewhmcs_CreateAccount($params) {
 
 				// Extract UPID from the response (Proxmox returns colon-delimited string)
 				if (strpos($response, 'UPID:') === 0) {
-					$upid = explode(':', $response)[1]; // Extract the UPID from the colon-delimited response
+					$upid = trim($response); // Extract the entire UPID including "UPID:"
 
 					// Poll for task completion
 					$max_retries = 10;  // Total retries (avoid infinite loop)
