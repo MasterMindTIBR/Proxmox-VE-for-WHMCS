@@ -7,7 +7,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Old VM: Assign WHMCS Guest where it exists in PVE. (#75)
 - SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
 
-## [1.2.6] - TBC 2024-09-?? - _"Big Kahunas"_
+### 💅 Polish
+- Actions Wait & GUI Swap Default: Refine handling. (#76)
+
+## [1.2.6] - 2024-09-22 - _"Big Kahunas"_
 
 ### 🐛 Bug Fix
 - Guest Create: Check UPID to avoid long job time-outs. (#83)
