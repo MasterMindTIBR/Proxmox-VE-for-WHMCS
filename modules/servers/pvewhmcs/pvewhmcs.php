@@ -143,9 +143,9 @@ function pvewhmcs_CreateAccount($params) {
 				);
 			}
 
-			// Check for a successful response and get the task UPID
-			if (isset($response['data']) && isset($response['data']['upid'])) {
-				$task_upid = $response['data']['upid'];
+			// Extract UPID from the response (Proxmox returns colon-delimited string)
+			if (strpos($response, 'UPID:') === 0) {
+				$upid = explode(':', $response)[1]; // Extract the UPID from the colon-delimited response
 
 				// Poll for task completion
 				$max_retries = 10;  // Total retries (avoid infinite loop)
@@ -154,7 +154,7 @@ function pvewhmcs_CreateAccount($params) {
 
 				for ($i = 0; $i < $max_retries; $i++) {
 					// Check task status
-					$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $task_upid . '/status');
+					$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
 
 					if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
 						$completed = true;
@@ -349,9 +349,9 @@ function pvewhmcs_CreateAccount($params) {
 					);
 				}
 
-				// Check for a successful response and get the task UPID
-				if (isset($response['data']) && isset($response['data']['upid'])) {
-					$task_upid = $response['data']['upid'];
+				// Extract UPID from the response (Proxmox returns colon-delimited string)
+				if (strpos($response, 'UPID:') === 0) {
+					$upid = explode(':', $response)[1]; // Extract the UPID from the colon-delimited response
 
 					// Poll for task completion
 					$max_retries = 10;  // Total retries (avoid infinite loop)
@@ -360,7 +360,7 @@ function pvewhmcs_CreateAccount($params) {
 
 					for ($i = 0; $i < $max_retries; $i++) {
 						// Check task status
-						$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $task_upid . '/status');
+						$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
 
 						if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
 							$completed = true;
