@@ -10,7 +10,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 💅 Polish
 - Actions Wait & GUI Swap Default: Refine handling. (#76)
 
-## [1.2.6] - 2024-09-22 - _"Big Kahunas"_
+## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
 ### 🐛 Bug Fix
 - Guest Create: Check UPID to avoid long job time-outs. (#83)
