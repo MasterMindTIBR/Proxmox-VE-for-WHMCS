@@ -156,15 +156,21 @@ function pvewhmcs_CreateAccount($params) {
 					// Check task status
 					$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
 
-					if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
-						$completed = true;
-						break;
-					} elseif (isset($task_status['data']['status']) && $task_status['data']['status'] === 'running') {
+					if (isset($task_status['data']['status']) && $task_status['data']['status'] === 'stopped') {
+						// Task is completed, now check exit status
+						if (isset($task_status['data']['exitstatus']) && $task_status['data']['exitstatus'] === 'OK') {
+							$completed = true;
+							break;
+						} else {
+							// Task stopped, but failed with an exit status
+							throw new Exception("Proxmox Error: Task failed with exit status: " . $task_status['data']['exitstatus']);
+						}
+					} elseif ($task_status['data']['status'] === 'running') {
 						// Task is still running, wait and retry
 						sleep($retry_interval);
 					} else {
-						// Task failed, handle error
-						throw new Exception("Proxmox Error: Task failed with status: " . json_encode($task_status));
+						// Unexpected task status
+						throw new Exception("Proxmox Error: Unexpected task status: " . json_encode($task_status));
 					}
 				}
 
@@ -362,15 +368,21 @@ function pvewhmcs_CreateAccount($params) {
 						// Check task status
 						$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
 
-						if ($task_status && isset($task_status['data']['status']) && $task_status['data']['status'] === 'OK') {
-							$completed = true;
-							break;
-						} elseif (isset($task_status['data']['status']) && $task_status['data']['status'] === 'running') {
+						if (isset($task_status['data']['status']) && $task_status['data']['status'] === 'stopped') {
+							// Task is completed, now check exit status
+							if (isset($task_status['data']['exitstatus']) && $task_status['data']['exitstatus'] === 'OK') {
+								$completed = true;
+								break;
+							} else {
+								// Task stopped, but failed with an exit status
+								throw new Exception("Proxmox Error: Task failed with exit status: " . $task_status['data']['exitstatus']);
+							}
+						} elseif ($task_status['data']['status'] === 'running') {
 							// Task is still running, wait and retry
 							sleep($retry_interval);
 						} else {
-							// Task failed, handle error
-							throw new Exception("Proxmox Error: Task failed with status: " . json_encode($task_status));
+							// Unexpected task status
+							throw new Exception("Proxmox Error: Unexpected task status: " . json_encode($task_status));
 						}
 					}
 
