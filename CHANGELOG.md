@@ -1,14 +1,17 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.2.7] - TBC 2024-??-??
+## [1.3.0] - TBC 2025-??-??
 
 ### 🚀 Feature
 - Old VM: Assign WHMCS Guest where it exists in PVE. (#75)
 - SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
+- SQL Upgrades: Automate upgrading of DB on-module-update. (#62)
 
 ### 💅 Polish
 - Actions Wait & GUI Swap Default: Refine handling. (#76)
+- RAM/Memory Ballooning: Enable/Disable within GUI. (#87)
+- Improve (again) Server Connection: Refine handling. (#91)
 
 ## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
