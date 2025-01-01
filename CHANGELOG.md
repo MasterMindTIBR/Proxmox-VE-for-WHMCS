@@ -3,20 +3,21 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.3.0] - TBC 2025-??-??
 
-### 🚀 Feature
-- Old VM: Assign WHMCS Guest where it exists in PVE. (#75)
-- SSH Keys: Deploy your keys into a CT via cloud-init. (#74)
-- SQL Upgrades: Automate upgrading of DB on-module-update. (#62)
+https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
+
+## [1.2.7] - 2025-01-02 - _"Terminate Balloons"_
 
 ### 💅 Polish
-- Actions Wait & GUI Swap Default: Refine handling. (#76)
-- RAM/Memory Ballooning: Enable/Disable within GUI. (#87)
-- Improve (again) Server Connection: Refine handling. (#91)
+- RAM/Memory Ballooning - Option to disable (#87)
+
+### 🐛 Bug Fix
+- Admin Area: Terminate module command not working (#85)
+- Client Area GUI: Swap graph not always accurate (#95)
 
 ## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
 ### 🐛 Bug Fix
-- Guest Create: Check UPID to avoid long job time-outs. (#83)
+- Guest Create: Check UPID to avoid long job time-outs (#83)
 
 ## [1.2.5] - 2024-08-22 - _"Updates & Updates"_
 
@@ -25,8 +26,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - TigerVNC: Update from v1.13.1 to v1.14.0 (#81)
 
 ### 🐛 Bug Fix
-- db.sql: Resolve syntax issues, to ensure table/content creation. (#77/#79)
-- db.sql: Options table INSERT to INSERT IGNORE (fix upgrade case). (#78)
+- db.sql: Resolve syntax issues, to ensure table/content creation (#77/#79)
+- db.sql: Options table INSERT to INSERT IGNORE (fix upgrade case) (#78)
 
 ## [1.2.4] - 2024-05-19 - _"Fine tuning"_
 
