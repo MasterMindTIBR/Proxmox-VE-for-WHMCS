@@ -3,7 +3,7 @@
 ## v1.2.6 to v1.2.7
 
 ```
-ALTER TABLE mod_pvewhmcs_plans ADD COLUMN `balloon` tinyint(1) unsigned DEFAULT 0;
+ALTER TABLE mod_pvewhmcs_plans ADD COLUMN `balloon` varchar(10) DEFAULT '0';
 ```
 
 ## v1.2.3 to v1.2.4
