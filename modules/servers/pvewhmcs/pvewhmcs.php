@@ -429,7 +429,7 @@ function pvewhmcs_CreateAccount($params) {
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
 	try {
-		// Call the service's connection test function.
+		// Call the service's connection test function
 		$serverip = $params["serverip"];
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
@@ -468,12 +468,13 @@ function pvewhmcs_SuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		# Get first node name.
+		// Get first node name & prepare
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
+		// Log and fire request
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
 		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
 	}
@@ -504,12 +505,13 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		# Get first node name.
+		// Get first node name & prepare
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
+		// Log and fire request
 		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
 		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start');
 	}
@@ -540,23 +542,22 @@ function pvewhmcs_TerminateAccount(array $params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
-		# Get first node name.
+		// Get first node name
 		$nodes = $proxmox->get_node_list();
 		$first_node = $nodes[0];
 		unset($nodes);
-		// find virtual machine type
+		// Find virtual machine type
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		$pve_cmdparam = array();
-		// stop the service before terminating
-		//获取状态 如果状态不是stopped，则先stop
-		$ct_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
-		if ($ct_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam) ;
-			sleep(30) ;
+		// Stop the service if it is not already stopped
+		$guest_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+		if ($guest_specific['status'] != 'stopped') {
+			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+			sleep(30);
 		}
 
 		if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
-			// delete entry from module table once service terminated in PVE
+			// Delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
 		}
@@ -802,10 +803,11 @@ function pvewhmcs_ClientArea($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
 	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	
+
+	// Get IP and User for Hypervisor
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
-
+	// Password access is different in Client Area, so retrieve and decrypt
 	$api_data = array(
 		'password2' => $pveserver->password,
 	);
@@ -853,11 +855,13 @@ function pvewhmcs_ClientArea($params) {
 			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
 
 			if ($guest->vtype == 'lxc') {
+				// Check on swap before setting graph value
 				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'].'/status/current');
 				if ($ct_specific['maxswap'] != 0) {
 					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
 				} else {
-					$vm_status['swapusepercent'] = 0; // 当maxswap为0时，swap使用率为0
+					// Fall back to 0% usage to satisfy chart requirement
+					$vm_status['swapusepercent'] = 0;
 				}
 			}
 		} else {
@@ -1166,12 +1170,14 @@ function pvewhmcs_vmReboot($params) {
 		unset($nodes);
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
-		// $pve_cmdparam['timeout'] = '60';
-		$ct_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
-        if ($ct_specific['status'] = 'stopped') {
-		    $logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
-		    $response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
+		// Check status before doing anything
+		$guest_specific = $proxmox->get('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/current');
+        	if ($guest_specific['status'] = 'stopped') {
+			// START if Stopped
+			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
 		} else {
+			// REBOOT if Started
 			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
 			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam);
 		}
