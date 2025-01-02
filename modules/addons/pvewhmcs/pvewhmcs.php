@@ -219,6 +219,9 @@ function pvewhmcs_output($vars) {
 		<th>
 		RAM
 		</th>
+  		<th>
+		Balloon
+		</th>
 		<th>
 		Swap
 		</th>
@@ -269,6 +272,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->cpus . PHP_EOL .'</td>';
 			echo '<td>'.$vm->cores . PHP_EOL .'</td>';
 			echo '<td>'.$vm->memory . PHP_EOL .'</td>';
+			echo '<td>'.$vm->balloon . PHP_EOL .'</td>';
 			echo '<td>'.$vm->swap . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
@@ -302,10 +306,10 @@ function pvewhmcs_output($vars) {
 	<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 	<div class="btn-group">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
-	<i class="fa fa-list"></i>&nbsp; List: IP Pools
+	<i class="fa fa-list"></i>&nbsp; List: IPv4 Pools
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
-	<i class="fa fa-plus"></i>&nbsp; Add: IP to Pool
+	<i class="fa fa-plus"></i>&nbsp; Add: IPv4 to Pool
 	</a>
 	</div>
 	';
@@ -567,6 +571,13 @@ function kvm_plan_add() {
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" value="2048" required>
 	RAM space in Megabyte e.g 1024 = 1GB (default is 2GB)
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">RAM - Balloon</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
+	Balloon space in Megabyte e.g 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
@@ -876,6 +887,13 @@ function kvm_plan_edit($id) {
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
 	RAM space in Megabytes e.g 1024 = 1GB
+	</td>
+	</tr>
+  	<tr>
+	<td class="fieldlabel">RAM - Balloon</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
+	Balloon space in Megabyte e.g 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
@@ -1311,6 +1329,7 @@ function save_kvm_plan() {
 						'cpulimit' => $_POST['cpulimit'],
 						'cpuunits' => $_POST['cpuunits'],
 						'memory' => $_POST['memory'],
+						'balloon' => $_POST['balloon'],
 						'disk' => $_POST['disk'],
 						'diskformat' => $_POST['diskformat'],
 						'diskcache' => $_POST['diskcache'],
@@ -1354,6 +1373,7 @@ function update_kvm_plan() {
 			'cpulimit' => $_POST['cpulimit'],
 			'cpuunits' => $_POST['cpuunits'],
 			'memory' => $_POST['memory'],
+			'balloon' => $_POST['balloon'],
 			'disk' => $_POST['disk'],
 			'diskformat' => $_POST['diskformat'],
 			'diskcache' => $_POST['diskcache'],
