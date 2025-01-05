@@ -14,6 +14,8 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 - Admin Area: Terminate module command not working (#85)
 - Client Area GUI: Swap graph not always accurate (#95)
 
+(\*): SQL Note: There's a new column in 1 of the module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+
 ## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
 ### 🐛 Bug Fix
@@ -80,7 +82,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 - Client, VNC: Fails early if VNC Secret is not set or adequate (#27)
 - On-boot Status: Enabled/Disabled now properly applied for CTs (#34)
 
-(\*): SQL Note: There are new columns in 2 of the module tables, see [SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/SQL.md)
+(\*): SQL Note: There are new columns in 2 of the module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
 
 ## [1.2.1b] - 2023-06-19 - _"Working, including VNC!"_
 
