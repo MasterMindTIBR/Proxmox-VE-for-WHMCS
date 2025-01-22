@@ -31,9 +31,17 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 
 ## 🎯 MODULE: System Requirements (PVE/WHMCS)
 
+### WHMCS must have >100 services!
+
 New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID < 100 case.
 
 **SID >100:** The WHMCS Service ID requirement is CRITICAL, as Proxmox reserves VMIDs <100 (system). 
+
+_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
+
+To check, browse to your **latest** service in WHMCS, then check the URL - it will reveal the Service ID. If it is less than 100, subtract it from 100 to deduce how many "dummy services" you need to add in a dummy order. Once over 100, it fits the requirement & you're good!
+
+### General Requirements
 
 - (WHMCS) v8.x.x stable (HTTPS)
 - (WHMCS) **Service ID above 100**
@@ -41,8 +49,6 @@ New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Ser
 - (PHP) max_execution_time = 300
 - (Proxmox) VE v8.x (current)
 - (Proxmox) 2 users (API/VNC)
-
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
 
 ## ✅ MODULE: Installation & Configuration
 
