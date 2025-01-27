@@ -33,13 +33,17 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 
 ### WHMCS must have >100 services!
 
-New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID < 100 case.
+New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID <100 case.
 
-**SID >100:** The WHMCS Service ID requirement is CRITICAL, as Proxmox reserves VMIDs <100 (system). 
+**SID >100:** The WHMCS Service ID requirement is CRITICAL, as **Proxmox reserves VMIDs <100 (system).** 
 
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** `HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
+_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** 
 
-To check, browse to your **latest** service in WHMCS, then check the URL - it will reveal the Service ID. If it is less than 100, subtract it from 100 to deduce how many "dummy services" you need to add in a dummy order. Once over 100, it fits the requirement & you're good!
+`HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
+
+To check, browse to your **latest** service in WHMCS, then check the URL - it will reveal the Service ID. If it is less than 100, subtract it from 100 to deduce how many "dummy services" you need to add in a dummy order. 
+
+Once over 100, it fits the requirement & you're good!
 
 ### General Requirements
 
@@ -160,12 +164,19 @@ There are new features deployed into Proxmox VE upstream in the v8 branch which 
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
-### Proxmox 8.2
+### Proxmox v8.2
 
 1. Import Wizard for Guests.
 2. Unattended PVE Install (answer file).
 3. Backup Fleecing (local disk as data block buffer).
 4. Firewall Preview (based on nftables).
+
+### Proxmox v8.3
+
+1. Software-defined Networking/Firewall.
+2. Better guest importing from OVA/OVF.
+3. Webhook target for system alerting.
+4. Better change detection for PBS.
 
 PVE Roadmap: https://pve.proxmox.com/wiki/Roadmap
 
