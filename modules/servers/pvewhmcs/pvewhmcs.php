@@ -216,7 +216,7 @@ function pvewhmcs_CreateAccount($params) {
 			///////////////////////////
 			// LXC: Preparation Work //
 			///////////////////////////
-			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
+			$vm_settings['ostemplate'] = $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
