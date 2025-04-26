@@ -129,10 +129,12 @@ Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
 ### CT Option: LXC, using PVE Template File
 
-Firstly, store the Template in PVE. You need its unique File Name.
+Firstly, store the Template in PVE. You need its storage, folder & File Name.
 
-> Use that full file name in the Custom Field `Template`, as in:<br>
-> `ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+> Use that prefixed file name in the Custom Field `Template`, as in:<br>
+> `local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+
+ie. If using ZFS for Templates, substitute local with volume name.
 
 Then make a 2nd Custom Field `Password` for the CT's root user.
 
