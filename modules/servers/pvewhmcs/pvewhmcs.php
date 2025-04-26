@@ -220,10 +220,10 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
-				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr;
+				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr . ',rate=' . $plan->netrate;
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
@@ -283,6 +283,7 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($plan->diskcache)) {
 				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
 			}
+			$vm_settings['bwlimit'] = $plan->diskio;
 
 			// ISO: Attach file to the guest
 			if (isset($params['customfields']['ISO'])) {
