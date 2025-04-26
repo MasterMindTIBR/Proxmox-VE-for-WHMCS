@@ -5,6 +5,19 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
+
+### 🚀 Feature
+- TPL Storage - Allow for independent location (#112)
+- (LXC Users: ^ means you need to amend Template value)
+
+### 💅 Polish
+- LXC Net Rate, QEMU Disk I/O - Apply values (#103)
+- Addon Module, GUI - Improve attribute phrasing (#103)
+- Network, Bridge ID - No longer mandatory, re: SDN (#113)
+
+(\*): SQL Note: There's a modified column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+
 ## [1.2.7] - 2025-01-02 - _"Terminate Balloons"_
 
 ### 💅 Polish
@@ -14,7 +27,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 - Admin Area: Terminate module command not working (#85)
 - Client Area GUI: Swap graph not always accurate (#95)
 
-(\*): SQL Note: There's a new column in 1 of the module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+(\*): SQL Note: There's a new column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
 
 ## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
