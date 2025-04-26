@@ -78,7 +78,7 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 Configured in the _Module_ as detailed below, once you've added/restricted it in PVE.
 
-### Installing: Getting ready to use the Module
+### 🏃‍♂️ INSTALL: Getting ready to use the Module!
 
 Firstly, you need to upload, activate and make the WHMCS Module available to Administrators.
 
@@ -135,7 +135,7 @@ Please make sure you create an IP Pool with sufficient scope/size to be able to 
 
 **Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
 
-#### IPv6: SLAAC default, 2nd vNIC
+### IPv6: SLAAC default, 2nd vNIC
 
 Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there's SLAAC/DHCP/off available (2x vNICs) (May 2024).
 
@@ -151,46 +151,61 @@ This depends on your configuration on the PVE Host/s - bridge (vmbr0 etc) or sof
 
 ## ⚙️ 4. VM/CT PLANS: Setting everything up
 
-These steps explain the unique requirements per-option.
+These steps explain the unique requirements for QEMU & LXC guests.
 
-Custom Fields: Values need to go in Name & Select Options.
+**Custom Fields:** Values need to go in Name & Select Options.<br>
+This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
-### VM Option 1: KVM, using PVE Template VM
+### VM Option 1: QEMU, PVE Template VM Clone
 
-Firstly, create the Template in PVE. You need its unique PVE ID.
+Firstly, create the Template VM in PVE. You need its unique PVE ID.
 
 Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
-> Note: `Name` is what's displayed in the WHMCS Client Area.
+> Note: `ID` is the Unique ID that your Template VM has in PVE.<br>
+> Note: `Name` is what will be displayed to your Clients in WHMCS.
 
-### VM Option 2: KVM, WHMCS Plan + PVE ISO
+### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
 Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
 
-> Under the Service, you need to add a Custom Field `ISO` with the full location.
+> Under the Service, you need to add a Custom Field `ISO` with the full location.<br>
+> This ISO must be located on the PVE Host, and not on the WHMCS installation side.
 
-### CT Option: LXC, using PVE Template File
+### CT Option 1: LXC, PVE Template File
 
 Firstly, store the Template in PVE. You need its storage, folder & File Name.
 
 > Use that prefixed file name in the Custom Field `Template`, as in:<br>
 > `local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
+#### ZFS etc: Comfigure to suit isolated TPL
+
+- `local` is the name of the file-system that you have the Template on
+- `vztmpl` is the directoty name per convention, with the ISO within
+- `ubuntu-99.99-...` etc is the Template file name, exactly as-is
+
 ie. If using ZFS for Templates, substitute local with volume name.
 
-Then make a 2nd Custom Field `Password` for the CT's root user.
+#### Password: Configure the CT's root user
+
+Make a 2nd Custom Field `Password` for the CT's root user.
 
 ## 🔄 5. PATCH: Updating the Module
 
-WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health shows updates.
+**Check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
 
-You can download the new version and upload it over the top, then run any needed SQL queries.
+You should download any new version & upload it over the top, then run any needed SQL queries.
 
-Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statements. Then you're done!
+### SQL: Keeping your DB up-to-date
+
+Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statements. 
+
+Then you're done with each update! Not all versions need database amendments.
 
 ## 🆘 6. HELP: Best-effort Support
 
-**Before raising a GitHub Issue, please check:**
+### Before raising a GitHub Issue, please check:
 
 1. The Wiki.
 2. The README.md.
@@ -199,34 +214,33 @@ Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statemen
 5. PVE logs; best practices; network; etc.
 6. Read the errors. Do they explain it?
 
-> Help: Including logs, details, steps to reproduce, etc, please raise a **GitHub Issue**.
->
-> Logs: We work to ensure that Proxmox VE for WHMCS passes through error details to you.
-
 ### Issues/etc raised must include:
 
-#### Logging & Debug Logging
+**Logs:** We work to ensure that Proxmox VE for WHMCS passes through error details to you.
 
-- (Logs: PHP) `error_log` contents
-- (Logs: WHMCS) Module Debug Logging*
-- (Logs: Config) WHMCS Display/Log Errors = ON
-- (Logs: PVE) Logs from Proxmox Host (`pveproxy` etc)
+#### All Logs & Debug Logging too
 
-#### Other Support Requirements
+- **(Logs: PHP)** `error_log` contents
+- **(Logs: WHMCS)** Module Debug Logging*
+- **(Logs: Config)** WHMCS Display/Log Errors = ON
+- **(Logs: PVE)** Logs from Proxmox Host/s (`pveproxy` etc)
 
-- (Visibility) Screenshots of the issue
-- (Configs) WHMCS/PHP/Module/Proxmox/etc
-- (Reproduction) `pvesh` etc variants of failing calls
-- (Network) Proof WHMCS Server can talk to PVE OK
-- (PEBKAC) _PROOF THAT YOU'VE FOLLOWED THIS README!_
+#### Other Requirements for Support
+
+- **(Visibility)** Screenshots of the issue
+- **(Configs)** WHMCS/PHP/Module/Proxmox/etc
+- **(Reproduction)** `pvesh` etc variants of failing calls
+- **(Network)** Proof WHMCS Server can talk to PVE OK
+- **(PEBKAC)** _PROOF THAT YOU'VE FOLLOWED THIS README!_
 
 The more info/context you provide up-front, the quicker & easier it will be!
 
 \* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
 
-**Please note that this is FOSS and Support is not guaranteed at all.**
-
+**Please note that this is FOSS and Support is not guaranteed at all.**<br>
 **If you don't read, listen or actively try, no help is given.**
+
+https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
 
 # 💅 FEATURES: PVE v8.x bling
 
@@ -268,19 +282,19 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 🖥️ INC: Libraries & Dependencies
 
-- (MIT) PHP Client for PVE2 API (Dec 5th, 2022) https://github.com/CpuID/pve2-api-php-client
-- (GPLv2) TigerVNC VncViewer.jar (v1.15.0 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
-- (MPLv2) noVNC HTML5 Viewer (v1.6.0 in repo) https://github.com/novnc/noVNC
-- (GPLv3) SPICE HTML5 Viewer (v0.3 in repo) https://gitlab.freedesktop.org/spice/spice-html5
-- (MIT) IPv4/SN Validation (August 2012) https://github.com/tapmodo/php-ipv4/
+- **(MIT)** PHP Client for PVE2 API (Dec 5th, 2022) https://github.com/CpuID/pve2-api-php-client
+- **(GPLv2)** TigerVNC VncViewer.jar (v1.15.0 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
+- **(MPLv2)** noVNC HTML5 Viewer (v1.6.0 in repo) https://github.com/novnc/noVNC
+- **(GPLv3)** SPICE HTML5 Viewer (v0.3 in repo) https://gitlab.freedesktop.org/spice/spice-html5
+- **(MIT)** IPv4/SN Validation (August 2012) https://github.com/tapmodo/php-ipv4/
 
 # 📄 DIY: Documentation & Resources
 
-- Proxmox API: https://pve.proxmox.com/pve-docs/api-viewer/
-- TigerVNC: https://github.com/TigerVNC/tigervnc/wiki
-- noVNC: https://github.com/novnc/noVNC/wiki
-- WHMCS: https://developers.whmcs.com/
-- x86-64-ABI: https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
+- **(Proxmox API)** https://pve.proxmox.com/pve-docs/api-viewer/
+- **(TigerVNC)** https://github.com/TigerVNC/tigervnc/wiki
+- **(noVNC)** https://github.com/novnc/noVNC/wiki
+- **(WHMCS)** https://developers.whmcs.com/
+- **(x86-64-ABI)** https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
 
@@ -300,7 +314,7 @@ The original module was written in 2 months by @cybercoder for sale online in 20
 
 We would like to thank @cybercoder and @WaldperlachFabi for their original contributions and troubleshooting assistance respectively. 
 
-Thank you to psyborg® for the module's logo design! We love it.
+**Thank you to psyborg® for the module's logo design! We love it.**
 
 FOSS is only possible thanks to dedicated individuals!
 
@@ -314,8 +328,4 @@ GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation
 
 **The Network Crew Pty Ltd** :: https://tnc.works
 
-**Merlot Digital** :: https://merlot.digital
-
-### Support: Best-effort via GitHub Issues
-
-Browse issues, raise a new one: **GitHub Issues**
+**🍷 Merlot Digital** :: https://merlot.digital
