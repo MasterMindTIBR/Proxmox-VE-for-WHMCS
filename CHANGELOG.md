@@ -8,20 +8,22 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
 ### 🚀 Feature
-- TPL Storage - Allow for independent location (#112)
+- TPL Storage: Allow for independent location (#112)
 - (LXC Users: ^ means you need to amend Template value)
 
 ### 💅 Polish
-- LXC Net Rate, QEMU Disk I/O - Apply values (#103)
-- Addon Module, GUI - Improve attribute phrasing (#103)
-- Network, Bridge ID - No longer mandatory, re: SDN (#113)
+- LXC Net Rate, QEMU Disk I/O:  Apply values (#103)
+- Addon Module, GUI: Improve attribute phrasing (#103)
+- Network, Bridge ID: No longer mandatory, re: SDN (#113)
+- (deps) noVNC: Bump from v1.5.0 to v1.6.0 (#115)
+- (deps) TigerVNC: "" v1.14.0 to v1.15.0 (#116)
 
 (\*): SQL Note: There's a modified column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
 
 ## [1.2.7] - 2025-01-02 - _"Terminate Balloons"_
 
 ### 💅 Polish
-- RAM/Memory Ballooning - Option to disable (#87)
+- RAM/Memory Ballooning: Option to disable (#87)
 
 ### 🐛 Bug Fix
 - Admin Area: Terminate module command not working (#85)
