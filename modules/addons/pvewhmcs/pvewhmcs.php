@@ -684,24 +684,24 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -1000,24 +1000,24 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -1111,24 +1111,24 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -1246,24 +1246,24 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
