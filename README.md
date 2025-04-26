@@ -94,7 +94,9 @@ Once you've done all of that, in order to get the module working properly, you n
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
-After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. This is due to be re-built again to further enhance security.
+After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
+
+This is due to be re-built again to further enhance security.
 
 ### How to offer VNC via WHMCS Client Area
 
