@@ -35,7 +35,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.7",
+		"version" => "1.2.8",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -44,7 +44,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.7";
+    return "1.2.8";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -128,7 +128,7 @@ function pvewhmcs_output($vars) {
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
 	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM/CT Plans</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
 	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#nodes">Nodes / Cluster</a></li>
 	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#actions">Actions / Logs</a></li>
 	<li class="'.($_GET['tab']=="health" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#health">Support / Health</a></li>
@@ -162,7 +162,7 @@ function pvewhmcs_output($vars) {
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
-	<i class="fa fa-list"></i>&nbsp; List: VM Plans
+	<i class="fa fa-list"></i>&nbsp; List: Guest Plans
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: KVM Plan
@@ -202,10 +202,10 @@ function pvewhmcs_output($vars) {
 		ID
 		</th>
 		<th>
-		Title
+		Name
 		</th>
 		<th>
-		VM Type
+		Guest
 		</th>
 		<th>
 		OS Type
@@ -231,11 +231,11 @@ function pvewhmcs_output($vars) {
 		<th>
 		Disk Type
 		</th>
-		<th>
-		PVE Store
+  		<th>
+		Disk I/O
 		</th>
 		<th>
-		I/O Cap
+		PVE Store
 		</th>
 		<th>
 		Net Mode
@@ -244,16 +244,16 @@ function pvewhmcs_output($vars) {
 		Bridge
 		</th>
 		<th>
-		NIC Model
+		NIC
 		</th>
 		<th>
 		VLAN ID
 		</th>
 		<th>
-		Rate
+		Net Rate
 		</th>
 		<th>
-		BW
+		Net BW
 		</th>
   		<th>
 		IPv6
@@ -276,8 +276,8 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->swap . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
-			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
 			echo '<td>'.$vm->diskio . PHP_EOL .'</td>';
+			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmodel . PHP_EOL .'</td>';
@@ -581,10 +581,10 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="10240" required>
-	Disk space in Gigabyte e.g 1024 = 1TB (default is 10GB)
+	HDD/SSD storage space in Gigabyte e.g 1024 = 1TB (default is 10GB)
 	</td>
 	</tr>
 	<tr>
@@ -623,18 +623,18 @@ function kvm_plan_add() {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -897,10 +897,10 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -939,18 +939,18 @@ function kvm_plan_edit($id) {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O Cap - Write</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1090,10 +1090,17 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required>
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1101,13 +1108,6 @@ function lxc_plan_add() {
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1225,10 +1225,17 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1236,13 +1243,6 @@ function lxc_plan_edit($id) {
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1334,8 +1334,8 @@ function save_kvm_plan() {
 						'diskformat' => $_POST['diskformat'],
 						'diskcache' => $_POST['diskcache'],
 						'disktype' => $_POST['disktype'],
-						'storage' => $_POST['storage'],
 						'diskio' => $_POST['diskio'],
+						'storage' => $_POST['storage'],
 						'netmode' => $_POST['netmode'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
@@ -1378,8 +1378,8 @@ function update_kvm_plan() {
 			'diskformat' => $_POST['diskformat'],
 			'diskcache' => $_POST['diskcache'],
 			'disktype' => $_POST['disktype'],
-			'storage' => $_POST['storage'],
 			'diskio' => $_POST['diskio'],
+			'storage' => $_POST['storage'],
 			'netmode' => $_POST['netmode'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
@@ -1422,8 +1422,8 @@ function save_lxc_plan() {
 						'memory' => $_POST['memory'],
 						'swap' => $_POST['swap'],
 						'disk' => $_POST['disk'],
-						'storage' => $_POST['storage'],
 						'diskio' => $_POST['diskio'],
+						'storage' => $_POST['storage'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
 						'netmodel' => $_POST['netmodel'],
@@ -1458,8 +1458,8 @@ function update_lxc_plan() {
 			'memory' => $_POST['memory'],
 			'swap' => $_POST['swap'],
 			'disk' => $_POST['disk'],
-			'storage' => $_POST['storage'],
 			'diskio' => $_POST['diskio'],
+			'storage' => $_POST['storage'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
 			'netmodel' => $_POST['netmodel'],
