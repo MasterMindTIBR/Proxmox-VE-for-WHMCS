@@ -180,6 +180,12 @@ There are new features deployed into Proxmox VE upstream in the v8 branch which 
 3. Webhook target for system alerting.
 4. Better change detection for PBS.
 
+### Proxmox v8.4
+
+1. Live migrate with mediated devices.
+2. Support for external backup providers.
+3. Host dir's, share with guests (virtiofs).
+
 PVE Roadmap: https://pve.proxmox.com/wiki/Roadmap
 
 ## 🤬 ABUSE: Zero Tolerance (ZT)
