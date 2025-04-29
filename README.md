@@ -80,12 +80,18 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 ### 🏃‍♂️ INSTALL: Getting ready to use the Module!
 
-Firstly, you need to upload, activate and make the WHMCS Module available to Administrators.
+First up, get the basics sorted out:
+
+0. Upload the Module to your WHMCS installation, ensuring correct permissions/ownership.
+1. Activate it via WHMCS > Addon Modules > Proxmox VE for WHMCS > Activate.
+2. In the same spot post-activation, expose the Module to Administrators.
+3. Make sure your Proxmox host has a valid SSL Certificate installed.
+4. Ensure you've TCP/8006 connectivity between WHMCS & PVE.
 
 Once you've done all of that, in order to get the module working properly, you need to:
 
 0. Proxmox VE > Create an additional VNC-only user, per instructions below
-1. WHMCS Admin > Config > Servers > Add your PVE host/s (user: root; IP: PVE's)
+1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s (User: `root`; IPv4: `PVE's`; no port suffix!)
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
 3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IPv4 Pool
