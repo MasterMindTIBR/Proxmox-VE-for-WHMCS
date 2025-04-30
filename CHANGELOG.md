@@ -12,11 +12,13 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 - (LXC Users: ^ means you need to amend Template value)
 
 ### 💅 Polish
-- LXC Net Rate, QEMU Disk I/O:  Apply values (#103)
 - Addon Module, GUI: Improve attribute phrasing (#103)
 - Network, Bridge ID: No longer mandatory, re: SDN (#113)
 - (deps) noVNC: Bump from v1.5.0 to v1.6.0 (#115)
 - (deps) TigerVNC: "" v1.14.0 to v1.15.0 (#116)
+
+### 🐛 Bug Fix
+- LXC Net Rate, QEMU Disk I/O:  Apply values (#103)
 
 (\*): SQL Note: There's a modified column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
 
