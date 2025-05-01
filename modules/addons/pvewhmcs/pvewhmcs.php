@@ -651,15 +651,15 @@ function kvm_plan_add() {
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate">
-	Network Rate Limit in Megabit/Second, Blank means unlimited.
+	<input type="text" size="8" name="netrate" id="netrate" value="0">
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
  	<tr>
@@ -968,14 +968,14 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
-	Network Rate Limit in Megabit, Blank means unlimited.
+	Network Rate Limit in Megabit. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
-	Monthly Bandwidth Limit in Gigabyte, Blank means unlimited.
+	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
 	</td>
 	</tr>
   	<tr>
@@ -1134,15 +1134,15 @@ function lxc_plan_add() {
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate">
-	Network Rate Limit in Megabit/Second, blank means unlimited.
+	<input type="text" size="8" name="netrate" id="netrate" value="0">
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Data - Monthly</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
   	<tr>
@@ -1270,14 +1270,14 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
-	Network Rate Limit in Megabit/Second, blank means unlimited.
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
-	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
    	<tr>
