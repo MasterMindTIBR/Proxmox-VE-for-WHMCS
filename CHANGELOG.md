@@ -5,10 +5,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.9] - 2025-??-??
+## [1.2.9] - TBC 2025-??-??
 
 ### 🐛 Bug Fix
-- Trunk -> Trunks: Wrong parameter name (#125)
+- Trunk -> Tag: Wrong parameter name for VLAN ID (#125)
 
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
