@@ -5,6 +5,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.9] - 2025-??-??
+
+### 🐛 Bug Fix
+- Trunk -> Trunks: Wrong parameter name (#125)
+
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
 ### 🚀 Feature
