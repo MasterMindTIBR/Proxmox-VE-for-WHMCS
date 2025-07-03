@@ -49,7 +49,7 @@ function pvewhmcs_ConfigOptions() {
 	}
 	
 	/*
-	$proxmox = new PVE2_API($server->ipaddress, $server->username, "pam", get_server_pass_from_whmcs($server->password));
+	$proxmox = new PVE2_API($server->ipaddress, $server->username, "pam", pvewhmcs_get_whmcs_server_password($server->password));
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -764,7 +764,7 @@ class hash_encryption {
 }
 
 // GENERAL FUNCTION: Server PW from WHMCS DB
-function get_server_pass_from_whmcs($enc_pass){
+function pvewhmcs_get_whmcs_server_password($enc_pass){
 	global $cc_encryption_hash;
 	// Include WHMCS database configuration file
 	include_once(dirname(dirname(dirname(dirname(__FILE__)))).'/configuration.php');
