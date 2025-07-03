@@ -9,6 +9,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ### 🐛 Bug Fix
 - Trunk -> Tag: Wrong parameter name for VLAN ID (#125)
+- Function Rename: Avoid same name as Virtualizor (#129)
 
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
