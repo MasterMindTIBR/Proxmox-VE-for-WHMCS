@@ -1,5 +1,11 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.2.8 to v1.2.9
+
+```
+ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `pveid` varchar(10) DEFAULT NULL;
+```
+
 ## v1.2.7 to v1.2.8
 
 ```
