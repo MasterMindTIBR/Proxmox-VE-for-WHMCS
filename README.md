@@ -202,9 +202,9 @@ You should download any new version & upload it over the top, then login to WHMC
 ### SQL: Keeping your DB up-to-date
 
 > [!IMPORTANT]  
-> Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> Since v1.3.0, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
 > 
-> v1.2.8 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> v1.2.9 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
 Then you're done with each update! :-)
 
