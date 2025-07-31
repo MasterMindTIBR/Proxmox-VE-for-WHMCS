@@ -16,6 +16,8 @@
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
 - Leverage the power of QEMU & LXC with PVE's convenience
+- Import existing VM/CT Guest from Proxmox into WHMCS
+- Specify PVE VMID start & integrate to your schema
 
 Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
@@ -31,22 +33,6 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 
 # 🎯 MODULE: System Requirements (PVE/WHMCS)
 
-## WHMCS must have >100 services!
-
-New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID <100 case.
-
-**SID >100:** The WHMCS Service ID requirement is CRITICAL, as **Proxmox reserves VMIDs <100 (system).** 
-
-_If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** 
-
-`HTTP/1.1 400 Parameter verification failed. (invalid format - value does not look like a valid VM ID)`
-
-To check, browse to your **latest** service in WHMCS, then check the URL - it will reveal the Service ID. If it is less than 100, subtract it from 100 to deduce how many "dummy services" you need to add in a dummy order. 
-
-**Once over 100, it fits the requirement & you're good!**
-
-## General Requirements
-
 - **(WHMCS)** v8.x.x stable (HTTPS)
 - **(WHMCS)** **Service ID above 100**
 - **(NET)** WAN Access: WHMCS to PVE
@@ -58,7 +44,8 @@ To check, browse to your **latest** service in WHMCS, then check the URL - it wi
 
 # ✅ MODULE: Installation & Configuration
 
-**DON'T SKIP ANY PART OF THIS README.md - please don't raise pointless Issues - thank you!**
+> [!WARNING]
+> **DON'T SKIP ANY PART OF THIS README.md - please don't raise pointless Issues - thank you!**
 
 ## 📋 1. PREP: Upload & Configure the Module
 
@@ -124,9 +111,10 @@ Else, PVE must be WAN-accessible and all other configs/reqs satisfied.
 4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
 5. WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
 
-> Do NOT set less restrictive permissions. The above is designed for hypervisor security.
+> [!CAUTION]
+> Do NOT set less restrictive permissions. The above is designed for interim security.
 > 
-> **However, if you wish for proper security, wait for VNC to be further improved.**
+> **However, if you wish for proper security: wait for VNC to be further improved.**
 
 ### Important info about Console Access
 
@@ -187,6 +175,12 @@ Firstly, store the Template in PVE. You need its storage, folder & File Name.
 > Use that prefixed file name in the Custom Field `Template`, as in:<br>
 > `local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
+### VM/CT Import/Associate Existing Guest
+
+You can associate an existing PVE Guest through the WHMCS Module too, like this:
+
+<img alt="Importing GUI for linking to existing PVE Guest" src="zVMIDimport.png">
+
 #### ZFS etc: Comfigure to suit isolated TPL
 
 - `local` is the name of the file-system that you have the Template on
@@ -203,13 +197,16 @@ Make a 2nd Custom Field `Password` for the CT's root user.
 
 **Check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
 
-You should download any new version & upload it over the top, then run any needed SQL queries.
+You should download any new version & upload it over the top, then login to WHMCS Admin.
 
 ### SQL: Keeping your DB up-to-date
 
-Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statements. 
+> [!IMPORTANT]  
+> Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> 
+> v1.2.8 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
-Then you're done with each update! Not all versions need database amendments.
+Then you're done with each update! :-)
 
 ## 🆘 6. HELP: Best-effort Support
 
@@ -245,48 +242,64 @@ The more info/context you provide up-front, the quicker & easier it will be!
 
 \* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
 
-**Please note that this is FOSS and Support is not guaranteed at all.**<br>
-**If you don't read, listen or actively try, no help is given.**
+> [!TIP]
+> **Please note that this is FOSS and Support is not guaranteed at all.**<br>
+> 
+> **If you don't read, listen or actively try, no help is given.**
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
 
-# 💅 FEATURES: PVE v8.x bling
+# 💅 FEATURES: Upcoming PVE bling
 
 There are new features deployed into PVE upstream which are exciting and may be integrated.
 
 **PVE Roadmap:** https://pve.proxmox.com/wiki/Roadmap
 
-## Proxmox v8.4
+### Proxmox v9.0 beta
+
+1. VM snapshots on thick LVM, snapshots as volume chains
+2. Fabrics for software networking (SDN) Open/OSPF/Ceph/VPN
+3. Major upgrade to Debian Trixie (testing status in 2025)
+
+### Proxmox v8.4
 
 1. Live migrate with mediated devices.
 2. Support for external backup providers.
 3. Host dir's, share with guests (virtiofs).
 
-## Proxmox v8.3
+### Proxmox v8.3
 
 1. Software-defined Networking/Firewall.
 2. Better guest importing from OVA/OVF.
 3. Webhook target for system alerting.
 4. Better change detection for PBS.
 
-## Proxmox v8.2
+### Proxmox v8.2
 
 1. Import Wizard for Guests.
 2. Unattended PVE Install (answer file).
 3. Backup Fleecing (local disk as data block buffer).
 4. Firewall Preview (based on nftables).
 
-## Proxmox v8.1
+### Proxmox v8.1
 
 1. Secure Boot support.
 2. Software Defined Networking (SDN).
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
-## Proxmox v8.0
+### Proxmox v8.0
 
 1. Create, manage and assign resource mappings for PCI and USB devices for use in virtual machines (VMs) via API and web UI. 
 2. (DONE) Add virtual machine CPU models based on the x86-64 psABI Micro-Architecture Levels and use the widely supported x86-64-v2-AES as default for new VMs created via the web UI. 
+
+### Proxmox 7.x
+
+1. Cross-cluster guest migrations
+2. Cluster Resource Scheduling (CRS) launched
+3. Re-balance CRS on fresh start-up, not just  recovery
+4. CRM into HA Manager, as a node maintenance switch 
+5. Proxmox Offline Mirror (POM) launched
 
 # 🖥️ INC: Libraries & Dependencies
 
@@ -324,16 +337,19 @@ We would like to thank @cybercoder and @WaldperlachFabi for their original contr
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
-FOSS is only possible thanks to dedicated individuals!
+FOSS is only possible thanks to dedicated people around the world!
 
-# Usage License (GPLv3) & Links to TNC & Co.
+**See CONTRIBUTORS.md for those who've made PVEWHMCS possible.**
 
-_**This module is licensed under the GNU General Public License (GPL) v3.0.**_
-
-GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)
-
-## Corporate Sites: TNC & Merlot Digital
+# TNC & GPL
 
 **The Network Crew Pty Ltd** :: https://tnc.works
 
 **🍷 Merlot Digital** :: https://merlot.digital
+
+**AS138521** :: Australian family owned
+
+> [!NOTE]
+> _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
+> 
+> GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)

@@ -6,19 +6,20 @@
 	File: /modules/addons/pvewhmcs/pvewhmcs.php (GUI Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>. 
 */
 
 // Pull in the WHMCS database handler Capsule for SQL
@@ -35,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.8",
+		"version" => "1.2.9",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -44,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.8";
+	return "1.2.9";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -83,22 +84,50 @@ function pvewhmcs_deactivate() {
 	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated and all related tables deleted.');
 }
 
+// WHMCS MODULE: Upgrade
+function pvewhmcs_upgrade($vars) {
+	// This function gets passed the old ver once post-update, hence lt check
+	$currentlyInstalledVersion = $vars['version'];
+	// SQL Operations for v1.2.9 version
+	if ($currentlyInstalledVersion < 1.2.9) {
+		$schema = Capsule::schema();
+
+		// Add the column "start_vmid" to the mod_pvewhmcs table
+		if (!$schema->hasColumn('mod_pvewhmcs', 'start_vmid')) {
+			$schema->table('mod_pvewhmcs', function ($table) {
+				$table->integer('start_vmid')->default(100)->after('vnc_secret');
+			});
+		}
+
+		// Add the column "vmid" to the mod_pvewhmcs_vms table
+		if (!$schema->hasColumn('mod_pvewhmcs_vms', 'vmid')) {
+			$schema->table('mod_pvewhmcs_vms', function ($table) {
+				$table->integer('vmid')->default(0)->after('id');
+			});
+			// Populate ID into VMID for all previous guests
+			Capsule::table('mod_pvewhmcs_vms')
+				->where('vmid', 0)
+				->update(['vmid' => Capsule::raw('id')]);
+		}
+	}
+}
+
 // UPDATE CHECKER: live vs repo
 function is_pvewhmcs_outdated(){
-    if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
-        return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
-    }
+	if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
+		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
+	}
 }
 
 // UPDATE CHECKER: return latest ver
 function get_pvewhmcs_latest_version(){
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $result = curl_exec($ch);
-    curl_close ($ch);
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	$result = curl_exec($ch);
+	curl_close ($ch);
 
-    return str_replace("\n", "", $result);
+	return str_replace("\n", "", $result);
 }
 
 // ADMIN MODULE GUI: output (HTML etc)
@@ -124,6 +153,12 @@ function pvewhmcs_output($vars) {
 		unset($_SESSION['pvewhmcs']) ;
 	}
 
+	// Set the active tab based on the GET parameter, default to 'vmplans'
+	if (!isset($_GET['tab'])) {
+    	$_GET['tab'] = 'vmplans';
+	}
+
+	// Start the HTML output for the Admin GUI
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
@@ -138,7 +173,7 @@ function pvewhmcs_output($vars) {
 	<div class="tab-content admin-tabs">
 	' ;
 
-
+	// Handle form submissions for saving or updating plans
 	if (isset($_POST['addnewkvmplan']))
 	{
 		save_kvm_plan() ;
@@ -158,6 +193,7 @@ function pvewhmcs_output($vars) {
 		save_lxc_plan() ;
 	}
 
+	// VM/CT PLANS tab in ADMIN GUI
 	echo '
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
@@ -170,8 +206,17 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: LXC Plan
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=import_guest">
+	<i class="fa fa-upload"></i>&nbsp; Import: Guest
+	</a>
 	</div>
 	';
+
+	// Handle actions based on the 'action' GET parameter
+	if ($_GET['action']=='import_guest') {
+		import_guest() ;
+	}
+	
 	if ($_GET['action']=='add_kvm_plan') {
 		kvm_plan_add() ;
 	}
@@ -192,77 +237,34 @@ function pvewhmcs_output($vars) {
 		lxc_plan_add() ;
 	}
 
+	// List of VM/CT Plans
 	if ($_GET['action']=='planlist') {
 		echo '
-
 		<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">
 		<tbody>
 		<tr>
-		<th>
-		ID
-		</th>
-		<th>
-		Name
-		</th>
-		<th>
-		Guest
-		</th>
-		<th>
-		OS Type
-		</th>
-		<th>
-		CPUs
-		</th>
-		<th>
-		Cores
-		</th>
-		<th>
-		RAM
-		</th>
-  		<th>
-		Balloon
-		</th>
-		<th>
-		Swap
-		</th>
-		<th>
-		Disk
-		</th>
-		<th>
-		Disk Type
-		</th>
-  		<th>
-		Disk I/O
-		</th>
-		<th>
-		PVE Store
-		</th>
-		<th>
-		Net Mode
-		</th>
-		<th>
-		Bridge
-		</th>
-		<th>
-		NIC
-		</th>
-		<th>
-		VLAN ID
-		</th>
-		<th>
-		Net Rate
-		</th>
-		<th>
-		Net BW
-		</th>
-  		<th>
-		IPv6
-		</th>
-		<th>
-		Actions
-		</th>
-		</tr>
-		';
+		<th>ID</th>
+		<th>Name</th>
+		<th>Guest</th>
+		<th>OS Type</th>
+		<th>CPUs</th>
+		<th>Cores</th>
+		<th>RAM</th>
+		<th>Balloon</th>
+		<th>Swap</th>
+		<th>Disk</th>
+		<th>Disk Type</th>
+		<th>Disk I/O</th>
+		<th>PVE Store</th>
+		<th>Net Mode</th>
+		<th>Bridge</th>
+		<th>NIC</th>
+		<th>VLAN ID</th>
+		<th>Net Rate</th>
+		<th>Net BW</th>
+		<th>IPv6</th>
+		<th>Actions</th>
+		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
 			echo '<td>'.$vm->id . PHP_EOL .'</td>';
@@ -291,17 +293,13 @@ function pvewhmcs_output($vars) {
 			</td>' ;
 			echo '</tr>' ;
 		}
-		echo '
-		';
-		echo '
-		</tbody>
-		</table>
-		';
+		echo '</tbody></table>';
 	}
 	echo '
 	</div>
 	';
 
+	// IPv4 POOLS tab in ADMIN GUI
 	echo '
 	<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 	<div class="btn-group">
@@ -337,6 +335,7 @@ function pvewhmcs_output($vars) {
 	echo'
 	</div>
 	';
+
 	// NODES / CLUSTER tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 	echo ('<strong><h2>PVE: /cluster/resources</h2></strong>');
@@ -347,23 +346,24 @@ function pvewhmcs_output($vars) {
 	echo ('Coming in v1.3.x<br><br>');
 	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
+
 	// ACTIONS / LOGS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
+	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
+	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u><br>(Module Config > Debug Mode = ON)');
 	echo ('<strong><h2>Module: Action History</h2></strong>');
 	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming in v1.3.x');
-	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
-	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u> (Module Config > Debug Mode = ON)<br><br>');
-	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
+	echo ('Coming in v1.3.x<br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
+
 	// SUPPORT / HEALTH tab in ADMIN GUI
-	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
+	echo ('<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >') ;
+	echo ('<b>❤️ Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>System Environment</h2></strong><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
-	echo ('<strong><h2>Updates & Codebase</h2></strong><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<strong><h2>Product & Reviewing</h2></strong><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
-	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
-	echo ('<strong><h2>Module Technical Support</h2></strong>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc.<br>Help is not guaranteed (FOSS). We will need your assistance. <b>Thank you.</b><br><br>');
+	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>2. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
+	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br>Help is not guaranteed (FOSS). We will need your assistance. <b>Thank you!</b><br><br>');
 	echo '</div>';
 
 	// Config Tab
@@ -376,6 +376,12 @@ function pvewhmcs_output($vars) {
 	<td class="fieldlabel">VNC Secret</td>
 	<td class="fieldarea">
 	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">VMID Start</td>
+	<td class="fieldarea">
+	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID. Default is 100. Module will increment this until vacant VMID found.
 	</td>
 	</tr>
 	<tr>
@@ -396,11 +402,140 @@ function pvewhmcs_output($vars) {
 	
 	echo '</div>';
 
-	echo '</div>'; // end of tab-content
+	echo '</div>'; 
+	// End of tabbed content
 
+	// Handle saving the configuration if the form was submitted
 	if (isset($_POST['save_config'])) {
 		save_config() ;
 	}
+}
+
+// Import Guest sub-page handler (standalone, outside pvewhmcs_output)
+// This function associates an existing PVE Guest in WHMCS as a new Client Service.
+function import_guest() {
+	$resultMsg = '';
+	if (!empty($_POST['import_existing_guest'])) {
+		$vmid = intval($_POST['import_vmid']);
+		$userid = intval($_POST['import_clientid']);
+		$productid = intval($_POST['import_productid']);
+		$ipaddress = trim($_POST['import_ipv4']);
+		$subnetmask = trim($_POST['import_subnet']);
+		$gateway = trim($_POST['import_gateway']);
+		$hostname = trim($_POST['import_hostname']);
+		$vtype = ($_POST['import_vtype'] === 'lxc') ? 'lxc' : 'kvm';
+
+		// Validate Client ID
+		$client = Capsule::table('tblclients')->where('id', $userid)->where('status', 'Active')->first();
+		if (!$client) {
+			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID '.$userid.'</div>';
+		} else {
+			// Validate Product
+			$product = Capsule::table('tblproducts')->where('id', $productid)->where('retired', 0)->first();
+			if (!$product) {
+				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID '.$productid.'</div>';
+			} else {
+				// Create WHMCS Service (Order)
+				try {
+					// First, get the first Server ID that matches the product's server group
+					$serverRel = Capsule::table('tblservergroupsrel')->where('groupid', $product->servergroup)->first();
+					$serverID = $serverRel ? $serverRel->serverid : 0;
+					// Do the insertion to the tblhosting table
+					$serviceID = Capsule::table('tblhosting')->insertGetId([
+						'userid' => $userid,
+						'packageid' => $productid,
+						'regdate' => date('Y-m-d'),
+						'domain' => $hostname,
+						'paymentmethod' => 'banktransfer',
+						'firstpaymentamount' => $product->paytype == 'free' ? 0 : $product->monthly,
+						'amount' => $product->paytype == 'free' ? 0 : $product->monthly,
+						'billingcycle' => 'Monthly',
+						'nextduedate' => date('Y-m-d'),
+						'nextinvoicedate' => date('Y-m-d'),
+						'orderid' => 0,
+						'domainstatus' => 'Active',
+						'username' => 'root',
+						'password' => '',
+						'subscriptionid' => '',
+						'promoid' => 0,
+						'server' => $serverID,
+						'dedicatedip' => $ipaddress,
+						'assignedips' => $ipaddress,
+						'ns1' => '',
+						'ns2' => '',
+						'diskusage' => 0,
+						'disklimit' => 0,
+						'bwusage' => 0,
+						'bwlimit' => 0,
+						'lastupdate' => date('Y-m-d H:i:s'),
+						'suspendreason' => '',
+						'overideautosuspend' => 0,
+						'overidesuspenduntil' => '',
+						'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID '.$vmid,
+					]);
+				} catch (Exception $e) {
+					$resultMsg = '<div class="errorbox">Could not create WHMCS service: '.htmlspecialchars($e->getMessage()).'</div>';
+					$serviceID = false;
+				}
+				if ($serviceID) {
+					// Insert into module VMs table
+					try {
+						Capsule::table('mod_pvewhmcs_vms')->insert([
+							'id' => $serviceID,
+							'vmid' => $vmid,
+							'user_id' => $userid,
+							'vtype' => $vtype,
+							'ipaddress' => $ipaddress,
+							'subnetmask' => $subnetmask,
+							'gateway' => $gateway,
+							'created' => date('Y-m-d H:i:s'),
+						]);
+						$resultMsg = '<div class="successbox">Successfully imported PVE VMID '.$vmid.' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
+					} catch (Exception $e) {
+						$resultMsg = '<div class="errorbox">Database error: '.htmlspecialchars($e->getMessage()).'</div>';
+					}
+				}
+			}
+		}
+	}
+
+	// Always show the form for easy further imports
+	if (!empty($resultMsg)) echo $resultMsg;
+	echo '<form method="post">';
+	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
+	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="import_vmid" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Hostname</td><td class="fieldarea"><input type="text" name="import_hostname" required></td></tr>';
+
+	// Active clients dropdown
+	$clients = Capsule::table('tblclients')->where('status', 'Active')->orderBy('companyname')->orderBy('firstname')->orderBy('lastname')->get();
+	echo '<tr><td class="fieldlabel">Target Client</td><td class="fieldarea"><select name="import_clientid" required>';
+	foreach ($clients as $client) {
+		$label = $client->id.' - '.($client->companyname ? $client->companyname.' - ' : '').$client->firstname.' '.$client->lastname;
+		echo '<option value="'.$client->id.'">'.htmlspecialchars($label).'</option>';
+	}
+	echo '</select></td></tr>';
+	
+	// Product/Service dropdown (only Active products of Server type)
+	$products = Capsule::table('tblproducts')->where('type', 'server')->where('retired', 0)->orderBy('name')->get();
+	echo '<tr><td class="fieldlabel">Service</td><td class="fieldarea"><select name="import_productid" required>';
+	foreach ($products as $product) {
+		echo '<option value="'.$product->id.'">'.htmlspecialchars($product->name).'</option>';
+	}
+	echo '</select></td></tr>';
+	
+	// Guest Type dropdown
+	echo '<tr><td class="fieldlabel">VM/CT</td><td class="fieldarea"><select name="import_vtype" required>';
+	echo '<option value="kvm">(VM) QEMU</option>';
+	echo '<option value="lxc">(CT) LXC</option>';
+	echo '</select></td></tr>';
+	
+	// IPv4, Subnet, Gateway
+	echo '<tr><td class="fieldlabel">IPv4</td><td class="fieldarea"><input type="text" name="import_ipv4" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Subnet</td><td class="fieldarea"><input type="text" name="import_subnet" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Gateway</td><td class="fieldarea"><input type="text" name="import_gateway" required></td></tr>';
+	echo '</table>';
+	echo '<div class="btn-container"><input type="submit" class="btn btn-primary" value="Import Guest" name="import_existing_guest" id="import_existing_guest"></div>';
+	echo '</form>';
 }
 
 // MODULE CONFIG: Commit changes to the database
@@ -413,6 +548,7 @@ function save_config() {
 				$connectionManager->table('mod_pvewhmcs')->update(
 					[
 						'vnc_secret' => $_POST['vnc_secret'],
+						'start_vmid' => $_POST['start_vmid'],
 						'debug_mode' => $_POST['debug_mode'],
 					]
 				);
@@ -573,7 +709,7 @@ function kvm_plan_add() {
 	RAM space in Megabyte e.g 1024 = 1GB (default is 2GB)
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
@@ -623,7 +759,7 @@ function kvm_plan_add() {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -662,7 +798,7 @@ function kvm_plan_add() {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -889,7 +1025,7 @@ function kvm_plan_edit($id) {
 	RAM space in Megabytes e.g 1024 = 1GB
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
@@ -939,7 +1075,7 @@ function kvm_plan_edit($id) {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
@@ -978,7 +1114,7 @@ function kvm_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1096,7 +1232,7 @@ function lxc_plan_add() {
 	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -1145,7 +1281,7 @@ function lxc_plan_add() {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1231,7 +1367,7 @@ function lxc_plan_edit($id) {
 	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
@@ -1280,7 +1416,7 @@ function lxc_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
-   	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1554,7 +1690,7 @@ function add_ip_2_pool() {
 	echo '<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
-	<td class="fieldlabel">IP Pool</td>
+	<td class="fieldlabel">IPv4 Pool</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="pool_id">';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
@@ -1565,14 +1701,14 @@ function add_ip_2_pool() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">IP Block</td>
+	<td class="fieldlabel">Address/Prefix</td>
 	<td class="fieldarea">
 	<input type="text" name="ipblock"/>
-	IP Block with CIDR e.g. 172.16.255.230/27, or for single IP address don\'t use CIDR
+	IPv4 prefix with CIDR e.g. 172.16.255.230/27, or for single /32 address don\'t use CIDR
 	</td>
 	</tr>
 	</table>
-	<input type="submit" name="assignIP2pool" value="Save"/>
+	<input type="submit" name="assignIP2pool" value="Add"/>
 	</form>';
 	if (isset($_POST['assignIP2pool'])) {
 			// check if single IP address
@@ -1612,7 +1748,7 @@ function add_ip_2_pool() {
 function list_ips() {
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
-	echo '<table class="datatable"><tr><th>IP Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
+	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
 	foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
 		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
 		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
