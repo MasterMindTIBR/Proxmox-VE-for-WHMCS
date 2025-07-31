@@ -34,7 +34,6 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 # 🎯 MODULE: System Requirements (PVE/WHMCS)
 
 - **(WHMCS)** v8.x.x stable (HTTPS)
-- **(WHMCS)** **Service ID above 100**
 - **(NET)** WAN Access: WHMCS to PVE
 - **(VNC)** Special Requirements: PTR, etc.
 - **(PHP)** v8.x.x (latest stable version)
