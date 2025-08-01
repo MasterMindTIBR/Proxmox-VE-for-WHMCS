@@ -34,7 +34,6 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 # 🎯 MODULE: System Requirements (PVE/WHMCS)
 
 - **(WHMCS)** v8.x.x stable (HTTPS)
-- **(WHMCS)** **Service ID above 100**
 - **(NET)** WAN Access: WHMCS to PVE
 - **(VNC)** Special Requirements: PTR, etc.
 - **(PHP)** v8.x.x (latest stable version)
@@ -57,7 +56,7 @@ Check the System Requirements above, and resolve any blockers to using Proxmox V
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
-This is configured in the pam realm. We plan to allow selection in v1.2.9.
+This is configured in the pam realm. We plan to allow selection in v1.3.x.
 
 #### Credentials: VNC user for Console Access only
 
