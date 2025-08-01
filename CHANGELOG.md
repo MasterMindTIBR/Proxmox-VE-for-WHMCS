@@ -1,11 +1,11 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.0] - TBC 2025-??-??
+## [1.3.x] - TBC 2026-??-??
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.9] - 2025-07-31 - _"Import Friendly"_
+## [1.2.9.1] - 2025-07-31 - _"Import Friendly"_
 
 ### 🚀 Feature
 - Guest Import: Add Service for existing PVE Guest (#75)

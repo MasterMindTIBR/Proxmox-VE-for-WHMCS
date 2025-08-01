@@ -326,7 +326,7 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 **Be grateful & considerate - thank you!**
 
-# 🎉 FOSS: Contributions & Open-source
+# 🎉 FOSS: Open-source Contributions
 
 If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS
 
@@ -340,13 +340,15 @@ FOSS is only possible thanks to dedicated people around the world!
 
 **See CONTRIBUTORS.md for those who've made PVEWHMCS possible.**
 
-# TNC & GPL
+# TNC & Co.
 
 **The Network Crew Pty Ltd** :: https://tnc.works
 
 **🍷 Merlot Digital** :: https://merlot.digital
 
 **AS138521** :: Australian family owned
+
+# GPLv3
 
 > [!NOTE]
 > _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
