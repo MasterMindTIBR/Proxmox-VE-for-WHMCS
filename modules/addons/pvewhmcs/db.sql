@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `ipv6` varchar(10) DEFAULT 'auto',
   `balloon` varchar(10) DEFAULT '0',
   `ssh-keys` varchar(100) DEFAULT '',
+  `unpriv` tinyint(1) unsigned DEFAULT 0,
   PRIMARY KEY (`id`)
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ssh_keys` (

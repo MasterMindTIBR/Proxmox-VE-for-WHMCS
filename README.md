@@ -23,7 +23,7 @@ Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 # ❤️ RTFM: Read the Manual & Review the Module!
 
-**Please read the entire README.md file before getting started with Proxmox VE for WHMCS (pvewhmcs).**
+**Please read the entire README.md file before getting started with Proxmox VE for WHMCS (`pvewhmcs`).**
 
 > **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews
 > 
@@ -54,7 +54,7 @@ Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
-This is configured in the pam realm. We may allow overriding in v1.3.x/v1.4.x.
+This is configured in the pam realm. We may allow overriding in v1.3.x/v1.4.x. #117
 
 #### Credentials: VNC user for Console Access only
 
@@ -113,6 +113,8 @@ Else, PVE must be WAN-accessible and all other configs/reqs satisfied.
 > Do NOT set less restrictive permissions. The above is designed for interim security.
 > 
 > **However, if you wish for proper security: wait for VNC to be further improved.**
+> 
+> Note: Custom WHMCS locations like /clients/ are not yet VNC-supported. #114
 
 ### Important info about Console Access
 
