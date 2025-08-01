@@ -330,15 +330,13 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS
 
-The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement.
-
-We would like to thank @cybercoder and @WaldperlachFabi for their original contributions and troubleshooting assistance respectively. 
+_The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
 FOSS is only possible thanks to dedicated people around the world!
 
-**See CONTRIBUTORS.md for those who've made PVEWHMCS possible.**
+**See [CONTRIBUTORS.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
 
 # TNC & Co.
 
