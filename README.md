@@ -8,7 +8,7 @@
     If you have proven and public git-logged experience, or similar, please say g'day.
     
     Please note: We are only looking for high-quality applicants with spare time.
-    As it stands, we won't have much spare dev time for PVEWHMCS in early 2025.
+    As it stands, we won't have much spare dev time for PVEWHMCS in 2025.
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in **Proxmox VE** from **WHMCS** easily
@@ -126,7 +126,7 @@ noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 
 ### IPv4: Pool required for assignment
 
-Please make sure you create an IP Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
+Please make sure you create an IPv4 Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
 **Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
 

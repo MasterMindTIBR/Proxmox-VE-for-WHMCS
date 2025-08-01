@@ -21,6 +21,45 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_pools` (
   `gateway` varchar(100) DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_iso` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `storage` varchar(20) NOT NULL DEFAULT 'local',
+  `iso-name` varchar(255) NOT NULL,
+  `nodes` int(11) DEFAULT '0',
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `auth_id` int(11) NOT NULL DEFAULT '0',
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `service` int(11) NOT NULL DEFAULT '0',
+  `timestamp` datetime NOT NULL,
+  `node_id` int(11) NOT NULL DEFAULT '0',
+  `target_id` int(11) NOT NULL DEFAULT '0',
+  `level` varchar(10) NOT NULL,
+  `type` text NOT NULL,
+  `action` text NOT NULL,
+  `request` text NOT NULL,
+  `response` text NOT NULL,
+  `raw` text NOT NULL,
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_nodes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `pve_id` int(11) NOT NULL,
+  `pve_name` varchar(255) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `ip` varchar(100) NOT NULL,
+  `capacity` int(5) NOT NULL DEFAULT '20',
+  `health` text DEFAULT NULL,
+  `resources` text DEFAULT NULL,
+  `supports` varchar(255) NOT NULL DEFAULT 'vm,ct',
+  `templates` varchar(1000) NOT NULL DEFAULT '',
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+);
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(255) CHARACTER SET utf8 NOT NULL,
@@ -51,11 +90,31 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `vlanid` varchar(10) DEFAULT NULL,
   `ipv6` varchar(10) DEFAULT 'auto',
   `balloon` varchar(10) DEFAULT '0',
+  `ssh-keys` varchar(100) DEFAULT '',
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ssh_keys` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL DEFAULT '',
+  `ssh-key` text NOT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`)
+);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `tpl_id` int(11) DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `guest` varchar(8) NOT NULL DEFAULT 'vm',
+  `ostype` varchar(8) DEFAULT NULL,
+  `storage` varchar(20) DEFAULT 'local',
+  `template` varchar(255) DEFAULT NULL,
+  `nodes` int(11) DEFAULT '0',
   PRIMARY KEY (`id`)
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `id` int(10) unsigned NOT NULL,
   `vmid` int(10) unsigned DEFAULT NULL,
+  `node_id` int(10) unsigned DEFAULT NULL,
   `user_id` int(10) unsigned NOT NULL,
   `vtype` varchar(255) NOT NULL,
   `ipaddress` varchar(255) NOT NULL,

@@ -6,6 +6,7 @@ This document seeks to say "cheers", "many thanks" & "love your work" to the peo
 
 - [@cybercoder](https://github.com/cybercoder)
 - [@lsthompson](https://github.com/lsthompson)
+- [@The-Network-Crew](https://github.com/The-Network-Crew)
 - [@nodespacehosting](https://github.com/nodespacehosting)
 - [@WaldperlachFabi](https://github.com/WaldperlachFabi)
 - [@is7Qin](https://github.com/is7Qin)
