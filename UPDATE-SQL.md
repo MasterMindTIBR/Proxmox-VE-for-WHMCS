@@ -1,6 +1,6 @@
 # SQL Statements for Updates (nav to DB first)
 
-## v1.2.8 to v1.2.9
+## v1.2.8 to v1.2.10
 
 ```
 ALTER TABLE mod_pvewhmcs ADD COLUMN `start_vmid` int(10) DEFAULT 100;

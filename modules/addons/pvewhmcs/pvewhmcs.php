@@ -36,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.9.1",
+		"version" => "1.2.10",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.9.1";
+	return "1.2.10";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -88,8 +88,8 @@ function pvewhmcs_deactivate() {
 function pvewhmcs_upgrade($vars) {
 	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
-	// SQL Operations for v1.2.9 version
-	if (version_compare($currentlyInstalledVersion, '1.2.9', '<')) {
+	// SQL Operations for v1.2.9/10 version
+	if (version_compare($currentlyInstalledVersion, '1.2.10', 'lt')) {
 		$schema = Capsule::schema();
 
 		// Add the column "start_vmid" to the mod_pvewhmcs table
