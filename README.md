@@ -21,6 +21,8 @@
 
 Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
+<img alt="Client Area GUI showing management of a powered-off VM" src="zVMclientGUI.png">
+
 # ❤️ RTFM: Read the Manual & Review the Module!
 
 **Please read the entire README.md file before getting started with Proxmox VE for WHMCS (`pvewhmcs`).**
@@ -82,6 +84,10 @@ Once you've done all of that, in order to get the module working properly, you n
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
+
+#### Admin GUI: QEMU Plan Creation interface
+
+<img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="zQEMUplanAdd.png">
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
