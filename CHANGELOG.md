@@ -3,6 +3,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.3.x] - TBC 2026-??-??
 
+### 💅 Polish
+- Virtio Networking: Default set, instead of Intel E1000
+- SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
+- Unprivileged: Prepare to allow new CTs with unprivileged option
+
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.10] - 2025-07-31 - _"Import Friendly"_

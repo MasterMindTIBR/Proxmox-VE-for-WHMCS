@@ -777,8 +777,8 @@ function kvm_plan_add() {
 	<td class="fieldlabel">NIC - Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
-	<option selected="" value="e1000">Intel E1000 (Reliable)</option>
-	<option value="virtio">VirtIO (Paravirtualized)</option>
+	<option value="e1000">Intel E1000 (Stable but slower)</option>
+	<option selected="" value="virtio">VirtIO (Paravirtualised)</option>
 	<option value="rtl8139">Realtek RTL8139</option>
 	<option value="vmxnet3">VMware vmxnet3</option>
 	</select>
@@ -1093,8 +1093,8 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">NIC - Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
-	<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000 (Reliable)</option>
-	<option value="virtio" '. ($plan->netmodel=="virtio" ? "selected" : "").'>VirtIO (Paravirt)</option>
+	<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000 (Stable but slower)</option>
+	<option value="virtio" '. ($plan->netmodel=="virtio" ? "selected" : "").'>VirtIO (Paravirtualised)</option>
 	<option value="rtl8139" '. ($plan->netmodel=="rtl8139" ? "selected" : "").'>Realtek RTL8139</option>
 	<option value="vmxnet3" '. ($plan->netmodel=="vmxnet3" ? "selected" : "").'>VMware vmxnet3</option>
 	</select>
