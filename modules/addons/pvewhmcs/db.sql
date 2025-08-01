@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_iso` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL,
   `storage` varchar(20) NOT NULL DEFAULT 'local',
-  `iso-name` varchar(255) NOT NULL,
+  `iso_name` varchar(255) NOT NULL,
   `nodes` int(11) DEFAULT '0',
   `created` datetime NOT NULL,
   PRIMARY KEY (`id`)
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ssh_keys` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL DEFAULT '',
-  `ssh-key` text NOT NULL,
+  `ssh_key` text NOT NULL,
   `created` datetime NOT NULL,
   PRIMARY KEY (`id`)
 );

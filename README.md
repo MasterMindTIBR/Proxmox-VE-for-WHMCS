@@ -8,7 +8,7 @@
     If you have proven and public git-logged experience, or similar, please say g'day.
     
     Please note: We are only looking for high-quality applicants with spare time.
-    As it stands, we won't have much spare dev time for PVEWHMCS in 2025.
+    As it stands, we won't have much spare dev time for this Module in 2025.
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in **Proxmox VE** from **WHMCS** easily
@@ -23,9 +23,7 @@ Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 # ❤️ RTFM: Read the Manual & Review the Module!
 
-**Please read the entire README.md file before getting started with Proxmox VE for WHMCS.** Thanks!
-
-We're pretty much done overhauling the Module to suit our needs at The Network Crew Pty Ltd & Merlot Digital.
+**Please read the entire README.md file before getting started with Proxmox VE for WHMCS (pvewhmcs).**
 
 > **Please review the module!** https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs#reviews
 > 
@@ -44,11 +42,11 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 # ✅ MODULE: Installation & Configuration
 
 > [!WARNING]
-> **DON'T SKIP ANY PART OF THIS README.md - please don't raise pointless Issues - thank you!**
+> **DON'T SKIP ANY PART OF THIS README.md & please don't raise pointless Issues - thank you!**
 
 ## 📋 1. PREP: Upload & Configure the Module
 
-Check the System Requirements above, and resolve any blockers to using Proxmox VE for WHMCS.
+**Check the System Requirements above, and resolve any blockers to using Proxmox VE for WHMCS.**
 
 ### 👥 PVE: User x2 Requirement (API & VNC users)
 
@@ -56,7 +54,7 @@ Check the System Requirements above, and resolve any blockers to using Proxmox V
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
-This is configured in the pam realm. We plan to allow selection in v1.3.x.
+This is configured in the pam realm. We may allow overriding in v1.3.x/v1.4.x.
 
 #### Credentials: VNC user for Console Access only
 
@@ -79,10 +77,11 @@ Once you've done all of that, in order to get the module working properly, you n
 0. Proxmox VE > Create an additional VNC-only user, per instructions below
 1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s (User: `root`; IPv4: `PVE's`; no port suffix!)
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
-3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add KVM/LXC Plan/s
+3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add QEMU/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IPv4 Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
+7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
@@ -162,7 +161,7 @@ Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
-Firstly, create the Plan in WHMCS Module. Then, WHMCS Config > Services.
+Firstly, create the Plan in WHMCS Module. Then too in WHMCS Config > Services.
 
 > Under the Service, you need to add a Custom Field `ISO` with the full location.<br>
 > This ISO must be located on the PVE Host, and not on the WHMCS installation side.
@@ -205,7 +204,9 @@ You should download any new version & upload it over the top, then login to WHMC
 > 
 > v1.2.9 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
-Then you're done with each update! :-)
+Then you're done with each update!
+
+_Note: db.sql file contains new tables for v1.3.x releases_
 
 ## 🆘 6. HELP: Best-effort Support
 
@@ -244,9 +245,9 @@ The more info/context you provide up-front, the quicker & easier it will be!
 > [!TIP]
 > **Please note that this is FOSS and Support is not guaranteed at all.**<br>
 > 
-> **If you don't read, listen or actively try, no help is given.**
-
-https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
+> **If you don't read, listen or actively try, no help will be provided.**
+> 
+> https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
 
 # 💅 FEATURES: Upcoming PVE bling
 
@@ -254,43 +255,31 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 **PVE Roadmap:** https://pve.proxmox.com/wiki/Roadmap
 
-### Proxmox v9.0 beta
+### Proxmox v9.x
 
 1. VM snapshots on thick LVM, snapshots as volume chains
 2. Fabrics for software networking (SDN) Open/OSPF/Ceph/VPN
 3. Major upgrade to Debian Trixie (testing status in 2025)
 
-### Proxmox v8.4
+### Proxmox v8.x
 
 1. Live migrate with mediated devices.
 2. Support for external backup providers.
 3. Host dir's, share with guests (virtiofs).
-
-### Proxmox v8.3
-
-1. Software-defined Networking/Firewall.
-2. Better guest importing from OVA/OVF.
-3. Webhook target for system alerting.
-4. Better change detection for PBS.
-
-### Proxmox v8.2
-
-1. Import Wizard for Guests.
-2. Unattended PVE Install (answer file).
-3. Backup Fleecing (local disk as data block buffer).
-4. Firewall Preview (based on nftables).
-
-### Proxmox v8.1
-
-1. Secure Boot support.
-2. Software Defined Networking (SDN).
-3. New flexible notification system (SMTP & Gotify).
-4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
-
-### Proxmox v8.0
-
-1. Create, manage and assign resource mappings for PCI and USB devices for use in virtual machines (VMs) via API and web UI. 
-2. (DONE) Add virtual machine CPU models based on the x86-64 psABI Micro-Architecture Levels and use the widely supported x86-64-v2-AES as default for new VMs created via the web UI. 
+4. Firewall into Software-defined Networking.
+5. Better guest importing from OVA/OVF.
+6. Webhook target for system alerting.
+7. Better change detection for PBS.
+8. Import Wizard for VMware/etc Guests.
+9. Unattended PVE Install (via answer file).
+10. Backup Fleecing (local disk as data block buffer).
+11. Firewall Preview (based on nftables).
+12. Secure Boot support.
+13. Software Defined Networking (SDN).
+14. New flexible notification system (SMTP & Gotify).
+15. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
+16. Create, manage & assign resource mappings for PCI & USB devices for use in VMs via API and GUI. 
+17. (DONE) Add updated CPU models based on x86-64 psABI Micro-Architecture Levels & adopt x86-64-v2-AES as default.
 
 ### Proxmox 7.x
 
