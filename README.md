@@ -126,11 +126,13 @@ Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
 
 **noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)**
 
-- Note #0 = PVE must be at an IPv4 which has PTR the exact same as PVE's hostname.
-- Note #1 = You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
-- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
-- Note #3 = You must configure a VNC Secret in the Module Settings, after creating it in PVE.
-- Note #4 = You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.**
+Here are some of the critical requirements for VNC tunnelling:
+
+1. PVE must be at an IPv4 which has PTR the exact same as PVE's hostname.
+2. You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
+3. If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
+4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
+5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. 
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -138,9 +140,13 @@ Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
 
 Please make sure you create an IPv4 Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
-**Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. Hence, we will not support any set-ups which do not follow the set-up processes 100%.
+#### Private IPs for PVE Hosts
 
-**Guest Imports from PVE (existing):** Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
+Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. Hence, we will not support any set-ups which do not follow the set-up processes 100%.
+
+#### Guest Imports from PVE (existing)
+
+Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
 
 ### IPv6: SLAAC default, via 2nd vNIC
 
@@ -227,7 +233,7 @@ Logging in should trigger the self-upgrade procedure for the SQL database.
 
 Then you're done with each update!
 
-_Note: db.sql file contains new tables for v1.3.x releases_
+_Note: db.sql file currently contains new tables for v1.3.x releases as well_
 
 ## 🆘 6. HELP: Best-effort Support
 
