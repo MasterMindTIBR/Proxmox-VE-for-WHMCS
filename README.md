@@ -229,9 +229,9 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 ### Updating to a newer release
 
 1. Download the new version
-2. Upload it over the top
+2. Upload it over the top (FTP)
 3. Login to WHMCS Admin
-4. Verify all working
+4. Verify all working OK
 5. Watch the repo!
 
 > **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
@@ -312,26 +312,24 @@ There are new features deployed into PVE upstream which are exciting and may be 
 2. Support for external Backup providers
 3. Host dir's, share with guests (virtiofs)
 4. Firewall into Software-defined Networking
-5. Better guest importing from OVA/OVF
-6. Webhook target for system alerting
-7. Better change detection for PBS
-8. Import Wizard for VMware/etc Guests
-9. Unattended PVE Install (via answer file)
-10. Backup Fleecing (local disk as data block buffer)
-11. Secure Boot support
-12. Software Defined Networking (SDN)
-13. New flexible notification system (SMTP & Gotify)
-14. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
-15. Create, manage & assign resource mappings for PCI & USB devices for use in VMs via API and GUI
-16. (✅) Add CPUs (x86-64 psABI Micro-Architecture Levels) & adopt default x86-64-v2-AES
+5. Webhook target for system alerting
+6. Better change detection for PBS
+7. (✅) Import Wizard for VMware/etc Guests
+8. Unattended PVE Install (via answer file)
+9. Backup Fleecing (local disk as data block buffer)
+10. Secure Boot support
+11. (✅) Software Defined Networking (SDN)
+12. New flexible notification system (SMTP & Gotify)
+13. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
+14. Create, manage & assign resource mappings for PCI & USB devices for use in VMs via API and GUI
+15. (✅) Add CPUs (x86-64 psABI Micro-Architecture Levels) & adopt default x86-64-v2-AES
 
 ### Proxmox 7.x
 
 1. Cross-cluster guest migrations
 2. Cluster Resource Scheduling (CRS) launched
-3. Re-balance CRS on fresh start-up, not just  recovery
+3. Re-balance CRS on fresh start-up, not just on-recovery
 4. CRM into HA Manager, as a node maintenance switch 
-5. Proxmox Offline Mirror (POM) launched
 
 # 🖥️ INC: Libraries & Dependencies
 
