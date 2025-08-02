@@ -41,6 +41,8 @@ Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 - **(Proxmox)** 2 users (API & VNC)
 - **(Proxmox)** VE v8.x.x (current)
 
+Please note specific VNC & Network requirements below - read 100% of the README.md. :-)
+
 # ✅ MODULE: Installation & Configuration
 
 > [!WARNING]
@@ -66,7 +68,7 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 ### 🏃‍♂️ INSTALL: Getting ready to use the Module!
 
-First up, get the basics sorted out:
+**First up, get the basics sorted out:**
 
 0. Upload the Module to your WHMCS installation, ensuring correct permissions/ownership.
 1. Activate it via WHMCS > Addon Modules > Proxmox VE for WHMCS > Activate.
@@ -74,7 +76,7 @@ First up, get the basics sorted out:
 3. Make sure your Proxmox host has a valid SSL Certificate installed.
 4. Ensure you've TCP/8006 connectivity between WHMCS & PVE.
 
-Once you've done all of that, in order to get the module working properly, you need to:
+**Once you've done all of that, in order to get the module working properly, you need to:**
 
 0. Proxmox VE > Create an additional VNC-only user, per instructions below
 1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s (User: `root`; IPv4: `PVE's`; no port suffix!)
@@ -93,7 +95,7 @@ Once you've done all of that, in order to get the module working properly, you n
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
 
-This is due to be re-built again in 2026 to further enhance security.
+**This is due to be re-built again in 2026 to further enhance security.**
 
 ### How to offer VNC via WHMCS Client Area!
 
@@ -103,9 +105,9 @@ This is due to be re-built again in 2026 to further enhance security.
 4. PVE and WHMCS on the same 1x Domain Name*
 5. Have valid PTR/rDNS set on the PVE Address
 
-**If proxying, that is your sole responsibility to configure & diagnose.**
-
-Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
+> **If proxying, that is your sole responsibility to configure & diagnose.**
+> 
+> Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
 
 ### Creating the VNC User within Proxmox VE
 
@@ -120,7 +122,7 @@ Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
 > 
 > **However, if you wish for proper security: wait for VNC to be further improved.**
 > 
-> Note: Custom WHMCS locations like /clients/ are not yet VNC-supported. #114
+> **Note**: Custom WHMCS install folders like /clients/ are not yet VNC-supported. #114
 
 ### Important info about Console Access
 
@@ -132,7 +134,7 @@ Here are some of the critical requirements for VNC tunnelling:
 2. You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
 3. If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
 4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
-5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. 
+5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -144,16 +146,16 @@ Please make sure you create an IPv4 Pool with sufficient scope/size to be able t
 
 Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. Hence, we will not support any set-ups which do not follow the set-up processes 100%.
 
-#### Guest Imports from PVE (existing)
+#### Existing Guest Imports from PVE
 
 Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
 
 ### IPv6: SLAAC default, via 2nd vNIC
 
 Available options: 
-- SLAAC (2nd vNIC)
-- DHCP (2nd vNIC)
-- off (v4-only)
+- **SLAAC** (2nd vNIC)
+- **DHCP** (2nd vNIC)
+- **Off** (v4-only)
 
 You may add different config via PVE/`pvesh` manually of course, if you need to specify a prefix etc.
 
@@ -177,8 +179,8 @@ Firstly, create the Template VM in PVE. You need its unique PVE ID.
 
 Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
-> Note: `ID` is the Unique ID that your Template VM has in PVE.<br>
-> Note: `Name` is what will be displayed to your Clients in WHMCS.
+> **Note**: `ID` is the Unique ID that your Template VM has in PVE.<br>
+> **Note**: `Name` is what will be displayed to your Clients in WHMCS.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
@@ -200,7 +202,7 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 <img alt="Importing GUI for linking to existing PVE Guest" src="zVMIDimport.png">
 
-Note: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
+> **Note**: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
 
 #### ZFS etc: Comfigure to suit isolated TPLs
 
@@ -210,9 +212,9 @@ Note: All module-imported services need to be checked and amended to ensure conf
 
 **If using ZFS for Templates, substitute `local` with the volume name.**
 
-#### Password: Configure the CT's root user
-
-Create a 2nd Custom Field `Password` for the Container's root user on all CT Services.
+> #### Password: Configure the CT's root user
+> 
+> Create a 2nd Custom Field `Password` for the Container's root user on all CT Services.
 
 ## 🔄 5. PATCH: Updating the Module
 
@@ -233,7 +235,7 @@ Logging in should trigger the self-upgrade procedure for the SQL database.
 
 Then you're done with each update!
 
-_Note: db.sql file currently contains new tables for v1.3.x releases as well_
+_**Note**: db.sql file currently contains new tables for v1.3.x releases as well_
 
 ## 🆘 6. HELP: Best-effort Support
 
@@ -250,6 +252,8 @@ _Note: db.sql file currently contains new tables for v1.3.x releases as well_
 
 **Logs:** We work to ensure that Proxmox VE for WHMCS passes through error details to you.
 
+Hence, we ask that you are as verbose and thorough as possible when reporting Issues. Thanks!
+
 #### All Logs & Debug Logging too
 
 - **(Logs: PHP)** `error_log` contents
@@ -265,7 +269,7 @@ _Note: db.sql file currently contains new tables for v1.3.x releases as well_
 - **(Network)** Proof WHMCS Server can talk to PVE OK
 - **(PEBKAC)** _PROOF THAT YOU'VE FOLLOWED THIS README!_
 
-The more info/context you provide up-front, the quicker & easier it will be!
+**The more info & context you provide up-front, the quicker & easier it will be!**
 
 \* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
 
@@ -290,23 +294,22 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 ### Proxmox v8.x
 
-1. Live migrate with mediated devices.
-2. Support for external backup providers.
-3. Host dir's, share with guests (virtiofs).
-4. Firewall into Software-defined Networking.
-5. Better guest importing from OVA/OVF.
-6. Webhook target for system alerting.
-7. Better change detection for PBS.
-8. Import Wizard for VMware/etc Guests.
-9. Unattended PVE Install (via answer file).
-10. Backup Fleecing (local disk as data block buffer).
-11. Firewall Preview (based on nftables).
-12. Secure Boot support.
-13. Software Defined Networking (SDN).
-14. New flexible notification system (SMTP & Gotify).
-15. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
-16. Create, manage & assign resource mappings for PCI & USB devices for use in VMs via API and GUI. 
-17. (DONE) Add updated CPU models based on x86-64 psABI Micro-Architecture Levels & adopt x86-64-v2-AES as default.
+1. Live migrate with mediated devices
+2. Support for external Backup providers
+3. Host dir's, share with guests (virtiofs)
+4. Firewall into Software-defined Networking
+5. Better guest importing from OVA/OVF
+6. Webhook target for system alerting
+7. Better change detection for PBS
+8. Import Wizard for VMware/etc Guests
+9. Unattended PVE Install (via answer file)
+10. Backup Fleecing (local disk as data block buffer)
+11. Secure Boot support
+12. Software Defined Networking (SDN)
+13. New flexible notification system (SMTP & Gotify)
+14. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
+15. Create, manage & assign resource mappings for PCI & USB devices for use in VMs via API and GUI
+16. (✅) Add CPUs (x86-64 psABI Micro-Architecture Levels) & adopt default x86-64-v2-AES
 
 ### Proxmox 7.x
 
@@ -318,19 +321,19 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 🖥️ INC: Libraries & Dependencies
 
-- **(MIT)** PHP Client for PVE2 API (Dec 5th, 2022) https://github.com/CpuID/pve2-api-php-client
-- **(GPLv2)** TigerVNC VncViewer.jar (v1.15.0 in repo) https://sourceforge.net/projects/tigervnc/files/stable/
-- **(MPLv2)** noVNC HTML5 Viewer (v1.6.0 in repo) https://github.com/novnc/noVNC
-- **(GPLv3)** SPICE HTML5 Viewer (v0.3 in repo) https://gitlab.freedesktop.org/spice/spice-html5
-- **(MIT)** IPv4/SN Validation (August 2012) https://github.com/tapmodo/php-ipv4/
+| **(MIT)** | PHP Client for PVE2 API | 2022/Dec/05 | https://github.com/CpuID/pve2-api-php-client |
+| **(GPLv2)** | TigerVNC VncViewer.jar | v1.15.0 | https://sourceforge.net/projects/tigervnc/files/stable/ |
+| **(MPLv2)** | noVNC HTML5 Viewer | v1.6.0 | https://github.com/novnc/noVNC/ |
+| **(GPLv3)** | SPICE HTML5 Viewer | v0.3 | https://gitlab.freedesktop.org/spice/spice-html5/ |
+| **(MIT)** | IPv4/SN Validation | August 2012 | https://github.com/tapmodo/php-ipv4/ |
 
 # 📄 DIY: Documentation & Resources
 
-- **(Proxmox API)** https://pve.proxmox.com/pve-docs/api-viewer/
-- **(TigerVNC)** https://github.com/TigerVNC/tigervnc/wiki
-- **(noVNC)** https://github.com/novnc/noVNC/wiki
-- **(WHMCS)** https://developers.whmcs.com/
-- **(x86-64-ABI)** https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build
+| **(Proxmox API)** | Docs: https://pve.proxmox.com/pve-docs/api-viewer/ |
+| **(TigerVNC)** | Docs: https://github.com/TigerVNC/tigervnc/wiki |
+| **(noVNC)** | Docs: https://github.com/novnc/noVNC/wiki |
+| **(WHMCS)** | Docs: https://developers.whmcs.com/ |
+| **(x86-64-ABI)** | PDF: https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
 
@@ -344,13 +347,11 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 # 🎉 FOSS: Open-source Contributions
 
-If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS
-
-_The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
+If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS >> cheers! _The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
-FOSS is only possible thanks to dedicated people around the world!
+FOSS is only possible thanks to dedicated people around the world! :-)
 
 **See [CONTRIBUTORS.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
 
