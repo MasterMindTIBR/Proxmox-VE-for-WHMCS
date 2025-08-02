@@ -48,7 +48,7 @@ Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 ## 📋 1. PREP: Upload & Configure the Module
 
-**Check the System Requirements above, and resolve any blockers to using Proxmox VE for WHMCS.**
+**First, read the above System Requirements, and resolve any blockers to using Proxmox VE for WHMCS.**
 
 ### 👥 PVE: User x2 Requirement (API & VNC users)
 
@@ -93,19 +93,19 @@ Once you've done all of that, in order to get the module working properly, you n
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
 
-This is due to be re-built again to further enhance security.
+This is due to be re-built again in 2026 to further enhance security.
 
-### How to offer VNC via WHMCS Client Area
+### How to offer VNC via WHMCS Client Area!
 
 1. Install & configure the module properly
 2. Follow the PVE User Requirement info below
-3. Public IPv4 for PVE (or proxy to private)
-4. PVE and WHMCS on the same Domain Name*
-5. Have valid PTR/rDNS for the PVE Address
+3. Routed IPv4 for PVE (or TLS-proxy to LAN)
+4. PVE and WHMCS on the same 1x Domain Name*
+5. Have valid PTR/rDNS set on the PVE Address
 
-If proxying, that is your responsibility to diagnose.
+**If proxying, that is your sole responsibility to configure & diagnose.**
 
-Else, PVE must be WAN-accessible and all other configs/reqs satisfied.
+Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
 
 ### Creating the VNC User within Proxmox VE
 
@@ -124,10 +124,13 @@ Else, PVE must be WAN-accessible and all other configs/reqs satisfied.
 
 ### Important info about Console Access
 
-noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
+**noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)**
 
-- Note #1 = You must use different Subdomains on the same Domain Name, for the cookie (anti-CSRF).
-- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this to better cater to all formats.
+- Note #0 = PVE must be at an IPv4 which has PTR the exact same as PVE's hostname.
+- Note #1 = You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
+- Note #2 = If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
+- Note #3 = You must configure a VNC Secret in the Module Settings, after creating it in PVE.
+- Note #4 = You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.**
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -135,21 +138,25 @@ noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)
 
 Please make sure you create an IPv4 Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
-**Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute).
+**Private IPs for PVE Hosts:** Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. Hence, we will not support any set-ups which do not follow the set-up processes 100%.
 
-### IPv6: SLAAC default, 2nd vNIC
+**Guest Imports from PVE (existing):** Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
 
-Per The-Network-Crew/Proxmox-VE-for-WHMCS#33 there's SLAAC/DHCP/off available (2x vNICs) (May 2024).
+### IPv6: SLAAC default, via 2nd vNIC
 
-You can of course add different config via PVE/`pvesh` manually, if you need to specify a prefix.
+Available options: 
+- SLAAC (2nd vNIC)
+- DHCP (2nd vNIC)
+- off (v4-only)
+
+You may add different config via PVE/`pvesh` manually of course, if you need to specify a prefix etc.
 
 ### vmbr / SDN: Config type
 
 This depends on your configuration on the PVE Host/s - bridge (vmbr0 etc) or software-defined (SDN).
 
-**If normal (bridged)** - use `vmbr` as the Network, then use `0` as the Interface ID - this makes up `vmbr0`.
-
-**If SDN (Software Defined Network)** - use SDN Name for Network, leave Interface ID blank (= no suffix).
+- **If normal (bridged)** - use `vmbr` as the Network, then use `0` as the Interface ID - this makes up `vmbr0`.
+- **If SDN (Software Defined Network)** - use SDN Name for Network, leave Interface ID blank (= no suffix).
 
 ## ⚙️ 4. VM/CT PLANS: Setting everything up
 
@@ -187,23 +194,29 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 <img alt="Importing GUI for linking to existing PVE Guest" src="zVMIDimport.png">
 
-#### ZFS etc: Comfigure to suit isolated TPL
+Note: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
+
+#### ZFS etc: Comfigure to suit isolated TPLs
 
 - `local` is the name of the file-system that you have the Template on
 - `vztmpl` is the directoty name per convention, with the ISO within
 - `ubuntu-99.99-...` etc is the Template file name, exactly as-is
 
-ie. If using ZFS for Templates, substitute local with volume name.
+**If using ZFS for Templates, substitute `local` with the volume name.**
 
 #### Password: Configure the CT's root user
 
-Make a 2nd Custom Field `Password` for the CT's root user.
+Create a 2nd Custom Field `Password` for the Container's root user on all CT Services.
 
 ## 🔄 5. PATCH: Updating the Module
 
 **Check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
 
 You should download any new version & upload it over the top, then login to WHMCS Admin.
+
+Logging in should trigger the self-upgrade procedure for the SQL database.
+
+(**Beta in v1.2.x:** for now, verify yourself that updates were successful)
 
 ### SQL: Keeping your DB up-to-date
 

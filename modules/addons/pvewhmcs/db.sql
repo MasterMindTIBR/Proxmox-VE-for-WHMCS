@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_nodes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `pve_id` int(11) NOT NULL,
   `pve_name` varchar(255) NOT NULL,
+  `whmcs_id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
   `ip` varchar(100) NOT NULL,
   `capacity` int(5) NOT NULL DEFAULT '20',
