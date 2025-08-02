@@ -66,7 +66,7 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 
 Configured in the _Module_ as detailed below, once you've added/restricted it in PVE.
 
-### 🏃‍♂️ INSTALL: Getting ready to use the Module!
+### 🏃‍♂️ Installing the WHMCS Module `pvewhmcs`
 
 **First up, get the basics sorted out:**
 
@@ -321,6 +321,8 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 🖥️ INC: Libraries & Dependencies
 
+| License | Dependency Name | In-use ver. | Link to Repository, etc.|
+|---------|-----------------|-------------|-------------------------|
 | **(MIT)** | PHP Client for PVE2 API | 2022/Dec/05 | https://github.com/CpuID/pve2-api-php-client |
 | **(GPLv2)** | TigerVNC VncViewer.jar | v1.15.0 | https://sourceforge.net/projects/tigervnc/files/stable/ |
 | **(MPLv2)** | noVNC HTML5 Viewer | v1.6.0 | https://github.com/novnc/noVNC/ |
@@ -329,6 +331,8 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 📄 DIY: Documentation & Resources
 
+| Dev / Vendor | Link to Documentation, etc. |
+|--------------|-----------------------------|
 | **(Proxmox API)** | Docs: https://pve.proxmox.com/pve-docs/api-viewer/ |
 | **(TigerVNC)** | Docs: https://github.com/TigerVNC/tigervnc/wiki |
 | **(noVNC)** | Docs: https://github.com/novnc/noVNC/wiki |
