@@ -2,7 +2,7 @@
 
 <img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
 
-**Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! ❤️
+**Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! Cheers. ❤️
 
     TNC Dev are looking for a co-developer to assist with finishing the project overhaul.
     If you have proven and public git-logged experience, or similar, please say g'day.
@@ -218,13 +218,19 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 ## 🔄 5. PATCH: Updating the Module
 
-**Check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
+**Regularly check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
 
-You should download any new version & upload it over the top, then login to WHMCS Admin.
+### Updating to a newer release
 
-Logging in should trigger the self-upgrade procedure for the SQL database.
+1. Download the new version
+2. Upload it over the top
+3. Login to WHMCS Admin
+4. Verify all working
+5. Watch the repo :)
 
-(**Beta in v1.2.x:** for now, verify yourself that updates were successful)
+> **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
+> 
+> (**Beta in v1.2.x:** for now, verify yourself that updates were successful)
 
 ### SQL: Keeping your DB up-to-date
 
@@ -321,7 +327,7 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 🖥️ INC: Libraries & Dependencies
 
-| License | Dependency Name | In-use ver. | Link to Repository, etc.|
+| License | Dependency Name | In-use Ver. | Link to Repository, etc.|
 |---------|-----------------|-------------|-------------------------|
 | **(MIT)** | PHP Client for PVE2 API | 2022/Dec/05 | https://github.com/CpuID/pve2-api-php-client |
 | **(GPLv2)** | TigerVNC VncViewer.jar | v1.15.0 | https://sourceforge.net/projects/tigervnc/files/stable/ |
@@ -333,11 +339,11 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 | Dev / Vendor | Link to Documentation, etc. |
 |--------------|-----------------------------|
-| **(Proxmox API)** | Docs: https://pve.proxmox.com/pve-docs/api-viewer/ |
-| **(TigerVNC)** | Docs: https://github.com/TigerVNC/tigervnc/wiki |
-| **(noVNC)** | Docs: https://github.com/novnc/noVNC/wiki |
-| **(WHMCS)** | Docs: https://developers.whmcs.com/ |
-| **(x86-64-ABI)** | PDF: https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
+| **(PVE API)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
+| **(TigerVNC)** | https://github.com/TigerVNC/tigervnc/wiki |
+| **(noVNC)** | https://github.com/novnc/noVNC/wiki |
+| **(WHMCS)** | https://developers.whmcs.com |
+| **(psABIs)** | https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
 
