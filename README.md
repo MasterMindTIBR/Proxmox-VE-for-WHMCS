@@ -19,7 +19,7 @@
 - Import existing VM/CT Guest from Proxmox into WHMCS
 - Specify PVE VMID start & integrate to your schema
 
-Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 <img alt="Client Area GUI showing management of a powered-off VM" src="zVMclientGUI.png">
 
@@ -337,12 +337,12 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 📄 DIY: Documentation & Resources
 
-| Dev / Vendor | Link to Documentation, etc. |
-|--------------|-----------------------------|
+| Developer | Link to Documentation, etc. |
+|-----------|-----------------------------|
 | **(PVE API)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
 | **(TigerVNC)** | https://github.com/TigerVNC/tigervnc/wiki |
 | **(noVNC)** | https://github.com/novnc/noVNC/wiki |
-| **(WHMCS)** | https://developers.whmcs.com |
+| **(WHMCS)** | https://developers.whmcs.com & https://classdocs.whmcs.com |
 | **(psABIs)** | https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
