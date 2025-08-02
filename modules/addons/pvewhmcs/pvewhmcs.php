@@ -375,20 +375,20 @@ function pvewhmcs_output($vars) {
 	<tr>
 	<td class="fieldlabel">VNC Secret</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info.
+	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. (See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">VMID Start</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID. Default is 100. Module will increment this until vacant VMID found.
+	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting VMID (PVE). Default is 100. (Module will increment this until vacant VMID is found)
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Debug Mode</td>
+	<td class="fieldlabel">Debug Mode?</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled (WHMCS Module Log for Debugging >> /admin/logs/module-log)
+	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS debug) via /admin/logs/module-log
 	</label>
 	</td>
 	</tr>
