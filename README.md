@@ -136,6 +136,8 @@ Here are some of the critical requirements for VNC tunnelling:
 4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
 5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
 
+<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="zModuleConfig.png">
+
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
 ### IPv4: Pool required for assignment
@@ -246,6 +248,8 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 Then you're done with each update!
 
 _**Note**: db.sql file currently contains new tables for v1.3.x releases as well_
+
+<img alt="Admin GUI of the Support/Health page (an available update is highlighted)" src="zPatchAvailable.png">
 
 ## 🆘 6. HELP: Best-effort Support
 
