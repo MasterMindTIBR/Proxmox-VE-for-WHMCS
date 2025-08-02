@@ -204,21 +204,25 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 > **Note**: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
 
+### Custom Fields: Important Notes (ZFS/CTs)
+
 #### ZFS etc: Comfigure to suit isolated TPLs
 
 - `local` is the name of the file-system that you have the Template on
 - `vztmpl` is the directoty name per convention, with the ISO within
 - `ubuntu-99.99-...` etc is the Template file name, exactly as-is
 
-**If using ZFS for Templates, substitute `local` with the volume name.**
+If using ZFS for Templates, substitute `local` with the volume name.
 
-> #### Password: Configure the CT's root user
-> 
-> Create a 2nd Custom Field `Password` for the Container's root user on all CT Services.
+#### Password: Configure the CT's root user
+
+Create a 2nd Custom Field `Password` for the Container's root user on all CT Services.
 
 ## 🔄 5. PATCH: Updating the Module
 
-**Regularly check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
+### Regularly check for updates
+
+**WHMCS Admin -> Addon Modules -> Proxmox VE for WHMCS -> Support/Health**
 
 ### Updating to a newer release
 
@@ -226,7 +230,7 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 2. Upload it over the top
 3. Login to WHMCS Admin
 4. Verify all working
-5. Watch the repo :)
+5. Watch the repo!
 
 > **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
 > 
