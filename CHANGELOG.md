@@ -10,6 +10,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.11] - 2025-08-05 - _"Start VMID OK"_
+
+### 🐛 Bug Fix
+- Start VMID: Change method to /cluster/nextid (#145)
+
 ## [1.2.10] - 2025-07-31 - _"Import Friendly"_
 
 ### 🚀 Feature

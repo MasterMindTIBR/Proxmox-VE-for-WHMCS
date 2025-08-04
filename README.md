@@ -58,7 +58,7 @@ Please note specific VNC & Network requirements below - read 100% of the README.
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
-This is configured in the pam realm. We may allow overriding in v1.3.x/v1.4.x. #117
+This is configured in the `pam` realm. We may allow overriding in v1.3.x/v1.4.x. #117
 
 #### Credentials: VNC user for Console Access only
 
@@ -335,11 +335,11 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 | License | Dependency Name | In-use Ver. | Link to Repository, etc.|
 |---------|-----------------|-------------|-------------------------|
-| **(MIT)** | PHP Client for PVE2 API | 2022/Dec/05 | https://github.com/CpuID/pve2-api-php-client |
-| **(GPLv2)** | TigerVNC VncViewer.jar | v1.15.0 | https://sourceforge.net/projects/tigervnc/files/stable/ |
-| **(MPLv2)** | noVNC HTML5 Viewer | v1.6.0 | https://github.com/novnc/noVNC/ |
-| **(GPLv3)** | SPICE HTML5 Viewer | v0.3 | https://gitlab.freedesktop.org/spice/spice-html5/ |
-| **(MIT)** | IPv4/SN Validation | August 2012 | https://github.com/tapmodo/php-ipv4/ |
+| **(MIT)** | PHP Client for PVE2 API | **2022/Dec/05** | https://github.com/CpuID/pve2-api-php-client |
+| **(GPLv2)** | TigerVNC VncViewer.jar | **v1.15.0** | https://sourceforge.net/projects/tigervnc/files/stable/ |
+| **(MPLv2)** | noVNC HTML5 Viewer | **v1.6.0** | https://github.com/novnc/noVNC/ |
+| **(GPLv3)** | SPICE HTML5 Viewer | **v0.3** | https://gitlab.freedesktop.org/spice/spice-html5/ |
+| **(MIT)** | IPv4/SN Validation | **August 2012** | https://github.com/tapmodo/php-ipv4/ |
 
 # 📄 DIY: Documentation & Resources
 
