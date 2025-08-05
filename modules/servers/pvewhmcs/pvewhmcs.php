@@ -539,8 +539,8 @@ function pvewhmcs_SuspendAccount(array $params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// Log and fire request
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -576,8 +576,8 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// Log and fire request
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start');
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start');
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -614,13 +614,13 @@ function pvewhmcs_TerminateAccount(array $params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		$pve_cmdparam = array();
 		// Stop the service if it is not already stopped
-		$guest_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+		$guest_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid.'/status/current');
 		if ($guest_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
 			sleep(30);
 		}
 
-		if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
+		if ($proxmox->delete('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1))) {
 			// Delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
@@ -886,7 +886,7 @@ function pvewhmcs_ClientArea($params) {
 		unset($nodes);
 
 		# Get and set VM variables
-		$vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
+		$vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/config') ;
 		$cluster_resources = $proxmox->get('/cluster/resources');
 		$vm_status = null;
 

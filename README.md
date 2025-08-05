@@ -333,8 +333,8 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 # 🖥️ INC: Libraries & Dependencies
 
-| License | Dependency Name | In-use Ver. | Link to Repository, etc.|
-|---------|-----------------|-------------|-------------------------|
+| License | Dependency | In-use Ver. | Link to Repository, etc.|
+|---------|------------|-------------|-------------------------|
 | **(MIT)** | PHP Client for PVE2 API | **2022/Dec/05** | https://github.com/CpuID/pve2-api-php-client |
 | **(GPLv2)** | TigerVNC VncViewer.jar | **v1.15.0** | https://sourceforge.net/projects/tigervnc/files/stable/ |
 | **(MPLv2)** | noVNC HTML5 Viewer | **v1.6.0** | https://github.com/novnc/noVNC/ |

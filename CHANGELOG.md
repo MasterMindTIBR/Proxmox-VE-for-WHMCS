@@ -12,8 +12,12 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.11] - 2025-08-05 - _"Start VMID OK"_
 
+### 💅 Polish
+- Virtio Networking: Default set, instead of Intel E1000
+
 ### 🐛 Bug Fix
-- Start VMID: Change method to /cluster/nextid (#145)
+- Start VMID: Change method to `/cluster/nextid` (#145)
+- Actions & Client Area: Final changes to VMID (#146)
 
 ## [1.2.10] - 2025-07-31 - _"Import Friendly"_
 
