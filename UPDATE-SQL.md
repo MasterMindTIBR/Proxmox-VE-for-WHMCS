@@ -1,5 +1,11 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.2.10 to v1.2.12
+
+```
+ALTER TABLE mod_pvewhmcs_plans ADD COLUMN `unpriv` int(1) unsigned DEFAULT 0;
+```
+
 ## v1.2.8 to v1.2.10
 
 ```

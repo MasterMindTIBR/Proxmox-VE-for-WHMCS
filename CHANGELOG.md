@@ -5,9 +5,21 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 💅 Polish
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
-- Unprivileged: Prepare to allow new CTs with unprivileged option
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
+
+## [1.2.12] - 2025-08-12 - _"Adjustments"_
+
+### 🚀 Feature
+- Cluster / Guest Resources: Add into the Admin GUI (#139)
+
+### 💅 Polish
+- Unprivileged CT: At-create-only security option (#105)
+- Client Area: Running/Suspended/Stopped new icons (#149)
+
+### 🐛 Bug Fix
+- Blanket $0.00: Apply fixed nil amount properly (#148)
+- Import Guest QEMU not KVM: Proper value stored (#150)
 
 ## [1.2.11] - 2025-08-05 - _"Start VMID OK"_
 

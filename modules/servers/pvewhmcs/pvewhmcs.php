@@ -258,6 +258,7 @@ function pvewhmcs_CreateAccount($params) {
 				$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
 			}
 			$vm_settings['onboot'] = $plan->onboot;
+			$vm_settings['unprivileged'] = $plan->unpriv;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
 			////////////////////////////

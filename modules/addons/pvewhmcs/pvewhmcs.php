@@ -36,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.11",
+		"version" => "1.2.12",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.11";
+	return "1.2.12";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -108,6 +108,17 @@ function pvewhmcs_upgrade($vars) {
 			Capsule::table('mod_pvewhmcs_vms')
 				->where('vmid', 0)
 				->update(['vmid' => Capsule::raw('id')]);
+		}
+	}
+	// SQL Operations for v1.2.12 version
+	if (version_compare($currentlyInstalledVersion, '1.2.12', 'lt')) {
+		$schema = Capsule::schema();
+
+		// Add the column "unpriv" to the mod_pvewhmcs_plans table
+		if (!$schema->hasColumn('mod_pvewhmcs_plans', 'unpriv')) {
+			$schema->table('mod_pvewhmcs_plans', function ($table) {
+				$table->integer('unpriv')->default(0)->after('balloon');
+			});
 		}
 	}
 }
@@ -263,6 +274,7 @@ function pvewhmcs_output($vars) {
 		<th>Net Rate</th>
 		<th>Net BW</th>
 		<th>IPv6</th>
+		<th>Unpriv.</th>
 		<th>Actions</th>
 		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
@@ -287,6 +299,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->netrate . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bw . PHP_EOL .'</td>';
 			echo '<td>'.$vm->ipv6 . PHP_EOL .'</td>';
+			echo '<td>'.$vm->unpriv . PHP_EOL .'</td>';
 			echo '<td>
 			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=editplan&amp;id='.$vm->id.'&amp;vmtype='.$vm->vmtype.'"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
 			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=removeplan&amp;id='.$vm->id.'" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
@@ -339,12 +352,145 @@ function pvewhmcs_output($vars) {
 	// NODES / CLUSTER tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 	echo ('<strong><h2>PVE: /cluster/resources</h2></strong>');
-	echo ('Coming in v1.3.x');
-	echo ('<strong><h2>PVE: Cluster Action Viewer</h2></strong>');
-	echo ('Coming in v1.3.x');
-	echo ('<strong><h2>PVE: Failed Actions (emailed)</h2></strong>');
-	echo ('Coming in v1.3.x<br><br>');
-	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
+
+	// Fetch all enabled servers that use this provisioning module
+	$servers = Capsule::table('tblservers')
+		->where('type', '=', 'pvewhmcs')   // module system name
+		->where('disabled', '=', 0)
+		->orderBy('id', 'asc')
+		->get();
+
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
+	} else {
+		foreach ($servers as $srv) {
+			// Decrypt server password (same approach as ClientArea)
+			$api_data = array('password2' => $srv->password);
+			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverip       = $srv->ipaddress;
+			$serverusername = $srv->username;
+			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
+
+			// Login + get cluster/resources
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			if (!$proxmox->login()) {
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'. Check credentials / connectivity.</div>';
+				continue;
+			}
+
+			$cluster_resources = $proxmox->get('/cluster/resources'); // returns nodes, qemu, lxc, storage, pools, etc.
+
+			// Debug logging (same style as ClientArea)
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					'CLUSTER RESOURCES ['.$serverlabel.']:',
+					json_encode($cluster_resources)
+				);
+			}
+
+			if (!is_array($cluster_resources) || empty($cluster_resources)) {
+				echo '<div class="alert alert-info">No resources returned.</div>';
+				continue;
+			}
+
+			// Split resources
+			$nodes = [];
+			$guests = []; // qemu + lxc
+			foreach ($cluster_resources as $res) {
+				if (!isset($res['type'])) {
+					continue;
+				}
+				if ($res['type'] === 'node') {
+					$nodes[] = $res;
+				} elseif ($res['type'] === 'qemu' || $res['type'] === 'lxc') {
+					$guests[] = $res;
+				}
+			}
+
+			// -------- Nodes table --------
+			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+			echo '<tbody><tr>
+					<th>Node</th>
+					<th>Status</th>
+					<th>IPv4</th>
+					<th>Uptime</th>
+					<th>CPU %</th>
+					<th>RAM %</th>
+				</tr>';
+
+			foreach ($nodes as $n) {
+				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 2) : 0;
+				$n_mem_pct = (isset($n['maxmem']) && $n['maxmem'] > 0)
+					? intval(($n['mem'] ?? 0) * 100 / $n['maxmem'])
+					: 0;
+				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
+				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
+				$n_name    = isset($n['node'])   ? $n['node']   : '(node)';
+
+				echo '<tr>';
+				echo '<td><strong>'.htmlspecialchars($n_name).'</strong></td>';
+				echo '<td>'.htmlspecialchars($n_status).'</td>';
+				echo '<td>'.htmlspecialchars($serverip).'</td>';
+				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
+				echo '<td>'.$n_cpu_pct.'</td>';
+				echo '<td>'.$n_mem_pct.'</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+
+			// -------- Active Guests (running only) --------
+			echo '<h4 style="margin-top:16px;">Active Guests (running)</h4>';
+			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+			echo '<tbody><tr>
+					<th>Node</th>
+					<th>Type</th>
+					<th>VMID</th>
+					<th>Name</th>
+					<th>Uptime</th>
+					<th>Status</th>
+					<th>CPU %</th>
+					<th>RAM %</th>
+					<th>Disk %</th>
+				</tr>';
+
+			foreach ($guests as $g) {
+				// Only running guests for the "active" overview
+				if (!isset($g['status']) || $g['status'] !== 'running') {
+					continue;
+				}
+				$g_node   = $g['node']  ?? '—';
+				$g_type   = $g['type']  ?? '—';
+				$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
+				$g_name   = $g['name']  ?? '';
+				$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
+
+				$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 2) : 0;
+				$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
+					? intval(($g['mem'] ?? 0) * 100 / $g['maxmem'])
+					: 0;
+				$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
+					? intval(($g['disk'] ?? 0) * 100 / $g['maxdisk'])
+					: 0;
+
+				echo '<tr>';
+				echo '<td>'.htmlspecialchars($g_node).'</td>';
+				echo '<td>'.htmlspecialchars($g_type).'</td>';
+				echo '<td>'.$g_vmid.'</td>';
+				echo '<td>'.htmlspecialchars($g_name).'</td>';
+				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
+				echo '<td>'.htmlspecialchars($g['status']).'</td>';
+				echo '<td>'.$g_cpu_pct.'</td>';
+				echo '<td>'.$g_mem_pct.'</td>';
+				echo '<td>'.$g_dsk_pct.'</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+
+			echo '<hr style="margin:24px 0;">';
+		}
+	}
 	echo '</div>';
 
 	// ACTIONS / LOGS tab in ADMIN GUI
@@ -423,7 +569,7 @@ function import_guest() {
 		$subnetmask = trim($_POST['import_subnet']);
 		$gateway = trim($_POST['import_gateway']);
 		$hostname = trim($_POST['import_hostname']);
-		$vtype = ($_POST['import_vtype'] === 'lxc') ? 'lxc' : 'kvm';
+		$vtype = ($_POST['import_vtype'] === 'lxc') ? 'lxc' : 'qemu';
 
 		// Validate Client ID
 		$client = Capsule::table('tblclients')->where('id', $userid)->where('status', 'Active')->first();
@@ -525,7 +671,7 @@ function import_guest() {
 	
 	// Guest Type dropdown
 	echo '<tr><td class="fieldlabel">VM/CT</td><td class="fieldarea"><select name="import_vtype" required>';
-	echo '<option value="kvm">(VM) QEMU</option>';
+	echo '<option value="qemu">(VM) QEMU</option>';
 	echo '<option value="lxc">(CT) LXC</option>';
 	echo '</select></td></tr>';
 	
@@ -1302,6 +1448,16 @@ function lxc_plan_add() {
 	</label>
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">
+	Unpriv.
+	</td>
+	<td class="fieldarea">
+	<label class="checkbox-inline">
+	<input type="checkbox" name="unpriv" value="0"> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
+	</label>
+	</td>
+	</tr>
 	</table>
 
 	<div class="btn-container">
@@ -1437,6 +1593,16 @@ function lxc_plan_edit($id) {
 	</label>
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">
+	Unpriv.
+	</td>
+	<td class="fieldarea">
+	<label class="checkbox-inline">
+	<input type="checkbox" value="1" name="unpriv" '. ($plan->unpriv=="1" ? "checked" : "").'> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
+	</label>
+	</td>
+	</tr>
 	</table>
 
 	<div class="btn-container">
@@ -1568,6 +1734,7 @@ function save_lxc_plan() {
 						'bw' => $_POST['bw'],
 						'ipv6' => $_POST['ipv6'],
 						'onboot' => $_POST['onboot'],
+						'unpriv' => $_POST['unpriv'],
 					]
 				);
 			}
@@ -1604,6 +1771,7 @@ function update_lxc_plan() {
 			'bw' => $_POST['bw'],
 			'ipv6' => $_POST['ipv6'],
 			'onboot' => $_POST['onboot'],
+			'unpriv' => $_POST['unpriv'],
 		]
 	);
 	$_SESSION['pvewhmcs']['infomsg']['title']='LXC Plan updated.' ;
@@ -1767,5 +1935,39 @@ function removeip($id,$pool_id) {
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
 	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Address deleted.' ;
 	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted selected item successfully.' ;
+}
+
+function time2format($s) {
+	$d = intval( $s / 86400 );
+	if ($d < '10') {
+		$d = '0' . $d;
+	}
+	$s -= $d * 86400;
+	$h = intval( $s / 3600 );
+	if ($h < '10') {
+		$h = '0' . $h;
+	}
+	$s -= $h * 3600;
+	$m = intval( $s / 60 );
+	if ($m < '10') {
+		$m = '0' . $m;
+	}
+	$s -= $m * 60;
+	if ($s < '10') {
+		$s = '0' . $s;
+	}
+	if ($d) {
+		$str = $d . ' days ';
+	}
+	if ($h) {
+		$str .= $h . ':';
+	}
+	if ($m) {
+		$str .= $m . ':';
+	}
+	if ($s) {
+		$str .= $s . '';
+	}
+	return $str;
 }
 ?>
