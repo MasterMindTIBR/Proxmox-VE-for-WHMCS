@@ -58,7 +58,7 @@ function pvewhmcs_AdminLink(array $params)
     $url  = 'https://' . $host . ':8006';
     $text = 'PVE: ' . htmlspecialchars($host, ENT_QUOTES, 'UTF-8');
 
-    return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="post" target="_blank">
+    return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">
                 <input type="submit" value="' . $text . '" class="btn btn-sm btn-default" />
             </form>';
 }
