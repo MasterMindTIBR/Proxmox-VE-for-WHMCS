@@ -58,8 +58,9 @@ function pvewhmcs_AdminLink(array $params)
     $url  = 'https://' . $host . ':8006/';
     $text = 'PVE: ' . htmlspecialchars($host, ENT_QUOTES, 'UTF-8');
 
-    return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" '
-         . 'target="_blank" rel="noopener">' . $text . '</a>';
+    return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="post" target="_blank">
+                <input type="submit" value="' . $text . '" class="btn btn-sm btn-default" />
+            </form>';
 }
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
