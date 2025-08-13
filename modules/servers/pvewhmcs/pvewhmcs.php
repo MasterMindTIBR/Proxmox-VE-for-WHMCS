@@ -43,6 +43,25 @@ function pvewhmcs_MetaData() {
 	);
 }
 
+/**
+ * AdminLink: show a direct link to the Proxmox UI on :8006.
+ * Falls back to server IP if hostname is empty.
+ */
+function pvewhmcs_AdminLink(array $params)
+{
+    $host = $params['serverhostname'] ?: $params['serverip'];
+    if (!$host) {
+        // Nothing to link to – return the module page as a safe fallback
+        return '<a href="addonmodules.php?module=pvewhmcs">Module Config</a>';
+    }
+
+    $url  = 'https://' . $host . ':8006/';
+    $text = 'PVE: ' . htmlspecialchars($host, ENT_QUOTES, 'UTF-8');
+
+    return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" '
+         . 'target="_blank" rel="noopener">' . $text . '</a>';
+}
+
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
 	// Retrieve PVE for WHMCS Cluster
