@@ -5,11 +5,15 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 💅 Polish
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
-- Connection Test: Module shown as "Proxmox VE for WHMCS" now (#151)
-- Marketplace/Apps: Now shown with Module logo and some info (whmcs.json)
-- WHMCS Admin > Servers: Added a link to get over to PVE GUI for a node (#152)
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
+
+## [1.2.13] - 2025-08-13 - _"Little Things"_
+
+### 💅 Polish
+- Connection Test: Module shows as "Proxmox VE for WHMCS" (#151)
+- Apps/Integrations: Now shown with logo & some info (whmcs.json)
+- WHMCS Admin > Servers: Added a PVE GUI link for each node (#152)
 
 ## [1.2.12] - 2025-08-12 - _"Adjustments"_
 
