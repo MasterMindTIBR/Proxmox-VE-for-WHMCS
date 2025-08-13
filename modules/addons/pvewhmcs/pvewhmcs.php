@@ -531,7 +531,7 @@ function pvewhmcs_output($vars) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Debug Mode?</td>
+	<td class="fieldlabel">Debugging?</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
 	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS debug) via /admin/logs/module-log

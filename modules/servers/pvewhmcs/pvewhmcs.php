@@ -34,6 +34,15 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 // Prepare to source Guest type
 global $guest;
 
+// Fix the Server Test showing "Pvewhmcs" instead of pretty name
+// ref: https://developers.whmcs.com/provisioning-modules/meta-data-params/
+function pvewhmcs_MetaData() {
+    return array(
+        'DisplayName' => 'Proxmox VE for WHMCS',
+        'APIVersion' => '1.1',
+	);
+}
+
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
 	// Retrieve PVE for WHMCS Cluster

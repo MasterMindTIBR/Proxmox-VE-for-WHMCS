@@ -1,0 +1,24 @@
+{
+  "schema": "1.0",
+  "type": "whmcs-servers",
+  "name": "pvewhmcs",
+  "license": "open-source",
+  "category": "provisioning",
+  "description": {
+    "name": "Proxmox VE for WHMCS",
+    "tagline": "Seamless integration of Proxmox VE (PVE) VMs & CTs with WHMCS.",
+    "long": ""
+  },
+    "logo": {
+        "filename": "img/logo.png"
+  },
+  "support": {
+    "docs_url": "https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS"
+  },
+  "authors": [
+    {
+      "name": "The Network Crew Pty Ltd",
+      "homepage": "https:\/\/tnc.works\/"
+    }
+  ]
+}
