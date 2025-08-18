@@ -1,6 +1,6 @@
 # Proxmox VE for WHMCS (Module) Provision & Manage
 
-<img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
+<img alt="Logo for the Proxmox VE for WHMCS module" src="_images/logo-pvewhmcs.png">
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! Cheers. ❤️
 
@@ -21,7 +21,7 @@
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
-<img alt="Client Area GUI showing management of a powered-off VM" src="zVMclientGUI.png">
+<img alt="Client Area GUI showing management of a powered-off VM" src="_images/zVMclientGUI.png">
 
 # ❤️ RTFM: Read the Manual & Review the Module!
 
@@ -89,11 +89,11 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 #### Admin GUI: QEMU Plan :: Creation interface
 
-<img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="zQEMUplanAdd.png">
+<img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="_images/zQEMUplanAdd.png">
 
 #### Admin GUI: WHMCS Product/Service "Module" SAVE!
 
-<img alt="Pane/tab where you need to SAVE the module Plan & Pool against the WHMCS Service" src="zProductSave.png">
+<img alt="Pane/tab where you need to SAVE the module Plan & Pool against the WHMCS Service" src="_images/zProductSave.png">
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
@@ -140,7 +140,7 @@ Here are some of the critical requirements for VNC tunnelling:
 4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
 5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
 
-<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="zModuleConfig.png">
+<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zModuleConfig.png">
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -179,6 +179,8 @@ These steps explain the unique requirements for QEMU & LXC guests.
 **Custom Fields:** Values need to go in Name & Select Options.<br>
 This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
+<img alt="Custom Fields for the Service/Product set the ISO/Template/etc." src="_images/zProductISOetc.png">
+
 ### VM Option 1: QEMU, PVE Template VM Clone
 
 Firstly, create the Template VM in PVE. You need its unique PVE ID.
@@ -206,7 +208,7 @@ Firstly, store the Template in PVE. You need its storage, folder & File Name.
 
 You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
-<img alt="Importing GUI for linking to existing PVE Guest" src="zVMIDimport.png">
+<img alt="Importing GUI for linking to existing PVE Guest" src="_images/zVMIDimport.png">
 
 > **Note**: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
 
@@ -253,7 +255,7 @@ Then you're done with each update!
 
 _**Note**: db.sql file currently contains new tables for v1.3.x releases as well_
 
-<img alt="Admin GUI of the Support/Health page (an available update is highlighted)" src="zPatchAvailable.png">
+<img alt="Admin GUI of the Support/Health page (an available update is highlighted)" src="_images/zPatchAvailable.png">
 
 ## 🆘 6. HELP: Best-effort Support
 
