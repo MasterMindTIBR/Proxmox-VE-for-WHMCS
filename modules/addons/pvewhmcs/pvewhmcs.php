@@ -207,7 +207,7 @@ function pvewhmcs_output($vars) {
 
 	// NODES / GUESTS tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
-	echo ('<strong><h2>/cluster/resources</h2></strong>');
+	echo ('<strong><h2>Cluster Members</h2></strong>');
 
 	// Fetch all enabled Servers that use pvewhmcs
 	$servers = Capsule::table('tblservers')
@@ -271,11 +271,11 @@ function pvewhmcs_output($vars) {
 			echo '<tbody><tr>
 					<th>Node</th>
 					<th>Version</th>
-					<th>Uptime</th>
 					<th>Status</th>
 					<th>IPv4</th>
 					<th>CPU %</th>
 					<th>RAM %</th>
+					<th>Uptime</th>
 				</tr>';
 
 			foreach ($nodes as $n) {
@@ -291,28 +291,28 @@ function pvewhmcs_output($vars) {
 				echo '<tr>';
 				echo '<td><strong>'.htmlspecialchars($n_name).'</strong></td>';
 				echo '<td>'.htmlspecialchars($n_version).'</td>';
-				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
 				echo '<td>'.htmlspecialchars($n_status).'</td>';
 				echo '<td>'.htmlspecialchars($serverip).'</td>';
 				echo '<td>'.$n_cpu_pct.'</td>';
 				echo '<td>'.$n_mem_pct.'</td>';
+				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
 				echo '</tr>';
 			}
 			echo '</tbody></table>';
 
 			// -------- Active Guests (running only) --------
-			echo '<h4 style="margin-top:16px;">Active Guests</h4>';
+			echo '<h2 style="margin-top:16px;">Active Guests</h2>';
 			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
 			echo '<tbody><tr>
-					<th>Node</th>
-					<th>Type</th>
 					<th>VMID</th>
 					<th>Name</th>
-					<th>Uptime</th>
 					<th>Status</th>
+					<th>Type</th>
+					<th>Node</th>
 					<th>CPU %</th>
 					<th>RAM %</th>
 					<th>Disk %</th>
+					<th>Uptime</th>
 				</tr>';
 
 			foreach ($guests as $g) {
@@ -325,7 +325,6 @@ function pvewhmcs_output($vars) {
 				$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
 				$g_name   = $g['name']  ?? '';
 				$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
-
 				$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 2) : 0;
 				$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
 					? intval(($g['mem'] ?? 0) * 100 / $g['maxmem'])
@@ -335,15 +334,15 @@ function pvewhmcs_output($vars) {
 					: 0;
 
 				echo '<tr>';
-				echo '<td>'.htmlspecialchars($g_node).'</td>';
-				echo '<td>'.htmlspecialchars($g_type).'</td>';
-				echo '<td>'.$g_vmid.'</td>';
-				echo '<td>'.htmlspecialchars($g_name).'</td>';
-				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
+				echo '<td><strong>'.$g_vmid.'</strong></td>';
+				echo '<td><strong>'.htmlspecialchars($g_name).'</strong></td>';
 				echo '<td>'.htmlspecialchars($g['status']).'</td>';
+				echo '<td>'.htmlspecialchars($g_type).'</td>';
+				echo '<td>'.htmlspecialchars($g_node).'</td>';
 				echo '<td>'.$g_cpu_pct.'</td>';
 				echo '<td>'.$g_mem_pct.'</td>';
 				echo '<td>'.$g_dsk_pct.'</td>';
+				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
 				echo '</tr>';
 			}
 			echo '</tbody></table>';

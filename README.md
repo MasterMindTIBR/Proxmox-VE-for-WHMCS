@@ -21,7 +21,13 @@
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
-<img alt="Client Area GUI showing management of a powered-off VM" src="_images/zVMclientGUI.png">
+**Client Area GUI - Landing:**
+
+<img alt="Client Area GUI showing management of a powered-on VM" src="_images/zVMclientGUI.png">
+
+**Admin Area GUI - Landing:**
+
+<img alt="Admin Area GUI for the Module, showing the Nodes & Guests" src="_images/zClusterGuests.png">
 
 # ❤️ RTFM: Read the Manual & Review the Module!
 
