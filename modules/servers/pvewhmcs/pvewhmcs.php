@@ -878,13 +878,13 @@ function pvewhmcs_AdminCustomButtonArray() {
 // MODULE BUTTONS: Client Interface button regos
 function pvewhmcs_ClientAreaCustomButtonArray() {
 	$buttonarray = array(
-		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
-		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 		"<i class='fa fa-2x fa-flag-checkered'></i> Start" => "vmStart",
 		"<i class='fa fa-2x fa-sync'></i> Reboot" => "vmReboot",
 		"<i class='fa fa-2x fa-power-off'></i> Power Off" => "vmShutdown",
 		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
+		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
+		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 	);
 	return $buttonarray;
 }
