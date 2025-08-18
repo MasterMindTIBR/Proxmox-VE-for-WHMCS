@@ -19,7 +19,6 @@
 				<img src="/modules/servers/pvewhmcs/img/{$vm_status['status']}.png"/><br/>
 				<span style="text-transform: uppercase"><strong><i>{$vm_status['status']}</i></strong></span><br/>
 				Up:&nbsp;{$vm_status['uptime']}
-				
 			</div>
 			<div class="col col-md-7">
 				<div class="row">
@@ -57,28 +56,13 @@
 
 	<table class="table table-bordered table-striped">
 		<tr>
-			<td><strong>IP</strong> (Addressing)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Subnet Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
-		</tr>
-		<tr>
-			<td><strong>OS/etc</strong> (System)</td>
-			<td>Kernel:&nbsp;{$vm_config['ostype']}</td>
+			<td><strong>Memory</strong> (RAM)</td>
+			<td><strong>{$vm_config['memory']}MB</strong></td>
 		</tr>
 		<tr>
 			<td><strong>Compute</strong> (CPU)</td>
-			<td>{$vm_config['sockets']}&nbsp;socket/s,&nbsp;{$vm_config['cores']}&nbsp;core/s<br />
-			Emulation: {$vm_config['cpu']}</td>
-		</tr>
-		<tr>
-			<td><strong>Memory</strong> (RAM)</td>
-			<td>{$vm_config['memory']}MB</td>
-		</tr>
-		<tr>
-			<td><strong>NIC</strong> (Interface #1)</td>
-			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
-		</tr>
-		<tr>
-			<td><strong>NIC</strong> (Interface #2)</td>
-			<td>{$vm_config['net1']}</td>
+			<td><strong>{$vm_config['cpu']}&nbsp;{$vm_config['cores']}&nbsp;core/s&nbsp;on&nbsp;{$vm_config['sockets']}&nbsp;socket/s
+			</strong></td>
 		</tr>
 		<tr>
 			<td><strong>Storage</strong> (SSD/HDD)</td>
@@ -90,6 +74,21 @@
 			{($vm_config['scsi0']|replace:',':'<br/>')}
 			{($vm_config['virtio0']|replace:',':'<br/>')}
 			</td>
+		</tr>
+		<tr>
+			<td><strong>OS/etc</strong> (System)</td>
+			<td>Kernel:&nbsp;{$vm_config['ostype']}</td>
+		</tr>
+		<tr>
+			<td><strong>IP</strong> (Addressing)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
+		</tr>
+		<tr>
+			<td><strong>NIC</strong> (Interface #1)</td>
+			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
+		</tr>
+		<tr>
+			<td><strong>NIC</strong> (Interface #2)</td>
+			<td>{$vm_config['net1']}</td>
 		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}

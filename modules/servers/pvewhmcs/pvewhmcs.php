@@ -961,10 +961,10 @@ function pvewhmcs_ClientArea($params) {
 				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$guest->vmid.'/status/current');
 				if ($ct_specific['maxswap'] != 0) {
 					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
-				} else {
-					// Fall back to 0% usage to satisfy chart requirement
-					$vm_status['swapusepercent'] = 0;
-				}
+				} 
+			} else {
+				// Fall back to 0% usage to satisfy chart requirement
+				$vm_status['swapusepercent'] = 0;
 			}
 		} else {
 	    		// Handle the VM not found in the cluster resources (Optional)

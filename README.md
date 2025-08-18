@@ -97,6 +97,10 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 <img alt="Pane/tab where you need to SAVE the module Plan & Pool against the WHMCS Service" src="_images/zProductSave.png">
 
+#### Admin GUI: WHMCS Servers > Links direct to PVE GUI
+
+<img alt="WHMCS Admin > Configuration > Servers interface, showing link button to Proxmox GUI, labelled with the PVE hostname" src="_images/zServerListLink.png">
+
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
 After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
@@ -129,6 +133,8 @@ After forking the module, we considered how to improve security of Console Tunne
 > **However, if you wish for proper security: wait for VNC to be further improved.**
 > 
 > **Note**: Custom WHMCS install folders like /clients/ are not yet VNC-supported. #114
+
+<img alt="Client Area GUI showing the reply which links off to the VNC Console/Client" src="_images/zConsoleReady.png">
 
 ### Important info about Console Access
 

@@ -5,6 +5,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 💅 Polish
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
+- Client Area: Improved layout and formatting of guest details (#155)
+
+### 🐛 Bug Fix
+- Client Area, Swap %: "NaN%" replaced with "0%" for QEMU cases (#154)
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
