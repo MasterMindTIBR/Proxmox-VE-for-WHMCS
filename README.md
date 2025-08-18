@@ -251,7 +251,7 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 > [!IMPORTANT]  
 > Since v1.3.0, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
 > 
-> v1.2.9 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> v1.2.9 & below, consult the **_docs/UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
 Then you're done with each update!
 
