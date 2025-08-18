@@ -36,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.13",
+		"version" => "1.2.14",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.13";
+	return "1.2.14";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -166,19 +166,20 @@ function pvewhmcs_output($vars) {
 
 	// Set the active tab based on the GET parameter, default to 'vmplans'
 	if (!isset($_GET['tab'])) {
-    	$_GET['tab'] = 'vmplans';
+    	$_GET['tab'] = 'nodes';
 	}
 
 	// Start the HTML output for the Admin GUI
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
-	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM/CT Plans</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
-	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#nodes">Nodes / Cluster</a></li>
-	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#actions">Actions / Logs</a></li>
-	<li class="'.($_GET['tab']=="health" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#health">Support / Health</a></li>
-	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#config">Module Config</a></li>
+	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes & Guests</a></li>
+	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#plans">Plans: VM & CT</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
+	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
+	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#support">Support</a></li>
+	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#config">Config</a></li>
+	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
 	</ul>
 	</div>
 	<div class="tab-content admin-tabs">
@@ -204,7 +205,155 @@ function pvewhmcs_output($vars) {
 		save_lxc_plan() ;
 	}
 
-	// VM/CT PLANS tab in ADMIN GUI
+	// NODES / GUESTS tab in ADMIN GUI
+	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
+	echo ('<strong><h2>/cluster/resources</h2></strong>');
+
+	// Fetch all enabled Servers that use pvewhmcs
+	$servers = Capsule::table('tblservers')
+		->where('type', '=', 'pvewhmcs')
+		->where('disabled', '=', 0)
+		->orderBy('id', 'asc')
+		->get();
+
+	// Catch no-servers case early
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
+	} else {
+		foreach ($servers as $srv) {
+			// Decrypt server password (same approach as ClientArea)
+			$api_data = array('password2' => $srv->password);
+			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverip       = $srv->ipaddress;
+			$serverusername = $srv->username;
+			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
+
+			// Login + get cluster/resources
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			if (!$proxmox->login()) {
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'. Check credentials / connectivity.</div>';
+				continue;
+			}
+
+			$cluster_resources = $proxmox->get('/cluster/resources'); // returns nodes, qemu, lxc, storage, pools, etc.
+
+			// Debug logging (same style as ClientArea)
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					'CLUSTER RESOURCES ['.$serverlabel.']:',
+					json_encode($cluster_resources)
+				);
+			}
+
+			if (!is_array($cluster_resources) || empty($cluster_resources)) {
+				echo '<div class="alert alert-info">No resources returned.</div>';
+				continue;
+			}
+
+			// Split resources
+			$nodes = [];
+			$guests = []; // qemu + lxc
+			foreach ($cluster_resources as $res) {
+				if (!isset($res['type'])) {
+					continue;
+				}
+				if ($res['type'] === 'node') {
+					$nodes[] = $res;
+				} elseif ($res['type'] === 'qemu' || $res['type'] === 'lxc') {
+					$guests[] = $res;
+				}
+			}
+
+			// -------- Nodes table --------
+			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+			echo '<tbody><tr>
+					<th>Node</th>
+					<th>Version</th>
+					<th>Uptime</th>
+					<th>Status</th>
+					<th>IPv4</th>
+					<th>CPU %</th>
+					<th>RAM %</th>
+				</tr>';
+
+			foreach ($nodes as $n) {
+				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 2) : 0;
+				$n_mem_pct = (isset($n['maxmem']) && $n['maxmem'] > 0)
+					? intval(($n['mem'] ?? 0) * 100 / $n['maxmem'])
+					: 0;
+				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
+				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
+				$n_name    = isset($n['node'])   ? $n['node']   : '(node)';
+				$n_version = $proxmox->get_version();
+
+				echo '<tr>';
+				echo '<td><strong>'.htmlspecialchars($n_name).'</strong></td>';
+				echo '<td>'.htmlspecialchars($n_version).'</td>';
+				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
+				echo '<td>'.htmlspecialchars($n_status).'</td>';
+				echo '<td>'.htmlspecialchars($serverip).'</td>';
+				echo '<td>'.$n_cpu_pct.'</td>';
+				echo '<td>'.$n_mem_pct.'</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+
+			// -------- Active Guests (running only) --------
+			echo '<h4 style="margin-top:16px;">Active Guests</h4>';
+			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+			echo '<tbody><tr>
+					<th>Node</th>
+					<th>Type</th>
+					<th>VMID</th>
+					<th>Name</th>
+					<th>Uptime</th>
+					<th>Status</th>
+					<th>CPU %</th>
+					<th>RAM %</th>
+					<th>Disk %</th>
+				</tr>';
+
+			foreach ($guests as $g) {
+				// Only running guests for the "active" overview
+				if (!isset($g['status']) || $g['status'] !== 'running') {
+					continue;
+				}
+				$g_node   = $g['node']  ?? '—';
+				$g_type   = $g['type']  ?? '—';
+				$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
+				$g_name   = $g['name']  ?? '';
+				$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
+
+				$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 2) : 0;
+				$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
+					? intval(($g['mem'] ?? 0) * 100 / $g['maxmem'])
+					: 0;
+				$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
+					? intval(($g['disk'] ?? 0) * 100 / $g['maxdisk'])
+					: 0;
+
+				echo '<tr>';
+				echo '<td>'.htmlspecialchars($g_node).'</td>';
+				echo '<td>'.htmlspecialchars($g_type).'</td>';
+				echo '<td>'.$g_vmid.'</td>';
+				echo '<td>'.htmlspecialchars($g_name).'</td>';
+				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
+				echo '<td>'.htmlspecialchars($g['status']).'</td>';
+				echo '<td>'.$g_cpu_pct.'</td>';
+				echo '<td>'.$g_mem_pct.'</td>';
+				echo '<td>'.$g_dsk_pct.'</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+
+			echo '<hr style="margin:24px 0;">';
+		}
+	}
+	echo '</div>';
+
+	// VM / CT PLANS tab in ADMIN GUI
 	echo '
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
@@ -248,7 +397,7 @@ function pvewhmcs_output($vars) {
 		lxc_plan_add() ;
 	}
 
-	// List of VM/CT Plans
+	// List of VM / CT Plans
 	if ($_GET['action']=='planlist') {
 		echo '
 		<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -349,162 +498,16 @@ function pvewhmcs_output($vars) {
 	</div>
 	';
 
-	// NODES / CLUSTER tab in ADMIN GUI
-	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
-	echo ('<strong><h2>PVE: /cluster/resources</h2></strong>');
-
-	// Fetch all enabled servers that use this provisioning module
-	$servers = Capsule::table('tblservers')
-		->where('type', '=', 'pvewhmcs')   // module system name
-		->where('disabled', '=', 0)
-		->orderBy('id', 'asc')
-		->get();
-
-	if ($servers->isEmpty()) {
-		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
-	} else {
-		foreach ($servers as $srv) {
-			// Decrypt server password (same approach as ClientArea)
-			$api_data = array('password2' => $srv->password);
-			$serverpassword = localAPI('DecryptPassword', $api_data);
-			$serverip       = $srv->ipaddress;
-			$serverusername = $srv->username;
-			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
-
-			// Login + get cluster/resources
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
-			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'. Check credentials / connectivity.</div>';
-				continue;
-			}
-
-			$cluster_resources = $proxmox->get('/cluster/resources'); // returns nodes, qemu, lxc, storage, pools, etc.
-
-			// Debug logging (same style as ClientArea)
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					'CLUSTER RESOURCES ['.$serverlabel.']:',
-					json_encode($cluster_resources)
-				);
-			}
-
-			if (!is_array($cluster_resources) || empty($cluster_resources)) {
-				echo '<div class="alert alert-info">No resources returned.</div>';
-				continue;
-			}
-
-			// Split resources
-			$nodes = [];
-			$guests = []; // qemu + lxc
-			foreach ($cluster_resources as $res) {
-				if (!isset($res['type'])) {
-					continue;
-				}
-				if ($res['type'] === 'node') {
-					$nodes[] = $res;
-				} elseif ($res['type'] === 'qemu' || $res['type'] === 'lxc') {
-					$guests[] = $res;
-				}
-			}
-
-			// -------- Nodes table --------
-			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-			echo '<tbody><tr>
-					<th>Node</th>
-					<th>Status</th>
-					<th>IPv4</th>
-					<th>Uptime</th>
-					<th>CPU %</th>
-					<th>RAM %</th>
-				</tr>';
-
-			foreach ($nodes as $n) {
-				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 2) : 0;
-				$n_mem_pct = (isset($n['maxmem']) && $n['maxmem'] > 0)
-					? intval(($n['mem'] ?? 0) * 100 / $n['maxmem'])
-					: 0;
-				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
-				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
-				$n_name    = isset($n['node'])   ? $n['node']   : '(node)';
-
-				echo '<tr>';
-				echo '<td><strong>'.htmlspecialchars($n_name).'</strong></td>';
-				echo '<td>'.htmlspecialchars($n_status).'</td>';
-				echo '<td>'.htmlspecialchars($serverip).'</td>';
-				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
-				echo '<td>'.$n_cpu_pct.'</td>';
-				echo '<td>'.$n_mem_pct.'</td>';
-				echo '</tr>';
-			}
-			echo '</tbody></table>';
-
-			// -------- Active Guests (running only) --------
-			echo '<h4 style="margin-top:16px;">Active Guests (running)</h4>';
-			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-			echo '<tbody><tr>
-					<th>Node</th>
-					<th>Type</th>
-					<th>VMID</th>
-					<th>Name</th>
-					<th>Uptime</th>
-					<th>Status</th>
-					<th>CPU %</th>
-					<th>RAM %</th>
-					<th>Disk %</th>
-				</tr>';
-
-			foreach ($guests as $g) {
-				// Only running guests for the "active" overview
-				if (!isset($g['status']) || $g['status'] !== 'running') {
-					continue;
-				}
-				$g_node   = $g['node']  ?? '—';
-				$g_type   = $g['type']  ?? '—';
-				$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
-				$g_name   = $g['name']  ?? '';
-				$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
-
-				$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 2) : 0;
-				$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
-					? intval(($g['mem'] ?? 0) * 100 / $g['maxmem'])
-					: 0;
-				$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
-					? intval(($g['disk'] ?? 0) * 100 / $g['maxdisk'])
-					: 0;
-
-				echo '<tr>';
-				echo '<td>'.htmlspecialchars($g_node).'</td>';
-				echo '<td>'.htmlspecialchars($g_type).'</td>';
-				echo '<td>'.$g_vmid.'</td>';
-				echo '<td>'.htmlspecialchars($g_name).'</td>';
-				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
-				echo '<td>'.htmlspecialchars($g['status']).'</td>';
-				echo '<td>'.$g_cpu_pct.'</td>';
-				echo '<td>'.$g_mem_pct.'</td>';
-				echo '<td>'.$g_dsk_pct.'</td>';
-				echo '</tr>';
-			}
-			echo '</tbody></table>';
-
-			echo '<hr style="margin:24px 0;">';
-		}
-	}
-	echo '</div>';
-
-	// ACTIONS / LOGS tab in ADMIN GUI
+	// ACTIONS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
-	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
-	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u><br>(Module Config > Debug Mode = ON)');
 	echo ('<strong><h2>Module: Action History</h2></strong>');
 	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
 	echo ('Coming in v1.3.x<br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
 
-	// SUPPORT / HEALTH tab in ADMIN GUI
-	echo ('<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >') ;
+	// SUPPORT tab in ADMIN GUI
+	echo ('<div id="support" class="tab-pane '.($_GET['tab']=="support" ? "active" : "").'" >') ;
 	echo ('<b>❤️ Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
 	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>System Environment</h2></strong><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
@@ -531,10 +534,10 @@ function pvewhmcs_output($vars) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Debugging?</td>
+	<td class="fieldlabel">Debug?</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS debug) via /admin/logs/module-log
+	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS debug) & then view <u><a href="/admin/index.php?rp=/admin/logs/module-log">at this link here.</a></u>
 	</label>
 	</td>
 	</tr>
@@ -545,9 +548,103 @@ function pvewhmcs_output($vars) {
 	</div>
 	</form>
 	';
-	
 	echo '</div>';
 
+	// LOGS tab in ADMIN GUI
+	echo '<div id="logs" class="tab-pane ' . (isset($_GET['tab']) && $_GET['tab'] === 'logs' ? 'active' : '') . '">';
+	echo '<strong><h2>Cluster History</h2></strong>';
+
+	try {
+	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
+	    if (!isset($proxmox)) {
+	        $srv = Capsule::table('tblservers')
+	            ->where('type', 'pvewhmcs')
+	            ->where('disabled', 0)
+	            ->orderBy('id', 'asc')
+	            ->first();
+
+	        if (!$srv) {
+	            throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
+	        }
+
+	        $dec = localAPI('DecryptPassword', ['password2' => $srv->password]);
+	        $serverpassword = $dec['password'] ?? '';
+	        if (!$serverpassword) {
+	            throw new Exception('Could not decrypt Proxmox server password.');
+	        }
+
+	        $proxmox = new PVE2_API($srv->ipaddress, $srv->username, 'pam', $serverpassword);
+	        if (!$proxmox->login()) {
+	            throw new Exception('Login to Proxmox API failed.');
+	        }
+	    }
+
+	    // Fetch recent cluster-wide tasks once
+	    $limit = 150;
+	    $tasks = $proxmox->get('/cluster/tasks', ['limit' => $limit]);
+
+	    // Optional debug logging
+	    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+	        logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
+	    }
+
+	    if (!is_array($tasks) || empty($tasks)) {
+	        echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
+	    } else {
+	        // Sort newest first (defensive)
+	        usort($tasks, function ($a, $b) {
+	            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
+	        });
+
+	        echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+	        echo '<tbody><tr>
+	                <th>Node</th>
+	                <th>Type</th>
+	                <th>Status</th>
+	                <th>User</th>
+                	<th>Duration</th>
+	                <th>Start</th>
+	                <th>End</th>
+	              </tr>';
+
+	        foreach ($tasks as $t) {
+	            $node   = $t['node'] ?? '—';
+	            $type   = $t['type'] ?? '';
+	            $user   = $t['user'] ?? '';
+	            $startTs = (int)($t['starttime'] ?? 0);
+	            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
+
+	            $start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
+	            $end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
+
+	            $durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
+	            $durH   = is_null($durSec)
+	                ? '—'
+	                : sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
+
+	            $status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
+	            $badge  = ($status === 'OK')
+	                ? '✅'
+	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
+
+	            echo '<tr>';
+	            echo '<td>' . htmlspecialchars($node) . '</td>';
+	            echo '<td><strong>' . htmlspecialchars($type) . '</strong></td>';
+	            echo '<td>' . $badge . htmlspecialchars($status) . '</td>';
+	            echo '<td>' . htmlspecialchars($user) . '</td>';
+	            echo '<td>' . htmlspecialchars($durH) . '</td>';
+	            echo '<td>' . htmlspecialchars($start) . '</td>';
+	            echo '<td>' . htmlspecialchars($end) . '</td>';
+	            echo '</tr>';
+	        }
+	        echo '</tbody></table>';
+	        // Always close the tab-pane div
+	    	echo '</div>';
+    	}
+	} catch (Throwable $e) {
+		    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
+		        . htmlspecialchars($e->getMessage()) . '</div>';
+	}
 	echo '</div>'; 
 	// End of tabbed content
 
@@ -670,7 +767,7 @@ function import_guest() {
 	echo '</select></td></tr>';
 	
 	// Guest Type dropdown
-	echo '<tr><td class="fieldlabel">VM/CT</td><td class="fieldarea"><select name="import_vtype" required>';
+	echo '<tr><td class="fieldlabel">VM / CT</td><td class="fieldarea"><select name="import_vtype" required>';
 	echo '<option value="qemu">(VM) QEMU</option>';
 	echo '<option value="lxc">(CT) LXC</option>';
 	echo '</select></td></tr>';

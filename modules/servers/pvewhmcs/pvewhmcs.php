@@ -47,8 +47,7 @@ function pvewhmcs_MetaData() {
  * AdminLink: show a direct link to the Proxmox UI on :8006.
  * Falls back to server IP if hostname is empty.
  */
-function pvewhmcs_AdminLink(array $params)
-{
+function pvewhmcs_AdminLink(array $params) {
     $host = $params['serverhostname'] ?: $params['serverip'];
     if (!$host) {
         // Nothing to link to – return the module page as a safe fallback
@@ -644,7 +643,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
 		$pve_cmdparam = array();
 		// Stop the service if it is not already stopped
-		$guest_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid.'/status/current');
+		$guest_specific = $proxmox->get('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
 			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
 			sleep(30);

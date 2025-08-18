@@ -5,12 +5,23 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 💅 Polish
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
-- Client Area: Improved layout and formatting of guest details (#155)
-
-### 🐛 Bug Fix
-- Client Area, Swap %: "NaN%" replaced with "0%" for QEMU cases (#154)
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
+
+## [1.2.14] - 2025-08-19 - _"Client Area tidy"_
+
+### 🚀 Feature
+- Cluster Tasks: Show the cluster history in Admin GUI (#50)
+
+### 💅 Polish
+- Admin Area, Server Test: Renamed to "Proxmox VE" for brevity
+- Admin Area, Pane Titles: Renamed most panes to make it simpler
+- Client Area: Improved layout and formatting of Guest Info (#155)
+- Client Area: Improved naming and ordering of Actions menu (#157)
+- Client Area: Updated 64x64px icons for Running/Suspended/Offline
+
+### 🐛 Bug Fix
+- Client Area, Swap %: "NaN%" replaced with "0%" for QEMU (#154)
 
 ## [1.2.13] - 2025-08-13 - _"Little Things"_
 
