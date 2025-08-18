@@ -38,7 +38,7 @@ global $guest;
 // ref: https://developers.whmcs.com/provisioning-modules/meta-data-params/
 function pvewhmcs_MetaData() {
     return array(
-        'DisplayName' => 'Proxmox VE for WHMCS',
+        'DisplayName' => 'Proxmox VE',
         'APIVersion' => '1.1',
 	);
 }
