@@ -142,7 +142,7 @@ Here are some of the critical requirements for VNC tunnelling:
 4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
 5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
 
-<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zModuleConfig.png">
+<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -282,6 +282,8 @@ Hence, we ask that you are as verbose and thorough as possible when reporting Is
 - **(Logs: WHMCS)** Module Debug Logging*
 - **(Logs: Config)** WHMCS Display/Log Errors = ON
 - **(Logs: PVE)** Logs from Proxmox Host/s (`pveproxy` etc)
+
+<img alt="Admin GUI of the WHMCS Module Debug Log interface" src="_images/zModuleDebug.png">
 
 #### Other Requirements for Support
 
