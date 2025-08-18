@@ -87,9 +87,13 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
 
-#### Admin GUI: QEMU Plan Creation interface
+#### Admin GUI: QEMU Plan :: Creation interface
 
 <img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="zQEMUplanAdd.png">
+
+#### Admin GUI: WHMCS Product/Service "Module" SAVE!
+
+<img alt="Pane/tab where you need to SAVE the module Plan & Pool against the WHMCS Service" src="zProductSave.png">
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
