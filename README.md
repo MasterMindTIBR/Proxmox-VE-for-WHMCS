@@ -58,7 +58,7 @@ Please note specific VNC & Network requirements below - read 100% of the README.
 
 **You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
 
-This is configured in the `pam` realm. We may allow overriding in v1.3.x/v1.4.x. #117
+This is configured in the `pam` realm. 
 
 #### Credentials: VNC user for Console Access only
 
@@ -67,6 +67,8 @@ Additionally, to improve security, for VNC you must also have a Restricted User.
 Configured in the _Module_ as detailed below, once you've added/restricted it in PVE.
 
 ### 🏃‍♂️ Installing the WHMCS Module `pvewhmcs`
+
+<img alt="WHMCS Server testing OK for a Proxmox VE (pvewhmcs) server/node" src="_images/zServerTestOK.png">
 
 **First up, get the basics sorted out:**
 
