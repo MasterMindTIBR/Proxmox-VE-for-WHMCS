@@ -316,6 +316,8 @@ Hence, we ask that you are as verbose and thorough as possible when reporting Is
 > 
 > https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
 
+<img alt="Admin GUI showing the Cluster History (PVE Task) log" src="_images/zClusterHistory.png">
+
 # 💅 FEATURES: Upcoming PVE bling
 
 There are new features deployed into PVE upstream which are exciting and may be integrated.
