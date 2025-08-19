@@ -597,9 +597,9 @@ function pvewhmcs_output($vars) {
 
 	        echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
 	        echo '<tbody><tr>
-	                <th>Node</th>
-	                <th>Type</th>
+	                <th>Task</th>
 	                <th>Status</th>
+	                <th>Node</th>
 	                <th>User</th>
                 	<th>Duration</th>
 	                <th>Start</th>
@@ -627,9 +627,9 @@ function pvewhmcs_output($vars) {
 	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
 
 	            echo '<tr>';
-	            echo '<td>' . htmlspecialchars($node) . '</td>';
 	            echo '<td><strong>' . htmlspecialchars($type) . '</strong></td>';
-	            echo '<td>' . $badge . htmlspecialchars($status) . '</td>';
+	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
+	            echo '<td><strong>' . htmlspecialchars($node) . '</strong></td>';
 	            echo '<td>' . htmlspecialchars($user) . '</td>';
 	            echo '<td>' . htmlspecialchars($durH) . '</td>';
 	            echo '<td>' . htmlspecialchars($start) . '</td>';
