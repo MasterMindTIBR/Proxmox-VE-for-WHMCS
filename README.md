@@ -248,13 +248,13 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 
 **WHMCS Admin -> Addon Modules -> Proxmox VE for WHMCS -> Support/Health**
 
-### Updating to a newer release
+### Updating to a newer release!
 
 1. Download the new version
 2. Upload it over the top (FTP)
 3. Login to WHMCS Admin
 4. Verify all working OK
-5. Watch the repo!
+5. **Watch the repo!**
 
 > **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
 > 

@@ -598,10 +598,11 @@ function pvewhmcs_output($vars) {
 	        echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
 	        echo '<tbody><tr>
 	                <th>Task</th>
+	                <th>VMID</th>
 	                <th>Status</th>
 	                <th>Node</th>
 	                <th>User</th>
-                	<th>Duration</th>
+	                <th>Duration</th>
 	                <th>Start</th>
 	                <th>End</th>
 	              </tr>';
@@ -610,6 +611,23 @@ function pvewhmcs_output($vars) {
 	            $node   = $t['node'] ?? '—';
 	            $type   = $t['type'] ?? '';
 	            $user   = $t['user'] ?? '';
+	            $upid   = $t['upid'] ?? '';
+
+	            // Derive VMID:
+	            // 1) Prefer numeric $t['id'] when available
+	            // 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
+	            $vmid = '—';
+	            if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
+	                $vmid = (string)$t['id'];
+	            } elseif (is_string($upid) && $upid !== '') {
+	                // UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
+	                if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
+	                    if ($m[1] !== '' && ctype_digit($m[1])) {
+	                        $vmid = $m[1];
+	                    }
+	                }
+	            }
+
 	            $startTs = (int)($t['starttime'] ?? 0);
 	            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
 
@@ -628,6 +646,7 @@ function pvewhmcs_output($vars) {
 
 	            echo '<tr>';
 	            echo '<td><strong>' . htmlspecialchars($type) . '</strong></td>';
+	            echo '<td>' . htmlspecialchars($vmid) . '</td>';
 	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
 	            echo '<td><strong>' . htmlspecialchars($node) . '</strong></td>';
 	            echo '<td>' . htmlspecialchars($user) . '</td>';
@@ -639,10 +658,10 @@ function pvewhmcs_output($vars) {
 	        echo '</tbody></table>';
 	        // Always close the tab-pane div
 	    	echo '</div>';
-    	}
+	    }
 	} catch (Throwable $e) {
-		    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
-		        . htmlspecialchars($e->getMessage()) . '</div>';
+	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
+	        . htmlspecialchars($e->getMessage()) . '</div>';
 	}
 	echo '</div>'; 
 	// End of tabbed content
