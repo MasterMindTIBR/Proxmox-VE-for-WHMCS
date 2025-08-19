@@ -164,18 +164,20 @@ Please make sure you create an IPv4 Pool with sufficient scope/size to be able t
 
 #### Private IPs for PVE Hosts
 
-Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. Hence, we will not support any set-ups which do not follow the set-up processes 100%.
+Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. 
+
+> Hence, we will not support any set-ups which do not follow all of the set-up processes 100%.
 
 #### Existing Guest Imports from PVE
 
 Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
 
-### IPv6: SLAAC default, via 2nd vNIC
+### IPv6: SLAAC default (via 2nd vNIC)
 
 Available options: 
-- **SLAAC** (2nd vNIC)
-- **DHCP** (2nd vNIC)
-- **Off** (v4-only)
+1. **SLAAC** (2nd vNIC)
+2. **DHCP** (2nd vNIC)
+3. **Off** (v4-only)
 
 You may add different config via PVE/`pvesh` manually of course, if you need to specify a prefix etc.
 
@@ -228,7 +230,7 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 ### Custom Fields: Important Notes (ZFS/CTs)
 
-#### ZFS etc: Comfigure to suit isolated TPLs
+#### ZFS etc: Configure to suit isolated TPLs
 
 - `local` is the name of the file-system that you have the Template on
 - `vztmpl` is the directoty name per convention, with the ISO within

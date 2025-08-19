@@ -103,13 +103,13 @@ function pvewhmcs_ConfigOptions() {
 			"FriendlyName" => "PVE Plan",
 			"Type" => "dropdown",
 			'Options' => $plans ,
-			"Description" => "QEMU/LXC : Plan Name"
+			"Description" => "(QEMU/LXC) Plan Name"
 		),
 		"IPPool" => array(
 			"FriendlyName" => "IPv4 Pool",
 			"Type" => "dropdown",
 			'Options'=> $ippools,
-			"Description" => "IPv4 : Allocation Pool"
+			"Description" => "(IPv4) Allocation Pool"
 		),
 	);
 
