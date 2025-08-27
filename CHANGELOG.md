@@ -4,6 +4,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ## [1.3.x] - TBC 2026-??-??
 
 ### 💅 Polish
+- NIC #2: Split info (MAC, link status, etc) to multiple lines
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
 
 ### 🐛 Bug Fix
