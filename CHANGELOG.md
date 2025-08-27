@@ -6,6 +6,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 💅 Polish
 - NIC #2: Split info (MAC, link status, etc) to multiple lines
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
+- Deactivation Keeps Data: No table drops on de-activate (#160)
 
 ### 🐛 Bug Fix
 - Function Rename: hash_encryption to pvewhmcs_hash_encryption (#159)

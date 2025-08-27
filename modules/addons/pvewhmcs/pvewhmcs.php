@@ -79,9 +79,11 @@ function pvewhmcs_activate() {
 // WHMCS MODULE: DEACTIVATION
 function pvewhmcs_deactivate() {
 	// Drop all module-related tables
-	Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
+	// NOTE: Disabled/Deleted via #160
+	// Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
+	
 	// Return the assumed result (change?)
-	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated and all related tables deleted.');
+	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated. Database tables/data retained.');
 }
 
 // WHMCS MODULE: Upgrade
