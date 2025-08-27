@@ -6,6 +6,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 💅 Polish
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
 
+### 🐛 Bug Fix
+- Function Rename: hash_encryption to pvewhmcs_hash_encryption (#159)
+
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.14] - 2025-08-19 - _"Client Area tidy"_

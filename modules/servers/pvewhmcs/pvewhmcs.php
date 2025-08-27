@@ -660,7 +660,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 }
 
 // GENERAL CLASS: WHMCS Decrypter
-class hash_encryption {
+class pvewhmcs_hash_encryption {
 	/**
 	 * Hashed value of the user provided encryption key
 	 * @var	string
@@ -693,7 +693,7 @@ class hash_encryption {
 	 * @param	boold	$base64	Enable base64 en- / decoding
 	 * @return mixed
 	 */
-	function hash_encryption($key, $base64 = true) {
+	function pvewhmcs_hash_encryption($key, $base64 = true) {
 
 		global $cc_encryption_hash;
 
@@ -820,7 +820,7 @@ class hash_encryption {
 	 *
 	 * @todo	Add more random sources.
 	 * @access	private
-	 * @see function	hash_encryption
+	 * @see function	pvewhmcs_hash_encryption
 	 * @return string	Binary pseudo random string
 	 **/
 	function _generate_iv() {
@@ -859,7 +859,7 @@ function pvewhmcs_get_whmcs_server_password($enc_pass){
 	$key1 = md5 (md5 ($cc_encryption_hash));
 	$key2 = md5 ($cc_encryption_hash);
 	$key = $key1.$key2;
-	$hasher = new hash_encryption($key);
+	$hasher = new pvewhmcs_hash_encryption($key);
 	return $hasher->decrypt($enc_pass);
 }
 
