@@ -88,7 +88,7 @@
 		</tr>
 		<tr>
 			<td><strong>NIC</strong> (Interface #2)</td>
-			<td>{$vm_config['net1']}</td>
+			<td>{($vm_config['net1']|replace:',':'<br/>')}</td>
 		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
