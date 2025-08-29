@@ -525,7 +525,7 @@ function pvewhmcs_output($vars) {
 	<tr>
 	<td class="fieldlabel">VNC Secret</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. (See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info)
+	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. (See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">README</a> for more info)
 	</td>
 	</tr>
 	<tr>
