@@ -3,6 +3,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.3.x] - TBC 2026-??-??
 
+https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
+
+## [1.2.15] - 2025-08-29 - _"Little Adjustments"_
+
 ### 💅 Polish
 - NIC #2: Split info (MAC, link status, etc) to multiple lines
 - SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
@@ -10,8 +14,6 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ### 🐛 Bug Fix
 - Function Rename: hash_encryption to pvewhmcs_hash_encryption (#159)
-
-https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.14] - 2025-08-19 - _"Client Area tidy"_
 
