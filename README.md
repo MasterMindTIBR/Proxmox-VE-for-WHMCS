@@ -166,8 +166,6 @@ Please make sure you create an IPv4 Pool with sufficient scope/size to be able t
 
 Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. 
 
-> Hence, we will not support any set-ups which do not follow all of the set-up processes 100%.
-
 #### Existing Guest Imports from PVE
 
 Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
@@ -226,7 +224,8 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 <img alt="Importing GUI for linking to existing PVE Guest" src="_images/zVMIDimport.png">
 
-> **Note**: All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set.
+> [!CAUTION]  
+> All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set!
 
 ### Custom Fields: Important Notes (ZFS/CTs)
 
@@ -274,6 +273,13 @@ _**Note**: db.sql file currently contains new tables for v1.3.x releases as well
 <img alt="Admin GUI of the Support/Health page (an available update is highlighted)" src="_images/zPatchAvailable.png">
 
 ## 🆘 6. HELP: Best-effort Support
+
+> [!WARNING]  
+> We will not support ANY set-ups which do not follow ALL of the set-up processes 100%.
+> 
+> Read the ENTIRE README, understand it, follow it, and submit detailed Issues.
+> 
+> Else, do not expect any form of Support. Respect our time. Thank you!
 
 ### Before raising a GitHub Issue, please check:
 
