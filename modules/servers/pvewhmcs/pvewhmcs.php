@@ -748,6 +748,17 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
+// Sequence:
+//   1. Connect to PVE and look up the guest record in mod_pvewhmcs_vms.
+//   2. Locate which cluster node the VMID currently lives on.
+//      - If not found on the cluster, the VM was already removed manually:
+//        clean up the DB row and return success.
+//   3. Guard against VMID reuse (Issue #194): if another WHMCS service now
+//      holds the same VMID in mod_pvewhmcs_vms, Proxmox recycled it after a
+//      manual termination left the original row orphaned. Clean up the stale
+//      row and abort — the live VM must not be touched.
+//   4. All checks passed: stop the guest (if running), delete it from PVE,
+//      then remove the DB row.
 function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
@@ -756,25 +767,45 @@ function pvewhmcs_TerminateAccount(array $params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()){
-		// Find virtual machine type
+
+		// STEP 1: Look up the guest record for this WHMCS Service ID.
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 		if ($guest === null) {
 			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 		}
+
+		// STEP 2: Locate the cluster node the VMID lives on.
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+			// VM is no longer present on the cluster — already removed manually.
+			// Clean up the orphaned DB row so the VMID cannot match a future reused guest.
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+			return "success";
 		}
+
+		// STEP 3: Guard against VMID reuse (Issue #194).
+		// If mod_pvewhmcs_vms contains another row for this VMID, Proxmox recycled it
+		// for a new service after the original was manually terminated without going
+		// through this function. The VM on PVE now belongs to the new service — abort.
+		$vmid_owner = Capsule::table('mod_pvewhmcs_vms')
+			->where('vmid', '=', $guest->vmid)
+			->where('id', '!=', $params['serviceid'])
+			->first();
+		if ($vmid_owner !== null) {
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+			return "Error: VMID {$guest->vmid} is now assigned to Service #{$vmid_owner->id}. Stale record for Service #{$params['serviceid']} cleaned up. VM was NOT deleted.";
+		}
+
+		// STEP 4: Ownership confirmed. Stop the guest (if running) then delete it.
 		$pve_cmdparam = array();
-		// Stop the service if it is not already stopped
 		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
 			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
-		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1));
+		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid, array('skiplock' => 1));
 		if ($delete_response) {
-			// Delete entry from module table once service terminated in PVE
+			// Delete the DB row now that the guest has been removed from PVE.
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
 		} else {
@@ -1549,31 +1580,26 @@ function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
  */
 function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
 {
-    // 1) Where guest lives?
+    // Where does the Guest live?
     $cluster_resources = $proxmox->get('/cluster/resources');
 
     if (is_array($cluster_resources)) {
         foreach ($cluster_resources as $res) {
+			// Ensure required keys exist before accessing
             if (!isset($res['type'], $res['vmid'], $res['node'])) {
                 continue;
             }
 
-            // match vmid + type
+            // Match the vmid + Guest type (most reliable)
             if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
                 return $res['node'];
             }
 
-            // Legacy fallback (<1.2.9): vmid == serviceid
+            // Legacy (<1.2.9): vmid == serviceid
             if ($res['vmid'] == $serviceId && $res['type'] === $guest->vtype) {
                 return $res['node'];
             }
         }
-    }
-
-    // 2) Fallback old behavior
-    $nodes = $proxmox->get_node_list();
-    if (is_array($nodes) && !empty($nodes)) {
-        return $nodes[0];
     }
 
     return null;
