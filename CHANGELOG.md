@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.7] - 2026-09-25 - _"Action Log"_
+
+### 🚀 Feature
+- Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
+
 ## [1.3.6] - 2026-09-25 - _"Networks and Safeguards"_
 
 ### 🚀 Feature

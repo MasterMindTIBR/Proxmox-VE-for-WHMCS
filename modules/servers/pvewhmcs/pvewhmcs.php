@@ -129,6 +129,103 @@ function pvewhmcs_with_vmid_lock($server_id, $callback) {
 	}
 }
 
+function pvewhmcs_guest_vmid($service_id) {
+	$service_id = (int) $service_id;
+	if (!$service_id) {
+		return 0;
+	}
+
+	return (int) (Capsule::table('mod_pvewhmcs_vms')->where('id', $service_id)->value('vmid') ?? 0);
+}
+
+/**
+ * Records every lifecycle/power action in mod_pvewhmcs_logs, whether the
+ * handler throws or returns one of this module's "success"/"Error ..." strings.
+ * Failures are always re-thrown so WHMCS's own error handling is unaffected.
+ */
+function pvewhmcs_run_tracked_action($action, $type, array $params, callable $handler) {
+	$service_id = (int) ($params['serviceid'] ?? 0);
+	$user_id = (int) ($params['clientsdetails']['userid'] ?? ($params['userid'] ?? 0));
+	$vmid_before = pvewhmcs_guest_vmid($service_id);
+
+	try {
+		$result = $handler();
+		$failed = is_string($result) && stripos($result, 'error') !== false;
+		pvewhmcs_log_action(array(
+			'user_id' => $user_id,
+			'service' => $service_id,
+			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
+			'level' => $failed ? 'error' : 'info',
+			'type' => $type,
+			'action' => $action,
+			'response' => is_string($result) ? $result : 'success',
+		));
+
+		return $result;
+	} catch (\Throwable $e) {
+		pvewhmcs_log_action(array(
+			'user_id' => $user_id,
+			'service' => $service_id,
+			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
+			'level' => 'error',
+			'type' => $type,
+			'action' => $action,
+			'response' => $e->getMessage(),
+			'raw' => $e->getTraceAsString(),
+		));
+
+		throw $e;
+	}
+}
+
+function pvewhmcs_CreateAccount($params) {
+	return pvewhmcs_run_tracked_action('CreateAccount', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_CreateAccount_impl($params);
+	});
+}
+
+function pvewhmcs_SuspendAccount(array $params) {
+	return pvewhmcs_run_tracked_action('SuspendAccount', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_SuspendAccount_impl($params);
+	});
+}
+
+function pvewhmcs_UnsuspendAccount(array $params) {
+	return pvewhmcs_run_tracked_action('UnsuspendAccount', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_UnsuspendAccount_impl($params);
+	});
+}
+
+function pvewhmcs_TerminateAccount(array $params) {
+	return pvewhmcs_run_tracked_action('TerminateAccount', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_TerminateAccount_impl($params);
+	});
+}
+
+function pvewhmcs_vmStart($params) {
+	return pvewhmcs_run_tracked_action('vmStart', 'power', $params, function () use ($params) {
+		return pvewhmcs_vmStart_impl($params);
+	});
+}
+
+function pvewhmcs_vmReboot($params) {
+	return pvewhmcs_run_tracked_action('vmReboot', 'power', $params, function () use ($params) {
+		return pvewhmcs_vmReboot_impl($params);
+	});
+}
+
+function pvewhmcs_vmShutdown($params) {
+	return pvewhmcs_run_tracked_action('vmShutdown', 'power', $params, function () use ($params) {
+		return pvewhmcs_vmShutdown_impl($params);
+	});
+}
+
+function pvewhmcs_vmStop($params) {
+	return pvewhmcs_run_tracked_action('vmStop', 'power', $params, function () use ($params) {
+		return pvewhmcs_vmStop_impl($params);
+	});
+}
+
 function pvewhmcs_cluster_usage_stats(array $cluster_status, array $resources) {
 	$cluster_name = null;
 	foreach ($cluster_status as $status) {
@@ -264,7 +361,7 @@ function pvewhmcs_ConfigOptions() {
 }
 
 // PVE API FUNCTION: Create the Service on the Hypervisor
-function pvewhmcs_CreateAccount($params) {
+function pvewhmcs_CreateAccount_impl($params) {
 	// Make sure "WHMCS Admin > Products/Services > Proxmox-based Service -> Plan + Pool" are set. Else, fail early. (Issue #36)
 	if (!isset($params['configoption1'], $params['configoption2'])) {
 		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
@@ -824,7 +921,7 @@ function pvewhmcs_TestConnection(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
-function pvewhmcs_SuspendAccount(array $params) {
+function pvewhmcs_SuspendAccount_impl(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -866,7 +963,7 @@ function pvewhmcs_SuspendAccount(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
-function pvewhmcs_UnsuspendAccount(array $params) {
+function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -916,7 +1013,7 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 //      row and abort — the live VM must not be touched.
 //   4. All checks passed: stop the guest (if running), delete it from PVE,
 //      then remove the DB row.
-function pvewhmcs_TerminateAccount(array $params) {
+function pvewhmcs_TerminateAccount_impl(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
@@ -1507,7 +1604,7 @@ function pvewhmcs_SPICE($params) {
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT
-function pvewhmcs_vmStart($params) {
+function pvewhmcs_vmStart_impl($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
@@ -1554,7 +1651,7 @@ function pvewhmcs_vmStart($params) {
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
-function pvewhmcs_vmReboot($params) {
+function pvewhmcs_vmReboot_impl($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
@@ -1611,7 +1708,7 @@ function pvewhmcs_vmReboot($params) {
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
-function pvewhmcs_vmShutdown($params) {
+function pvewhmcs_vmShutdown_impl($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
@@ -1661,7 +1758,7 @@ function pvewhmcs_vmShutdown($params) {
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
-function pvewhmcs_vmStop($params) {
+function pvewhmcs_vmStop_impl($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;

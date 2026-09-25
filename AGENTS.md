@@ -16,7 +16,8 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 - `modules/addons/pvewhmcs/proxmox.php` define `PVE2_API`, usado por ambos os módulos. Alterações no transporte, autenticação ou TLS afetam todas as operações.
 - `mod_pvewhmcs_plans` armazena os planos. `bridge` + `vmbr` formam o nome da bridge/rede usado no Provisioning.
 - `mod_pvewhmcs_vms` associa `tblhosting.id` ao VMID, tipo QEMU/LXC, IP e cliente. Não apague ou reatribua linhas sem preservar essa relação.
-- `db.sql` atende instalações novas. Mudanças de schema também exigem uma migração idempotente em `pvewhmcs_upgrade()` para instalações existentes.
+- `db.sql` atende instalações novas. Mudanças de schema também exigem uma migração idempotente em `pvewhmcs_upgrade()` para instalações existentes. Ao adicionar uma tabela já presente em `db.sql`, use o DDL literal como string na migração (não o schema builder) e mantenha os dois idênticos caractere a caractere.
+- `mod_pvewhmcs_logs` é a fonte das abas Actions → Action History / Failed Actions. Toda ação nova de lifecycle ou energia deve ser exposta por `pvewhmcs_run_tracked_action()` (`modules/servers/pvewhmcs/pvewhmcs.php`), que grava sucesso/erro via `pvewhmcs_log_action()` (`proxmox.php`) e sempre relança a falha original.
 - A versão é duplicada em `modules/addons/pvewhmcs/pvewhmcs.php` e no arquivo raiz `version`; mantenha ambos sincronizados e atualize `CHANGELOG.md` para uma mudança liberável.
 
 ## Regras de mudança

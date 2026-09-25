@@ -122,6 +122,10 @@ Proxmox must present the complete certificate chain on port `8006`. A valid leaf
 
 WHMCS does not expose a provisioning-module callback for custom fields in its native **Remote Usage Stats** panel. The module therefore renders a live Proxmox summary beside the **Log in to PVE** shortcut: cluster name when applicable, node count, QEMU VM count, and LXC container count. It requires the configured API user to read `/cluster/status` and `/cluster/resources`; the login shortcut remains available when those statistics cannot be read.
 
+### Action History & Failed Actions
+
+**Addons > Proxmox VE for WHMCS > Actions** lists every `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` call the module has run, newest first, with the linked WHMCS service, Proxmox VMID, and result. **Failed Actions** filters that same list to the calls that returned or threw an error, so you can triage without scrolling past every success. Existing installs pick this up automatically the next time WHMCS runs the module's upgrade routine.
+
 #### Admin GUI: QEMU Plan :: Creation interface
 
 <img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="_images/zQEMUplanAdd.png">
