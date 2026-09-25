@@ -167,12 +167,15 @@ function pvewhmcs_cluster_usage_stats_html(array $stats) {
 		? 'No'
 		: 'Yes (' . htmlspecialchars($stats['cluster_name'], ENT_QUOTES, 'UTF-8') . ')';
 
-	return '<div style="margin-top:10px;color:#555;">'
-		. '<strong>Proxmox Stats</strong>'
-		. '<span style="margin-left:12px;">Cluster: ' . $cluster . '</span>'
-		. '<span style="margin-left:12px;">Nodes: ' . (int) $stats['nodes'] . '</span>'
-		. '<span style="margin-left:12px;">QEMU: ' . (int) $stats['qemu'] . '</span>'
-		. '<span style="margin-left:12px;">LXC: ' . (int) $stats['lxc'] . '</span>'
+	$metric_style = 'display:flex;flex-direction:column;gap:2px;';
+	$label_style = 'color:#888;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;';
+	$value_style = 'color:#333;font-size:14px;font-weight:600;';
+
+	return '<div style="display:grid;grid-template-columns:minmax(140px,2fr) repeat(3,minmax(58px,1fr));gap:12px;">'
+		. '<div style="' . $metric_style . '"><span style="' . $label_style . '">Cluster</span><span style="' . $value_style . '">' . $cluster . '</span></div>'
+		. '<div style="' . $metric_style . '"><span style="' . $label_style . '">Nodes</span><span style="' . $value_style . '">' . (int) $stats['nodes'] . '</span></div>'
+		. '<div style="' . $metric_style . '"><span style="' . $label_style . '">QEMU</span><span style="' . $value_style . '">' . (int) $stats['qemu'] . '</span></div>'
+		. '<div style="' . $metric_style . '"><span style="' . $label_style . '">LXC</span><span style="' . $value_style . '">' . (int) $stats['lxc'] . '</span></div>'
 		. '</div>';
 }
 
@@ -189,7 +192,7 @@ function pvewhmcs_AdminLink(array $params) {
     }
 
     $url = 'https://' . $host . ':' . $port;
-    $stats = '<div style="margin-top:10px;color:#777;">Proxmox Stats: unavailable.</div>';
+    $stats = '<span style="color:#777;font-size:13px;">Unavailable</span>';
     try {
         $proxmox = new PVE2_API(
             $host,
@@ -211,9 +214,16 @@ function pvewhmcs_AdminLink(array $params) {
         // The admin shortcut must remain usable if the stats request fails.
     }
 
-    return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">
-                <input type="submit" value="Log in to PVE" class="btn btn-sm btn-default" />
-            </form>' . $stats;
+    return '<div style="display:flex;flex-wrap:wrap;gap:20px;align-items:stretch;max-width:760px;padding:10px 0;">'
+        . '<div style="display:flex;flex-direction:column;justify-content:center;gap:7px;min-width:120px;padding-right:20px;border-right:1px solid #e5e5e5;">'
+        . '<span style="color:#888;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">PVE Access</span>'
+        . '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">'
+        . '<input type="submit" value="Log in to PVE" class="btn btn-sm btn-default" />'
+        . '</form></div>'
+        . '<div style="flex:1;min-width:340px;padding:1px 0;">'
+        . '<div style="color:#888;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px;">Proxmox Stats</div>'
+        . $stats
+        . '</div></div>';
 }
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
