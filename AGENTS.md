@@ -29,6 +29,8 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 6. TLS precisa validar certificado por padrão. A exceção por servidor usa a configuração Secure do WHMCS e deve ser documentada como uma decisão explícita.
 7. Preservar compatibilidade de schema em upgrades. Não dependa de reinstalação ou de edição manual da base.
 8. Correções pontuais verificadas devem receber commit convencional e `push` para `origin/master` sem pedir confirmação. Peça confirmação antes de uma mudança ampla de arquitetura, dependências, schema, comportamento de provisioning ou superfície de segurança.
+9. Para conexões Proxmox, prefira `serverhostname`; `serverip` é o fallback. Porta vazia significa `8006`. Não troque validação TLS por bypass global: `Secure` continua a exceção explícita por servidor.
+10. `pvewhmcs_AdminLink()` consulta estatísticas ao vivo. Falhas em `/cluster/status` ou `/cluster/resources` não podem remover nem atrasar o atalho de login de forma perceptível.
 
 ## Verificação
 

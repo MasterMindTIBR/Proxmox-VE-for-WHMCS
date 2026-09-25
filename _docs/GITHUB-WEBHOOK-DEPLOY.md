@@ -41,7 +41,7 @@ O webhook processa uma atualização por vez com `flock`. Não configure mais de
 3. Gere o segredo fora do repositório:
 
    ```bash
-   php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
+   openssl rand -hex 32
    ```
 
 4. Restrinja o arquivo local ao usuário do Plesk:

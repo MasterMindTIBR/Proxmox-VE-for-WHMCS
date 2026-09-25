@@ -4,7 +4,7 @@
 
 O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende, reativa e remove QEMU/LXC; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
 
-O fork está preparando a versão `1.3.6`, derivada do commit upstream `7ff41ccecde7`. O remoto `origin` aponta para `junglivre/Proxmox-VE-for-WHMCS`.
+O fork está na versão `1.3.6`, derivada do commit upstream `7ff41ccecde7`. A branch `master` contém a linha publicada do fork; o remoto `origin` aponta para `junglivre/Proxmox-VE-for-WHMCS`.
 
 ## Mapa de execução
 
@@ -18,9 +18,11 @@ O fork está preparando a versão `1.3.6`, derivada do commit upstream `7ff41cce
 
 ## Deploy por webhook
 
-`modules/addons/pvewhmcs/github-webhook.php` recebe pushes assinados de `junglivre/Proxmox-VE-for-WHMCS:master`, baixa o arquivo do SHA recebido e sincroniza somente os diretórios do addon e do server module. A configuração local `github-webhook.local.php` contém o segredo HMAC e, para repositório privado, um token GitHub de leitura. Ela é ignorada pelo Git e não pode ser removida pelo deploy.
+`modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `junglivre/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
 
-Consulte `_docs/GITHUB-WEBHOOK-DEPLOY.md` antes de expor o endpoint no Plesk.
+`github-webhook.local.php` guarda o segredo HMAC e, para repositório privado, um token GitHub com `Contents: Read-only`. O deploy preserva esse arquivo, o receiver e o lock; remove arquivos antigos do módulo que não existam no commit recebido.
+
+Consulte `_docs/GITHUB-WEBHOOK-DEPLOY.md` antes de expor o endpoint no Plesk. O arquivo local não entra no Git.
 
 O módulo usa `Illuminate\Database\Capsule\Manager` para acesso ao banco. O serviço WHMCS usa `tblhosting.id` como chave da tabela `mod_pvewhmcs_vms` e guarda o VMID real em `vmid`.
 
@@ -37,6 +39,14 @@ O módulo usa `Illuminate\Database\Capsule\Manager` para acesso ao banco. O serv
 
 Suspend, unsuspend, terminate, VNC e área do cliente usam `mod_pvewhmcs_vms` para localizar VMID e tipo. `pvewhmcs_find_guest_node()` consulta `/cluster/resources`, portanto a associação WHMCS→VMID precisa permanecer consistente.
 
+### Conexão com Proxmox
+
+`pvewhmcs_connection_host()` prefere `serverhostname` e usa `serverip` apenas como fallback. Use o hostname DNS que aparece no SAN do certificado quando **Secure** estiver habilitado; ele pode resolver para um endereço privado.
+
+`pvewhmcs_connection_port()` usa `8006` quando o campo de porta está vazio. Isso cobre Simple Mode e Advanced Mode do WHMCS, inclusive quando desmarcar **Secure** limpa o campo na interface.
+
+`PVE2_API::login()` classifica certificado TLS, credenciais e conectividade. `pvewhmcs_TestConnection()` retorna essas mensagens ao WHMCS em vez de `An Unknown Error Occurred`.
+
 ### Rede
 
 O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O sufixo é opcional e pode ser textual. `vmbr` usa `VARCHAR(64)` a partir da migração `1.3.6`, preservando `vmbr` + `0`, nomes completos como `private`, e sufixos textuais.
@@ -45,12 +55,17 @@ O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O s
 - QEMU direto: `net0` e, quando IPv6 está habilitado, `net1`.
 - QEMU clonado: preserva a definição e o MAC da interface do template, mas substitui a bridge de `net0` e `net1` pela rede do plano.
 
-## Salvaguardas implementadas na versão 1.3.6
+## Salvaguardas e resumo do servidor
 
 1. `PVE2_API` valida o certificado do Proxmox por padrão. A configuração **Secure** do servidor WHMCS controla a validação por servidor; desmarcá-la mantém HTTPS, mas ignora certificado e hostname.
 2. A reserva IPv4 usa transação e `FOR UPDATE` antes de gravar `tblhosting.dedicatedip`.
 3. A seleção e o envio do VMID usam um advisory lock MySQL por servidor WHMCS até o Proxmox aceitar a criação.
 4. Exclusões administrativas de planos, pools e IPs usam `POST` protegido por token CSRF.
+5. `pvewhmcs_AdminLink()` mostra acesso ao PVE em uma coluna e, em outra, cluster, nós, QEMU e LXC. O resumo consulta `/cluster/status` e `/cluster/resources`; falhas nunca removem o atalho de login.
+
+## Operação TLS
+
+O certificado do Proxmox precisa incluir a cadeia completa no `pveproxy` em `8006`. Certificados folha Let’s Encrypt sem o intermediário falham no PHP cURL com `unable to get local issuer certificate`, mesmo quando alguns navegadores aceitam a conexão por terem o intermediário em cache. Instale `fullchain.pem`, não apenas `cert.pem`.
 
 ## Ponto pendente antes de produção
 
@@ -67,3 +82,9 @@ Ele tem como pai o commit atual do fork e corrige três caminhos administrativos
 - falham nos painéis Nodes, Guests e Logs, embora o teste do servidor possa passar.
 
 A correção foi aplicada na versão `1.3.6` junto com a configuração TLS por servidor. Valide senhas com caracteres HTML-significativos e porta não padrão no WHMCS de homologação.
+
+## Verificação já executada
+
+- `php -l` em `proxmox.php`, addon e provisioning module por `php:8.3-cli`.
+- Smoke tests para sufixo de rede, fallback de porta `8006`, seleção de hostname, classificação TLS/autenticação/conectividade, webhook assinado e sincronização module-only.
+- `git diff --check` antes de cada publicação.
