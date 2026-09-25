@@ -1,11 +1,6 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.7] - 2026-09-25 - _"Action Log"_
-
-### 🚀 Feature
-- Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
-
 ## [1.3.6] - 2026-09-25 - _"Networks and Safeguards"_
 
 ### 🚀 Feature
@@ -13,6 +8,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - TLS: Verify the Proxmox certificate for each WHMCS server unless its Secure setting is disabled.
 - Deployment: Signed GitHub webhook deploys only the addon and provisioning module directories.
 - Server overview: Show cluster identity plus node, QEMU, and LXC counts beside the Proxmox login shortcut.
+- Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.

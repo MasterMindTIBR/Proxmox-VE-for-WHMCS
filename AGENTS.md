@@ -18,7 +18,7 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 - `mod_pvewhmcs_vms` associa `tblhosting.id` ao VMID, tipo QEMU/LXC, IP e cliente. Não apague ou reatribua linhas sem preservar essa relação.
 - `db.sql` atende instalações novas. Mudanças de schema também exigem uma migração idempotente em `pvewhmcs_upgrade()` para instalações existentes. Ao adicionar uma tabela já presente em `db.sql`, use o DDL literal como string na migração (não o schema builder) e mantenha os dois idênticos caractere a caractere.
 - `mod_pvewhmcs_logs` é a fonte das abas Actions → Action History / Failed Actions. Toda ação nova de lifecycle ou energia deve ser exposta por `pvewhmcs_run_tracked_action()` (`modules/servers/pvewhmcs/pvewhmcs.php`), que grava sucesso/erro via `pvewhmcs_log_action()` (`proxmox.php`) e sempre relança a falha original.
-- A versão é duplicada em `modules/addons/pvewhmcs/pvewhmcs.php` e no arquivo raiz `version`; mantenha ambos sincronizados e atualize `CHANGELOG.md` para uma mudança liberável.
+- A versão é duplicada em `modules/addons/pvewhmcs/pvewhmcs.php` e no arquivo raiz `version`; mantenha ambos sincronizados. **Não incremente a versão a cada commit**: acumule fixes e features sob a versão atual (adicionando ao mesmo bloco de `pvewhmcs_upgrade()` e à mesma entrada de `CHANGELOG.md`) até o usuário pedir explicitamente para liberar/subir a versão.
 
 ## Regras de mudança
 

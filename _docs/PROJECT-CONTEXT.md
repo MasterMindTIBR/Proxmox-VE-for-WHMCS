@@ -4,7 +4,7 @@
 
 O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende, reativa e remove QEMU/LXC; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
 
-O fork está na versão `1.3.7`, derivada do commit upstream `7ff41ccecde7`. A branch `master` contém a linha publicada do fork; o remoto `origin` aponta para `junglivre/Proxmox-VE-for-WHMCS`.
+O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstream `7ff41ccecde7`. Correções e funcionalidades continuam se acumulando nessa mesma versão até uma decisão explícita de liberar; a branch `master` contém a linha publicada do fork e o remoto `origin` aponta para `junglivre/Proxmox-VE-for-WHMCS`.
 
 ## Mapa de execução
 
@@ -62,7 +62,7 @@ O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O s
 3. A seleção e o envio do VMID usam um advisory lock MySQL por servidor WHMCS até o Proxmox aceitar a criação.
 4. Exclusões administrativas de planos, pools e IPs usam `POST` protegido por token CSRF.
 5. `pvewhmcs_AdminLink()` mostra acesso ao PVE em uma coluna e, em outra, cluster, nós, QEMU e LXC. O resumo consulta `/cluster/status` e `/cluster/resources`; falhas nunca removem o atalho de login.
-6. `mod_pvewhmcs_logs` grava toda ação de lifecycle (`CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`) e de energia (`vmStart`, `vmReboot`, `vmShutdown`, `vmStop`) via `pvewhmcs_run_tracked_action()`, definido em `modules/servers/pvewhmcs/pvewhmcs.php`. A gravação em si (`pvewhmcs_log_action()`) vive em `proxmox.php`, compartilhado pelos dois módulos. O wrapper nunca engole falhas: registra e relança a exceção original ou a string `"Error ..."` do handler. As abas **Actions → Action History / Failed Actions** do addon leem essa tabela; qualquer nova ação de ciclo de vida deve passar por `pvewhmcs_run_tracked_action()` para aparecer ali. Instalações existentes recebem a tabela pela migração `1.3.7`; o DDL é idêntico, caractere a caractere, ao de `db.sql`.
+6. `mod_pvewhmcs_logs` grava toda ação de lifecycle (`CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`) e de energia (`vmStart`, `vmReboot`, `vmShutdown`, `vmStop`) via `pvewhmcs_run_tracked_action()`, definido em `modules/servers/pvewhmcs/pvewhmcs.php`. A gravação em si (`pvewhmcs_log_action()`) vive em `proxmox.php`, compartilhado pelos dois módulos. O wrapper nunca engole falhas: registra e relança a exceção original ou a string `"Error ..."` do handler. As abas **Actions → Action History / Failed Actions** do addon leem essa tabela; qualquer nova ação de ciclo de vida deve passar por `pvewhmcs_run_tracked_action()` para aparecer ali. Instalações existentes recebem a tabela pela migração `1.3.6`, no mesmo bloco do ajuste de `vmbr`; o DDL é idêntico, caractere a caractere, ao de `db.sql`.
 
 ## Operação TLS
 
