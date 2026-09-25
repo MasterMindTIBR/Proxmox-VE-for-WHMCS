@@ -93,7 +93,7 @@ function pvewhmcs_reserve_ip_address($pool_id, $service_id) {
 			 AND NOT EXISTS (
 				SELECT 1
 				FROM tblhosting h
-				WHERE h.dedicatedip = i.ipaddress
+				WHERE CONVERT(h.dedicatedip USING utf8mb4) = CONVERT(i.ipaddress USING utf8mb4)
 				AND h.domainstatus IN ("Active", "Suspended", "Completed", "Pending")
 			 )
 			 ORDER BY i.id
