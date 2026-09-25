@@ -248,6 +248,9 @@ These steps explain the unique requirements for QEMU & LXC guests.
 **Custom Fields:** Values need to go in Name & Select Options.<br>
 This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
+The guest name is generated as `<order-or-service-id>-<hostname>` from the
+WHMCS service hostname (`domain`), for example `1234-debian.example.com`.
+
 <img alt="Custom Fields for the Service/Product set the ISO/Template/etc." src="_images/zProductISOetc.png">
 
 ### VM Option 1: QEMU, PVE Template VM Clone
