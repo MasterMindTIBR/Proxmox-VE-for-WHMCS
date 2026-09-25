@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.6";
+	return "1.3.7";
 }
 
 function pvewhmcs_verify_server_tls($secure) {
@@ -54,6 +54,56 @@ function pvewhmcs_verify_server_tls($secure) {
 	}
 
 	return filter_var($secure, FILTER_VALIDATE_BOOLEAN);
+}
+
+function pvewhmcs_action_log_service_labels(array $service_ids) {
+	$service_ids = array_values(array_unique(array_filter(array_map('intval', $service_ids))));
+	$labels = array();
+	if (empty($service_ids)) {
+		return $labels;
+	}
+
+	$rows = Capsule::table('tblhosting')
+		->leftJoin('tblclients', 'tblclients.id', '=', 'tblhosting.userid')
+		->whereIn('tblhosting.id', $service_ids)
+		->select('tblhosting.id', 'tblhosting.domain', 'tblclients.firstname', 'tblclients.lastname')
+		->get();
+
+	foreach ($rows as $row) {
+		$name = trim(($row->firstname ?? '') . ' ' . ($row->lastname ?? ''));
+		$domain = ($row->domain !== null && $row->domain !== '') ? $row->domain : ('Service #' . $row->id);
+		$labels[(int) $row->id] = ($name !== '' ? $name . ' — ' : '') . $domain;
+	}
+
+	return $labels;
+}
+
+function pvewhmcs_render_action_log_table($entries, array $labels) {
+	$html = '<table class="pve-table"><thead><tr>'
+		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Result</th><th>Details</th>'
+		. '</tr></thead><tbody>';
+
+	foreach ($entries as $entry) {
+		$service_id = (int) $entry->service;
+		$service_label = $service_id > 0
+			? ($labels[$service_id] ?? ('Service #' . $service_id))
+			: '—';
+		$target_id = (int) $entry->target_id;
+		$is_error = $entry->level === 'error';
+
+		$html .= '<tr>';
+		$html .= '<td>' . htmlspecialchars((string) $entry->timestamp) . '</td>';
+		$html .= '<td><code>' . htmlspecialchars((string) $entry->action) . '</code></td>';
+		$html .= '<td>' . htmlspecialchars($service_label) . '</td>';
+		$html .= '<td>' . ($target_id > 0 ? (string) $target_id : '—') . '</td>';
+		$html .= '<td>' . ($is_error ? '❌' : '✅') . ' ' . htmlspecialchars(ucfirst((string) $entry->level)) . '</td>';
+		$html .= '<td>' . htmlspecialchars((string) $entry->response) . '</td>';
+		$html .= '</tr>';
+	}
+
+	$html .= '</tbody></table>';
+
+	return $html;
 }
 
 function pvewhmcs_plan_network_input($required) {
@@ -204,6 +254,31 @@ function pvewhmcs_upgrade($vars) {
 		Capsule::schema()->table('mod_pvewhmcs_plans', function ($table) {
 			$table->string('vmbr', 64)->nullable()->default(null)->change();
 		});
+	}
+
+	// SQL Operations for v1.3.7
+	if (version_compare($currentlyInstalledVersion, '1.3.7', 'lt')) {
+		if (!Capsule::schema()->hasTable('mod_pvewhmcs_logs')) {
+			Capsule::statement(<<<'SQL'
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `auth_id` int(11) NOT NULL DEFAULT '0',
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `service` int(11) NOT NULL DEFAULT '0',
+  `timestamp` datetime NOT NULL,
+  `node_id` int(11) NOT NULL DEFAULT '0',
+  `target_id` int(11) NOT NULL DEFAULT '0',
+  `level` varchar(10) NOT NULL,
+  `type` text NOT NULL,
+  `action` text NOT NULL,
+  `request` text NOT NULL,
+  `response` text NOT NULL,
+  `raw` text NOT NULL,
+  PRIMARY KEY (`id`)
+)
+SQL
+			);
+		}
 	}
 }
 
@@ -803,10 +878,27 @@ function pvewhmcs_output($vars) {
 
 	// ACTIONS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
-	echo ('<strong><h2>Module: Action History</h2></strong>');
-	echo ('Coming soon!<br><br>');
-	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming soon!<br><br>');
+
+	$action_history = Capsule::table('mod_pvewhmcs_logs')->orderBy('id', 'desc')->limit(200)->get();
+	$failed_actions = Capsule::table('mod_pvewhmcs_logs')->where('level', 'error')->orderBy('id', 'desc')->limit(200)->get();
+	$action_log_labels = pvewhmcs_action_log_service_labels(
+		array_merge($action_history->pluck('service')->all(), $failed_actions->pluck('service')->all())
+	);
+
+	echo '<h2>Module: Action History</h2>';
+	if ($action_history->isEmpty()) {
+		echo '<div class="alert alert-info">No module actions have been recorded yet.</div>';
+	} else {
+		echo pvewhmcs_render_action_log_table($action_history, $action_log_labels);
+	}
+
+	echo '<h2 style="margin-top:25px;">Module: Failed Actions</h2>';
+	if ($failed_actions->isEmpty()) {
+		echo '<div class="alert alert-info">No failed actions recorded.</div>';
+	} else {
+		echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels);
+	}
+
 	echo '</div>';
 
 	// SUPPORT tab in ADMIN GUI

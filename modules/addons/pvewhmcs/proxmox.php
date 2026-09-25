@@ -26,6 +26,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
+use Illuminate\Database\Capsule\Manager as Capsule;
+
 class PVE2_Exception extends RuntimeException {}
 
 function pvewhmcs_connection_host($hostname, $ipaddress) {
@@ -41,6 +43,32 @@ function pvewhmcs_connection_port($port) {
 	$port = trim((string) $port);
 
 	return $port === '' ? 8006 : $port;
+}
+
+function pvewhmcs_log_action(array $fields) {
+	$row = array_merge(
+		array(
+			'auth_id' => 0,
+			'user_id' => 0,
+			'service' => 0,
+			'node_id' => 0,
+			'target_id' => 0,
+			'level' => 'info',
+			'type' => '',
+			'action' => '',
+			'request' => '',
+			'response' => '',
+			'raw' => '',
+		),
+		$fields
+	);
+	$row['timestamp'] = date('Y-m-d H:i:s');
+
+	try {
+		Capsule::table('mod_pvewhmcs_logs')->insert($row);
+	} catch (\Throwable $e) {
+		error_log('PVEWHMCS: Failed to write action log entry: ' . $e->getMessage());
+	}
 }
 
 class PVE2_API {
