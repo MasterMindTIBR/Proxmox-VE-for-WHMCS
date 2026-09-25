@@ -394,10 +394,10 @@ function pvewhmcs_output($vars) {
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
 			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-			$serverip       = $pve->ipaddress;
+			$serverip       = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
-			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
+			$serverport     = pvewhmcs_connection_port($pve->port ?? '');
 			$verify_ssl     = pvewhmcs_verify_server_tls($pve->secure ?? null);
 
 			// Login + get cluster/resources
@@ -552,10 +552,10 @@ function pvewhmcs_output($vars) {
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
 			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-			$serverip       = $pve->ipaddress;
+			$serverip       = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
-			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
+			$serverport     = pvewhmcs_connection_port($pve->port ?? '');
 			$verify_ssl     = pvewhmcs_verify_server_tls($pve->secure ?? null);
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport, $verify_ssl);
@@ -929,11 +929,12 @@ function pvewhmcs_output($vars) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $serverport = !empty($pve->port) ? (int) $pve->port : 8006;
+	        $serverip = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
+	        $serverport = pvewhmcs_connection_port($pve->port ?? '');
 	        $verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
-	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
+	        $proxmox = new PVE2_API($serverip, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
 	        if (!$proxmox->login()) {
-	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
+	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.');
 	        }
 	    }
 

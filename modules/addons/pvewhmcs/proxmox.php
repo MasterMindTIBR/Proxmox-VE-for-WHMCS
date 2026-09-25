@@ -28,6 +28,21 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 class PVE2_Exception extends RuntimeException {}
 
+function pvewhmcs_connection_host($hostname, $ipaddress) {
+	$hostname = trim((string) $hostname);
+	if ($hostname !== '') {
+		return $hostname;
+	}
+
+	return trim((string) $ipaddress);
+}
+
+function pvewhmcs_connection_port($port) {
+	$port = trim((string) $port);
+
+	return $port === '' ? 8006 : $port;
+}
+
 class PVE2_API {
 	protected $hostname;
 	protected $username;
@@ -35,6 +50,7 @@ class PVE2_API {
 	protected $password;
 	protected $port;
 	protected $verify_ssl;
+	protected $last_error = null;
 
 	protected $login_ticket = null;
 	protected $login_ticket_timestamp = null;
@@ -68,11 +84,17 @@ class PVE2_API {
 		$this->verify_ssl = $verify_ssl;
 	}
 
+	public function get_last_error () {
+		return $this->last_error;
+	}
+
 	/*
 	 * bool login ()
 	 * Performs login to PVE Server using JSON API, and obtains Access Ticket.
 	 */
 	public function login () {
+		$this->last_error = null;
+
 		// Prepare login variables.
 		$login_postfields = array();
 		$login_postfields['username'] = $this->username;
@@ -84,13 +106,13 @@ class PVE2_API {
 
 		// Perform login request.
 		$prox_ch = curl_init();
-		
+
 		// Handle IPv6 literals in URL
 		$host_url = $this->hostname;
 		if (filter_var($this->hostname, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
 			$host_url = '[' . $this->hostname . ']';
 		}
-		
+
 		curl_setopt($prox_ch, CURLOPT_URL, "https://{$host_url}:{$this->port}/api2/json/access/ticket");
 		curl_setopt($prox_ch, CURLOPT_POST, true);
 		curl_setopt($prox_ch, CURLOPT_RETURNTRANSFER, true);
@@ -100,36 +122,58 @@ class PVE2_API {
 
 		$login_ticket = curl_exec($prox_ch);
 		$login_request_info = curl_getinfo($prox_ch);
+		$login_error_number = curl_errno($prox_ch);
+		$login_error = curl_error($prox_ch);
 
 		curl_close($prox_ch);
 		unset($prox_ch);
 		unset($login_postfields_string);
 
 		if (!$login_ticket) {
-			// SSL negotiation failed or connection timed out
 			$this->login_ticket_timestamp = null;
+			if ($this->verify_ssl && in_array($login_error_number, array(51, 60), true)) {
+				throw new PVE2_Exception("PVE2 API: TLS certificate verification failed for {$this->hostname}: {$login_error}", 4);
+			}
+
+			if ($login_error_number === 35) {
+				$this->last_error = "Unable to establish TLS with Proxmox at {$this->hostname}:{$this->port}. Check the port (normally 8006) and TLS settings.";
+			} else {
+				$this->last_error = "Unable to reach Proxmox at {$this->hostname}:{$this->port}. Check host, port, firewall, and that the API is listening (wrong port?).";
+				if ($login_error !== '') {
+					$this->last_error .= " cURL: {$login_error}.";
+				}
+			}
+
 			return false;
 		}
 
 		$login_ticket_data = json_decode($login_ticket, true);
-		if ($login_ticket_data == null || $login_ticket_data['data'] == null) {
-			// Login failed.
-			// Just to be safe, set this to null again.
+		if ($login_ticket_data == null || empty($login_ticket_data['data'])) {
 			$this->login_ticket_timestamp = null;
+			$http_code = (int) ($login_request_info['http_code'] ?? 0);
 			if ($this->verify_ssl && !empty($login_request_info['ssl_verify_result'])) {
 				throw new PVE2_Exception("PVE2 API: Invalid SSL cert on {$this->hostname} - check that the hostname is correct, and that it appears in the server certificate's SAN list. Alternatively disable certificate verification for this WHMCS server only if you understand the risk.", 4);
 			}
+
+			if ($http_code === 401 || $http_code === 403) {
+				$this->last_error = 'Authentication failed. Check the Proxmox username, password, and authentication realm.';
+			} elseif ($http_code >= 400) {
+				$this->last_error = "Proxmox rejected the login request with HTTP {$http_code}.";
+			} else {
+				$this->last_error = 'Proxmox returned an invalid login response.';
+			}
+
 			return false;
-		} else {
-			// Login success.
-			$this->login_ticket = $login_ticket_data['data'];
-			// We store a UNIX timestamp of when the ticket was generated here,
-			// so we can identify when we need a new one expiration-wise later
-			// on...
-			$this->login_ticket_timestamp = time();
-			$this->reload_node_list();
-			return true;
 		}
+
+		// Login success.
+		$this->login_ticket = $login_ticket_data['data'];
+		// We store a UNIX timestamp of when the ticket was generated here,
+		// so we can identify when we need a new one expiration-wise later
+		// on...
+		$this->login_ticket_timestamp = time();
+		$this->reload_node_list();
+		return true;
 	}
 
 	# Sets the PVEAuthCookie

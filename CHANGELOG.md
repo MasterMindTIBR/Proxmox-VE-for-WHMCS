@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.6] - 2026-09-25 - _"Networks and Safeguards"_
+
+### 🚀 Feature
+- Network plans: Bridge suffix is optional and supports textual suffixes.
+- TLS: Verify the Proxmox certificate for each WHMCS server unless its Secure setting is disabled.
+
+### 🐛 Bug Fix
+- Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.
+- Provisioning: Serialize IPv4 allocation and VMID selection across concurrent requests.
+- Addon: Protect plan, IPv4 pool, and IPv4 address deletion with POST and CSRF validation.
+- Connections: Default an omitted Proxmox port to `8006`, prefer the configured hostname, and report TLS, authentication, and connectivity failures.
+
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 
 ### 🚀 Feature

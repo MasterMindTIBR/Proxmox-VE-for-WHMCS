@@ -100,7 +100,7 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 **Once you've done all of that, in order to get the module working properly, you need to:**
 
 0. Proxmox VE > Create an additional VNC-only user, per instructions below
-1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s (User: `root`; IPv4: `PVE's`; no port suffix!)
+1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s. Enter a DNS name in **Hostname** when TLS verification is enabled; otherwise use IPv4. Leave Port blank for the default `8006`.
 2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
 3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add QEMU/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IPv4 Pool

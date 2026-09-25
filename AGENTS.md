@@ -28,6 +28,7 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 5. Não introduza novas credenciais em logs, URLs ou mensagens de erro. O modo debug do WHMCS tem dados operacionais sensíveis.
 6. TLS precisa validar certificado por padrão. A exceção por servidor usa a configuração Secure do WHMCS e deve ser documentada como uma decisão explícita.
 7. Preservar compatibilidade de schema em upgrades. Não dependa de reinstalação ou de edição manual da base.
+8. Correções pontuais verificadas devem receber commit convencional e `push` para `origin/master` sem pedir confirmação. Peça confirmação antes de uma mudança ampla de arquitetura, dependências, schema, comportamento de provisioning ou superfície de segurança.
 
 ## Verificação
 
