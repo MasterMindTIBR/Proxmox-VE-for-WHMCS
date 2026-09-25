@@ -35,6 +35,8 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 9. Para conexões Proxmox, prefira `serverhostname`; `serverip` é o fallback. Porta vazia significa `8006`. Não troque validação TLS por bypass global: `Secure` continua a exceção explícita por servidor.
 10. `pvewhmcs_AdminLink()` consulta estatísticas ao vivo. Falhas em `/cluster/status` ou `/cluster/resources` não podem remover nem atrasar o atalho de login de forma perceptível.
 11. O console (noVNC) nunca conecta o browser direto no Proxmox. `pvewhmcs_build_console_token()` (`proxmox.php`) assina host/path/cookie do Proxmox num token opaco de curta duração; só `modules/servers/pvewhmcs/console-relay/server.js` decodifica e abre a conexão real. Não volte a expor `PVEAuthCookie`, host ou porta do Proxmox diretamente ao browser — isso reintroduziria a exigência de PTR/mesmo domínio que essa arquitetura eliminou.
+12. As abas Nodes/Guests/Logs de `pvewhmcs_output()` são navegação real (`?tab=nodes` etc.), não troca client-side: seu corpo caro (login + `/cluster/resources`/`/cluster/tasks` + RRD) fica dentro de `if ($_GET['tab'] === '...')`. As demais abas (Plans/IPv4/Actions/Support/Config) continuam trocando via JS (`data-toggle="tab"`, `href="#id"`) sem reload, porque só fazem leitura de banco. Ao adicionar uma aba nova que chama o Proxmox, siga o padrão de navegação real + gate — nunca deixe uma chamada de API rodar incondicionalmente em toda carga de página.
+13. Toda chamada cURL ao Proxmox (`login()` e `action()` em `proxmox.php`) precisa de `CURLOPT_CONNECTTIMEOUT`/`CURLOPT_TIMEOUT`. Sem isso, um PVE lento ou inalcançável trava a página até o `max_execution_time` do PHP estourar.
 
 ## Verificação
 
