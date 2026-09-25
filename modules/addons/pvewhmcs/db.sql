@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `start_vmid` int(10) unsigned DEFAULT 100,
   `debug_mode` tinyint(1) unsigned DEFAULT 0,
   `console_relay_secret` varchar(255) DEFAULT NULL,
+  `console_relay_host` varchar(255) DEFAULT NULL,
+  `console_relay_port` int(5) unsigned DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
 INSERT IGNORE INTO `mod_pvewhmcs` (`id`, `config`, `vnc_secret`, `debug_mode`) VALUES	(1, NULL, NULL, 0);

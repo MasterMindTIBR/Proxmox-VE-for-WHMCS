@@ -108,15 +108,24 @@ function pvewhmcs_build_console_token(array $payload, $ttl_seconds = 60) {
 
 /**
  * Resolves the public host/port the browser should open its console
- * WebSocket against, from WHMCS's own $CONFIG['SystemURL']. This is always
- * the WHMCS domain itself; the reverse proxy on that domain is what routes
- * PVEWHMCS_CONSOLE_RELAY_PATH to the console relay.
+ * WebSocket against. Uses the admin-configured Console Relay Host/Port
+ * (mod_pvewhmcs.console_relay_host/port) when set, so the relay can be
+ * hosted on its own subdomain instead of sharing the WHMCS domain. Falls
+ * back to WHMCS's own $CONFIG['SystemURL'] host/port otherwise.
  */
 function pvewhmcs_relay_public_endpoint($system_url) {
-	$host = parse_url($system_url, PHP_URL_HOST);
-	$port = parse_url($system_url, PHP_URL_PORT);
+	$config = Capsule::table('mod_pvewhmcs')->where('id', '1')->first();
+	$host = trim((string) ($config->console_relay_host ?? ''));
+	$port = $config->console_relay_port ?? null;
+
+	if ($host === '') {
+		$host = parse_url($system_url, PHP_URL_HOST);
+	}
 	if (!$port) {
-		$port = (parse_url($system_url, PHP_URL_SCHEME) === 'http') ? 80 : 443;
+		$port = parse_url($system_url, PHP_URL_PORT);
+		if (!$port) {
+			$port = (parse_url($system_url, PHP_URL_SCHEME) === 'http') ? 80 : 443;
+		}
 	}
 
 	return array($host, (int) $port);

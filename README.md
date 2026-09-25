@@ -163,9 +163,14 @@ process; that relay is the only thing that connects to Proxmox's
    [modules/servers/pvewhmcs/console-relay/README.md](modules/servers/pvewhmcs/console-relay/README.md))
    and generate a shared secret with `openssl rand -hex 32`.
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config:
-   - **VNC Secret** = the `vnc` PVE user's password (unchanged from before).
+   - **VNC Secret** = the `vnc` PVE user's password. This is a Proxmox
+     credential, unrelated to the relay secret below; it's still required.
    - **Console Relay Secret** = the same value you put in the relay's
      `config.json`.
+   - **Console Relay Host** / **Console Relay Port** = only if you deployed
+     the relay to its own subdomain (e.g. `vnc.example.com`) instead of
+     sharing the WHMCS domain. Leave both blank to keep sharing the WHMCS
+     domain.
 
 The relay only needs network reachability to your PVE hosts, not a public
 IP for them. If you're proxying that reachability yourself (VPN, private

@@ -10,6 +10,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Server overview: Show cluster identity plus node, QEMU, and LXC counts beside the Proxmox login shortcut.
 - Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
 - noVNC: Route console WebSockets through a new self-hosted relay instead of the browser connecting to Proxmox directly, removing the public-IP, PTR, and same-registrable-domain requirements.
+- noVNC: Console Relay Host/Port config lets the relay run on its own subdomain instead of sharing the WHMCS domain.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.
@@ -18,6 +19,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Connections: Default an omitted Proxmox port to `8006`, prefer the configured hostname, and report TLS, authentication, and connectivity failures.
 - Addon: Fix a crash when adding IPv4 addresses to a pool while no pool existed yet.
 - Admin GUI: Only fetch live Proxmox data for the Nodes, Guests, and Logs tabs when actually viewing them, instead of on every single admin page load; add cURL timeouts to every Proxmox API call so an unreachable/slow host can no longer hang a page indefinitely.
+- Addon: The "New IPv4 Pool" button is now always visible on the IPv4 tab instead of only after clicking "List".
 
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 
