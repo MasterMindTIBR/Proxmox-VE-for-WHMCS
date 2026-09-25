@@ -6,6 +6,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🚀 Feature
 - Network plans: Bridge suffix is optional and supports textual suffixes.
 - TLS: Verify the Proxmox certificate for each WHMCS server unless its Secure setting is disabled.
+- Deployment: Signed GitHub webhook deploys only the addon and provisioning module directories.
+- Server overview: Show cluster identity plus node, QEMU, and LXC counts beside the Proxmox login shortcut.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.

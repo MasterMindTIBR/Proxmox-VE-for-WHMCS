@@ -108,15 +108,19 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
 
+For a Plesk deployment that updates only these module directories after a GitHub push, follow [_docs/GITHUB-WEBHOOK-DEPLOY.md](_docs/GITHUB-WEBHOOK-DEPLOY.md).
+
 ### TLS certificate verification
 
 In WHMCS Server configuration, leave **Secure** enabled to verify the Proxmox TLS certificate. This is the required production setting. The module still communicates with Proxmox over HTTPS when Secure is disabled, but skips certificate and hostname validation for that server. Disable it only for a deliberately accepted self-signed or private-PKI exception.
 
 If the WHMCS server connects by IP address, the Proxmox certificate must include that IP address in a Subject Alternative Name when Secure is enabled. Prefer a DNS hostname that WHMCS can resolve to the internal Proxmox address and that appears in the certificate.
 
+Proxmox must present the complete certificate chain on port `8006`. A valid leaf certificate without its intermediate CA fails PHP cURL verification with `unable to get local issuer certificate`. Upload or deploy `fullchain.pem`, not only `cert.pem`, to the Proxmox proxy.
+
 ### Proxmox server overview
 
-The module shortcut on the WHMCS Server configuration page displays a live Proxmox summary: cluster name when applicable, node count, QEMU VM count, and LXC container count. It requires the configured API user to read `/cluster/status` and `/cluster/resources`; the login shortcut remains available when those statistics cannot be read.
+WHMCS does not expose a provisioning-module callback for custom fields in its native **Remote Usage Stats** panel. The module therefore renders a live Proxmox summary beside the **Log in to PVE** shortcut: cluster name when applicable, node count, QEMU VM count, and LXC container count. It requires the configured API user to read `/cluster/status` and `/cluster/resources`; the login shortcut remains available when those statistics cannot be read.
 
 #### Admin GUI: QEMU Plan :: Creation interface
 
