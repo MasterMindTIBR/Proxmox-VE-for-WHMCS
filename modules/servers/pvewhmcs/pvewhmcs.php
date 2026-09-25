@@ -1557,11 +1557,20 @@ function pvewhmcs_noVNC($params) {
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
 	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport, pvewhmcs_verify_tls($params));
 	if ($proxmox->login()) {
-		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
+		$vm_vncproxy = $proxmox->post(
+			'/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy',
+			array('websocket' => '1', 'generate-password' => '1')
+		);
 
-		// Get both tickets prepared
+		if (empty($vm_vncproxy['ticket']) || empty($vm_vncproxy['port']) || empty($vm_vncproxy['password'])) {
+			throw new Exception('Failed to prepare noVNC. Proxmox did not return a complete VNC proxy session.');
+		}
+
+		// The API ticket authorizes the WebSocket; the generated password
+		// authenticates noVNC to the VNC stream.
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
+		$vncstream_password = $vm_vncproxy['password'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 
@@ -1587,7 +1596,7 @@ function pvewhmcs_noVNC($params) {
 			. '?host=' . urlencode($relay_host)
 			. '&port=' . urlencode((string) $relay_port)
 			. '&path=' . urlencode($relay_path)
-			. '&password=' . urlencode($vncticket)
+			. '&password=' . urlencode($vncstream_password)
 			. '&encrypt=true&autoconnect=true';
 
 		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" target="_blank" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
