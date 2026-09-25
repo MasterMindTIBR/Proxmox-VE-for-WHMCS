@@ -894,14 +894,13 @@ function pvewhmcs_output($vars) {
 	if ($_GET['action']=='list_ips') {
 		list_ips();
 	}
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip') {
+	if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['single_delete_id']) && $_POST['single_delete_id'] !== '') {
 		if (pvewhmcs_valid_csrf()) {
-			removeip((int) $_POST['id'], (int) $_POST['pool_id']);
+			removeip((int) $_POST['single_delete_id'], (int) $_POST['pool_id']);
 		} else {
 			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 address was not deleted.</div>';
 		}
-	}
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip_bulk') {
+	} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip_bulk') {
 		if (pvewhmcs_valid_csrf()) {
 			removeip_bulk((array) ($_POST['ids'] ?? []), (int) $_POST['pool_id']);
 		} else {
@@ -2599,6 +2598,12 @@ function list_ips() {
             // IP is in use: Create a link to the related service
             $serviceLink = $adminUrl . '?userid=' . $service->userid . '&id=' . $service->id;
             echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
+        } else {
+            // IP is free: an individual delete button, scoped to just this
+            // row by its own name/value pair (not the shared "ids[]"
+            // checkboxes), so it works standalone regardless of what's
+            // ticked elsewhere in the same form.
+            echo '<button type="submit" name="single_delete_id" value="' . (int) $ip->id . '" onclick="return confirm(\'IPv4 address will be deleted from the pool, continue?\')" style="border:0;background:transparent;padding:0;cursor:pointer;"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>';
         }
 
         echo '</td></tr>';
