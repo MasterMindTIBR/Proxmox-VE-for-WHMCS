@@ -119,7 +119,12 @@ function pvewhmcs_with_vmid_lock($server_id, $callback) {
 	$lock_name = 'pvewhmcs:vmid:' . (int) $server_id;
 	$result = Capsule::select('SELECT GET_LOCK(?, 30) AS acquired', array($lock_name));
 	if (empty($result) || (int) $result[0]->acquired !== 1) {
-		throw new Exception('Timed out waiting to allocate a Proxmox VMID.');
+		$holder = Capsule::select('SELECT IS_USED_LOCK(?) AS connection_id', array($lock_name));
+		$connection_id = $holder[0]->connection_id ?? null;
+		$detail = $connection_id
+			? "Currently held by MySQL connection #{$connection_id}. If that connection is stuck/idle (check SHOW PROCESSLIST), killing it releases the lock immediately."
+			: 'No holder was reported; a concurrent request most likely just released it — retry the order.';
+		throw new Exception("Timed out waiting to allocate a Proxmox VMID. {$detail}");
 	}
 
 	try {
