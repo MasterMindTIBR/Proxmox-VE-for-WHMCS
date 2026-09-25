@@ -860,9 +860,10 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 
 	for ($i = 0; $i < $max_attempts; $i++, $vmid++) {
 		try {
-			// Ask Proxmox if this specific VMID is available
-			// If available, it returns the same VMID; if not, it throws an error
-			$resp = $proxmox->get('/cluster/nextid', ['vmid' => $vmid]);
+			// Ask Proxmox if this specific VMID is available. The API client
+			// accepts GET parameters in the action path, not as a second
+			// argument to get().
+			$resp = $proxmox->get('/cluster/nextid?vmid=' . $vmid);
 			$data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
 
 			// Proxmox confirmed this VMID is available
