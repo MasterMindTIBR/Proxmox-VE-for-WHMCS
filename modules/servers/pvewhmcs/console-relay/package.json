@@ -1,0 +1,16 @@
+{
+  "name": "pvewhmcs-console-relay",
+  "version": "1.0.0",
+  "description": "WS-to-WS relay bridging WHMCS's public noVNC client to a private Proxmox VE host, so PVE never needs a public IP.",
+  "private": true,
+  "main": "server.js",
+  "engines": {
+    "node": ">=16"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

@@ -276,6 +276,12 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
 SQL
 			);
 		}
+
+		if (!Capsule::schema()->hasColumn('mod_pvewhmcs', 'console_relay_secret')) {
+			Capsule::schema()->table('mod_pvewhmcs', function ($table) {
+				$table->string('console_relay_secret', 255)->nullable()->default(null)->after('debug_mode');
+			});
+		}
 	}
 }
 
@@ -965,6 +971,15 @@ function pvewhmcs_output($vars) {
 	</tr>
 	<tr>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Console Relay Secret</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="' . htmlspecialchars((string) $config->console_relay_secret, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Shared secret with the noVNC console relay (32+ random characters, e.g. <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">openssl rand -hex 32</code>). Paste the same value into the relay\'s <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">config.json</code>. Required for VNC proxying without exposing Proxmox publicly.</p>
+		</td>
+	</tr>
+	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">VMID Start</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
@@ -1257,7 +1272,8 @@ function save_config() {
 					[
 						'vnc_secret' => $_POST['vnc_secret'],
 						'start_vmid' => $_POST['start_vmid'],
-						'debug_mode' => $_POST['debug_mode'],
+						'debug_mode' => $_POST['debug_mode'] ?? 0,
+						'console_relay_secret' => trim((string) ($_POST['console_relay_secret'] ?? '')),
 					]
 				);
 			}

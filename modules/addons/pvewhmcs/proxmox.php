@@ -71,6 +71,57 @@ function pvewhmcs_log_action(array $fields) {
 	}
 }
 
+// Path prefix the WHMCS web server proxies to the console relay (Node.js
+// WS-to-WS bridge). Must match the relay's own path prefix and the reverse
+// proxy rule documented in modules/servers/pvewhmcs/console-relay/README.md.
+const PVEWHMCS_CONSOLE_RELAY_PATH = 'pve-console-ws';
+
+function pvewhmcs_console_relay_secret() {
+	return trim((string) (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('console_relay_secret') ?? ''));
+}
+
+function pvewhmcs_base64url_encode($data) {
+	return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+/**
+ * Signs the Proxmox console connection details (host, path, port/ticket
+ * query string, and the restricted vnc@pve PVEAuthCookie) into a short-lived
+ * opaque token. The browser only ever sees this token; the console relay is
+ * the only party that resolves it back into real Proxmox connection info,
+ * so PVEAuthCookie and the Proxmox host/port never reach the client.
+ */
+function pvewhmcs_build_console_token(array $payload, $ttl_seconds = 60) {
+	$secret = pvewhmcs_console_relay_secret();
+	if (strlen($secret) < 32) {
+		throw new Exception('PVEWHMCS Error: Console Relay Secret in Module Config is not set or not long enough. Recommend 32+ characters.');
+	}
+
+	$payload['exp'] = time() + max(1, (int) $ttl_seconds);
+	$payload['sid'] = bin2hex(random_bytes(16));
+
+	$encoded = pvewhmcs_base64url_encode(json_encode($payload));
+	$signature = hash_hmac('sha256', $encoded, $secret);
+
+	return $encoded . '.' . $signature;
+}
+
+/**
+ * Resolves the public host/port the browser should open its console
+ * WebSocket against, from WHMCS's own $CONFIG['SystemURL']. This is always
+ * the WHMCS domain itself; the reverse proxy on that domain is what routes
+ * PVEWHMCS_CONSOLE_RELAY_PATH to the console relay.
+ */
+function pvewhmcs_relay_public_endpoint($system_url) {
+	$host = parse_url($system_url, PHP_URL_HOST);
+	$port = parse_url($system_url, PHP_URL_PORT);
+	if (!$port) {
+		$port = (parse_url($system_url, PHP_URL_SCHEME) === 'http') ? 80 : 443;
+	}
+
+	return array($host, (int) $port);
+}
+
 class PVE2_API {
 	protected $hostname;
 	protected $username;

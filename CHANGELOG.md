@@ -9,6 +9,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Deployment: Signed GitHub webhook deploys only the addon and provisioning module directories.
 - Server overview: Show cluster identity plus node, QEMU, and LXC counts beside the Proxmox login shortcut.
 - Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
+- noVNC: Route console WebSockets through a new self-hosted relay instead of the browser connecting to Proxmox directly, removing the public-IP, PTR, and same-registrable-domain requirements.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.

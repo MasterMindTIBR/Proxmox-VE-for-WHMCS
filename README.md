@@ -140,21 +140,36 @@ WHMCS does not expose a provisioning-module callback for custom fields in its na
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
-After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
+The browser never talks to Proxmox directly. It opens a WebSocket to the WHMCS
+domain, which the web server reverse-proxies to a small **Console Relay**
+process; that relay is the only thing that connects to Proxmox's
+`vncwebsocket` endpoint. This means:
 
-**This is due to be re-built again in 2026 to further enhance security.**
+- **Proxmox does not need a public IP.** Only the relay needs the same
+  network reachability to Proxmox that the module already needs for
+  provisioning (TCP/8006).
+- **No PTR/rDNS record needed.** The browser only ever resolves the WHMCS
+  domain.
+- **No shared/same-registrable-domain requirement.** `PVEAuthCookie` never
+  reaches the browser — the relay presents it to Proxmox itself, server-side.
+- **No 2-part-TLD workaround needed.** There is no cookie-domain parsing
+  involved anymore.
 
-### How to offer VNC via WHMCS Client Area!
+### How to offer VNC via WHMCS Client Area
 
-1. Install & configure the module properly
-2. Follow the PVE User Requirement info below
-3. Routed IPv4 for PVE (or TLS-proxy to LAN)
-4. PVE and WHMCS on the same 1x Domain Name*
-5. Have valid PTR/rDNS set on the PVE Address
+1. Install & configure the module properly (see Section 1 above).
+2. Create the restricted `vnc` PVE user below.
+3. Deploy the Console Relay (see
+   [modules/servers/pvewhmcs/console-relay/README.md](modules/servers/pvewhmcs/console-relay/README.md))
+   and generate a shared secret with `openssl rand -hex 32`.
+4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config:
+   - **VNC Secret** = the `vnc` PVE user's password (unchanged from before).
+   - **Console Relay Secret** = the same value you put in the relay's
+     `config.json`.
 
-> **If proxying, that is your sole responsibility to configure & diagnose.**
-> 
-> Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
+The relay only needs network reachability to your PVE hosts, not a public
+IP for them. If you're proxying that reachability yourself (VPN, private
+network, etc.), that's your responsibility to configure & diagnose.
 
 ### Creating the VNC User within Proxmox VE
 
@@ -162,41 +177,33 @@ After forking the module, we considered how to improve security of Console Tunne
 2. Create new User "vnc" > `Datacenter / Permissions / Users` - Group: "VNC", Realm: pve
 3. Create new Role -> `Datacenter / Permissions / Roles` - Name: "VNC", Privileges: VM.Console (only)
 4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
-5. WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
+5. WHMCS > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
 
 > [!CAUTION]
-> Do NOT set less restrictive permissions. The above is designed for interim security.
-> 
-> **However, if you wish for proper security: wait for VNC to be further improved.**
+> Do NOT set less restrictive permissions. `VM.Console` only is intentional:
+> the ticket this user obtains is scoped to opening a console, nothing else.
 
 <img alt="Client Area GUI showing the reply which links off to the VNC Console/Client" src="_images/zConsoleReady.png">
 
 ### Important info about Console Access
 
-**noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)**
-
-Once you have it configured, clicking noVNC in Client Area provides direct link - click it:
+Once you have it configured, clicking noVNC in Client Area provides a direct
+link — click it:
 
 <img alt="Client Area is ready for you to click into noVNC terminal console" src="_images/zVNCprepared.png">
 
-**Here are most of the critical requirements for VNC tunnelling:**
-
-1. PVE must be at an IPv4 which has PTR the exact same as PVE's hostname.
-2. You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
-3. If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
-4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
-5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
-6. Cookies must be properly usable and not manipulated by htaccess or similar rules, to ensure that `PVEAuthCookie` is properly set in-browser, for same-domain cross-subdomain access.
-
-<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
+<img alt="Admin GUI of the Module Config (VNC Secret, Console Relay Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
 
 > [!TIP]
 > **To troubleshoot noVNC errors like "Connection Closed (1006)":**
-> 
+>
 > Load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
 > _Or in Settings change Logging to debug-level, then open JS Console before reloading noVNC._
-> 
-> Typically, 401 No Ticket from PVE (1006 Connection Closed via noVNC) is due to cross-domain attempts being made, ie. WHMCS on domain1.com and PVE on domain2.com. You must use subdomains on the same Domain, with PTR, etc - else it won't work. **Please take the time to read this documentation.**
+>
+> Check DevTools' Network tab: the WebSocket should connect to
+> `wss://<your-whmcs-domain>/pve-console-ws/<token>`, **not** a direct
+> connection to the Proxmox host. If it fails immediately, check the
+> relay's own log — see its README's Verify section.
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
