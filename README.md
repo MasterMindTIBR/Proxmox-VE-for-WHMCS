@@ -265,8 +265,8 @@ Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
 
 Firstly, create the Plan in WHMCS Module. Then too in WHMCS Config > Services.
 
-> Under the Service, you need to add a Custom Field `ISO` with the full location.<br>
-> This ISO must be located on all PVE Nodes, and not on the WHMCS installation side.
+> Under the Service, add a Custom Field `ISO` containing only the ISO filename, for example `debian-13.5.0-amd64-DVD-1.iso`.<br>
+> The module attaches it as `local:iso/<filename>,media=cdrom`, so the ISO must exist in the `local` storage's ISO directory on every PVE node, not on the WHMCS installation side.
 
 ### CT Option 1: LXC, PVE Template File
 
