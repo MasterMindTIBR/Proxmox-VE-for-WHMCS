@@ -45,6 +45,90 @@ function pvewhmcs_MetaData() {
 	);
 }
 
+function pvewhmcs_verify_tls_setting($secure) {
+	if ($secure === null || $secure === '') {
+		return true;
+	}
+
+	return filter_var($secure, FILTER_VALIDATE_BOOLEAN);
+}
+
+function pvewhmcs_verify_tls(array $params) {
+	return pvewhmcs_verify_tls_setting($params['serversecure'] ?? null);
+}
+
+function pvewhmcs_plan_network_name($plan) {
+	$network = trim((string) $plan->bridge) . trim((string) $plan->vmbr);
+	if ($network === '' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/', $network)) {
+		throw new InvalidArgumentException('The plan has an invalid Proxmox network name.');
+	}
+
+	return $network;
+}
+
+function pvewhmcs_replace_qemu_bridge($network_config, $network) {
+	$replaced = false;
+	$parts = $network_config === '' ? array() : explode(',', (string) $network_config);
+	foreach ($parts as $index => $part) {
+		if (strpos($part, 'bridge=') === 0) {
+			$parts[$index] = 'bridge=' . $network;
+			$replaced = true;
+		}
+	}
+
+	if (!$replaced) {
+		$parts[] = 'bridge=' . $network;
+	}
+
+	return implode(',', $parts);
+}
+
+function pvewhmcs_reserve_ip_address($pool_id, $service_id) {
+	return Capsule::connection()->transaction(function () use ($pool_id, $service_id) {
+		$result = Capsule::select(
+			'SELECT i.ipaddress, i.mask, p.gateway
+			 FROM mod_pvewhmcs_ip_addresses i
+			 INNER JOIN mod_pvewhmcs_ip_pools p ON p.id = i.pool_id
+			 WHERE i.pool_id = :pool_id
+			 AND NOT EXISTS (
+				SELECT 1
+				FROM tblhosting h
+				WHERE h.dedicatedip = i.ipaddress
+				AND h.domainstatus IN ("Active", "Suspended", "Completed", "Pending")
+			 )
+			 ORDER BY i.id
+			 LIMIT 1
+			 FOR UPDATE',
+			array('pool_id' => $pool_id)
+		);
+
+		if (empty($result)) {
+			throw new Exception('No free IP addresses available in the selected pool.');
+		}
+
+		$ip = $result[0];
+		Capsule::table('tblhosting')
+			->where('id', $service_id)
+			->update(array('dedicatedip' => $ip->ipaddress));
+
+		return $ip;
+	});
+}
+
+function pvewhmcs_with_vmid_lock($server_id, $callback) {
+	$lock_name = 'pvewhmcs:vmid:' . (int) $server_id;
+	$result = Capsule::select('SELECT GET_LOCK(?, 30) AS acquired', array($lock_name));
+	if (empty($result) || (int) $result[0]->acquired !== 1) {
+		throw new Exception('Timed out waiting to allocate a Proxmox VMID.');
+	}
+
+	try {
+		return call_user_func($callback);
+	} finally {
+		Capsule::select('SELECT RELEASE_LOCK(?)', array($lock_name));
+	}
+}
+
 /**
  * AdminLink: show a direct link to the Proxmox UI on :8006.
  * Falls back to server IP if hostname is empty.
@@ -113,8 +197,9 @@ function pvewhmcs_CreateAccount($params) {
 		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
 	}
 
-	// Retrieve Plan from table
+	// Only bridged QEMU plans and all LXC plans require a Proxmox network name.
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
+	$network = ($plan->vmtype === 'lxc' || $plan->netmode === 'bridge') ? pvewhmcs_plan_network_name($plan) : null;
 
 	// PVE Host - Connection Info
 	$serverip = $params["serverip"];
@@ -125,31 +210,9 @@ function pvewhmcs_CreateAccount($params) {
 	// Prepare the service config array
 	$vm_settings = array();
 
-	// Select an IP Address from Pool
-	$result = Capsule::select(
-    'SELECT i.ipaddress, i.mask, p.gateway 
-     FROM mod_pvewhmcs_ip_addresses i 
-     INNER JOIN mod_pvewhmcs_ip_pools p ON (i.pool_id = p.id AND p.id = :pool_id) 
-     WHERE i.ipaddress NOT IN (
-        SELECT dedicatedip 
-        FROM tblhosting 
-        WHERE domainstatus IN ("Active", "Suspended", "Completed", "Pending")
-        AND dedicatedip != ""
-     ) 
-     LIMIT 1',
-    ['pool_id' => $params['configoption2']]
-	);
-
-	// Check if we actually found an IP before trying to access index [0]
-	if (!empty($result)) {
-		$ip = $result[0];
-		// Reserve early to avoid concurrent selection during long clones
-		Capsule::table('tblhosting')
-			->where('id', $params['serviceid'])
-			->update(['dedicatedip' => $ip->ipaddress]);
-	} else {
-		throw new Exception("No free IP addresses available in the selected pool.");
-	}
+	// Reserve a pool entry and record it in one transaction. The row lock prevents
+	// concurrent provisioning requests from assigning the same address.
+	$ip = pvewhmcs_reserve_ip_address($params['configoption2'], $params['serviceid']);
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
 
@@ -158,7 +221,7 @@ function pvewhmcs_CreateAccount($params) {
 	////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		// QEMU TEMPLATE - CREATION LOGIC
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 		if ($proxmox->login()) {
 			// Get template node: prefer TPL_Node_QEMU custom field, fallback to first node
 			$nodes = $proxmox->get_node_list();
@@ -185,15 +248,18 @@ function pvewhmcs_CreateAccount($params) {
 				);
 			}
 			unset($nodes);
-			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
-			$vm_settings['newid'] = $vmid;
-			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
-			$vm_settings['full'] = true;
-			$vm_settings['target'] = $template_node;
-			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
+			// Hold a database advisory lock until Proxmox accepts the clone and owns the VMID.
+			list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $params, &$vm_settings) {
+				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
+				$vm_settings['newid'] = $vmid;
+				$vm_settings['name'] = 'vps' . $params['serviceid'] . '-cus' . $params['clientsdetails']['userid'];
+				$vm_settings['full'] = true;
+				$vm_settings['target'] = $template_node;
+				$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
+
+				return array($vmid, $response);
+			});
 			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
-			$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 
 			// DEBUG - Log the request parameters before it's fired
 			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -269,6 +335,17 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
 
+				// Clones inherit NIC definitions from the template. Replace only the bridge
+				// so the plan selects the target network without changing the template MAC.
+				if ($plan->netmode === 'bridge') {
+					$cloned_config = $proxmox->get('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config');
+					$cloned_tweaks['net0'] = pvewhmcs_replace_qemu_bridge($cloned_config['net0'] ?? $plan->netmodel, $network);
+
+					if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+						$cloned_tweaks['net1'] = pvewhmcs_replace_qemu_bridge($cloned_config['net1'] ?? $plan->netmodel, $network);
+					}
+				}
+
 				// Cloud-Init IP Configuration for Cloned VMs
 				$cloned_tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
 				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
@@ -337,10 +414,10 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['nameserver'] = '208.67.222.222 64.6.64.6';
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
+			$vm_settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
-				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr . ',rate=' . $plan->netrate;
+				$vm_settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
@@ -416,7 +493,7 @@ function pvewhmcs_CreateAccount($params) {
 			if ($plan->netmode != 'none') {
 				$vm_settings['net0'] = $plan->netmodel;
 				if ($plan->netmode == 'bridge') {
-					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
+					$vm_settings['net0'] .= ',bridge=' . $network;
 				}
 				$vm_settings['net0'] .= ',firewall=' . $plan->firewall;
 				if (!empty($plan->netrate)) {
@@ -429,7 +506,7 @@ function pvewhmcs_CreateAccount($params) {
 				if (isset($vm_settings['ipconfig1'])) {
 					$vm_settings['net1'] = $plan->netmodel;
 					if ($plan->netmode == 'bridge') {
-						$vm_settings['net1'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
+						$vm_settings['net1'] .= ',bridge=' . $network;
 					}
 					$vm_settings['net1'] .= ',firewall=' . $plan->firewall;
 					if (!empty($plan->netrate)) {
@@ -450,7 +527,7 @@ function pvewhmcs_CreateAccount($params) {
 		// CREATION: Attempt to Create Guest via PVE2 API //
 		////////////////////////////////////////////////////
 		try {
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 
 			if ($proxmox->login()) {
 				// Get template node: prefer TPL_Node_LXC custom field for LXC, fallback to first node
@@ -462,19 +539,21 @@ function pvewhmcs_CreateAccount($params) {
 				}
 				unset($nodes);
 
-				// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
-				$vm_settings['vmid'] = $vmid;
-
 				if ($plan->vmtype == 'kvm') {
 					$guest_type = 'qemu';
 				} else {
 					$guest_type = 'lxc';
 				}
 
-				// ACTION - Fire the attempt to create
+				// Hold a database advisory lock until Proxmox accepts the create request.
+				list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $guest_type, &$vm_settings) {
+					$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
+					$vm_settings['vmid'] = $vmid;
+					$response = $proxmox->post('/nodes/' . $template_node . '/' . $guest_type, $vm_settings);
+
+					return array($vmid, $response);
+				});
 				$logrequest = '/nodes/' . $template_node . '/' . $guest_type . $vm_settings;
-				$response = $proxmox->post('/nodes/' . $template_node . '/' . $guest_type, $vm_settings);
 
 				// DEBUG - Log the request parameters after it's fired
 				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -639,7 +718,7 @@ function pvewhmcs_TestConnection(array $params) {
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
 		$serverport = $params["serverport"];
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 
 		// Set success if login succeeded
 		if ($proxmox->login()) {
@@ -673,7 +752,7 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverpassword = $params["serverpassword"];
 	$serverport = $params["serverport"];
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -715,7 +794,7 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverpassword = $params["serverpassword"];
 	$serverport = $params["serverport"];
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
@@ -765,7 +844,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 	$serverpassword = $params["serverpassword"];
 	$serverport = $params["serverport"];
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
 	if ($proxmox->login()){
 
 		// STEP 1: Look up the guest record for this WHMCS Service ID.
@@ -1122,7 +1201,7 @@ function pvewhmcs_ClientArea($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		// Where node lives ? 
@@ -1258,7 +1337,7 @@ function pvewhmcs_noVNC($params) {
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
 	$serverport = $params["serverport"];
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport);
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare noVNC. Unable to connect to server.';
 	}
@@ -1276,7 +1355,7 @@ function pvewhmcs_noVNC($params) {
 	// Now use VNC credentials for the actual VNC proxy request (restricted permissions)
 	$vncusername = 'vnc';
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport);
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport, pvewhmcs_verify_tls($params));
 	if ($proxmox->login()) {
 		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
@@ -1308,7 +1387,7 @@ function pvewhmcs_SPICE($params) {
 	
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $params["serverport"]);
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $params["serverport"], pvewhmcs_verify_tls($params));
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare SPICE. Unable to connect to server.';
 	}
@@ -1326,7 +1405,7 @@ function pvewhmcs_SPICE($params) {
 	// Now use VNC credentials for the actual SPICE proxy request (restricted permissions)
 	$vncusername = 'vnc';
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $params["serverport"]);
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $params["serverport"], pvewhmcs_verify_tls($params));
 	if ($proxmox->login()) {
 		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
@@ -1362,7 +1441,7 @@ function pvewhmcs_vmStart($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1409,7 +1488,7 @@ function pvewhmcs_vmReboot($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1467,7 +1546,7 @@ function pvewhmcs_vmShutdown($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1516,7 +1595,7 @@ function pvewhmcs_vmStop($params) {
 	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
