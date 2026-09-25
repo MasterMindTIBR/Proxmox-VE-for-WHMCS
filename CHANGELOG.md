@@ -11,6 +11,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Addon: Action History and Failed Actions tabs list every module lifecycle/power action from the new `mod_pvewhmcs_logs` table.
 - noVNC: Route console WebSockets through a new self-hosted relay instead of the browser connecting to Proxmox directly, removing the public-IP, PTR, and same-registrable-domain requirements.
 - noVNC: Console Relay Host/Port config lets the relay run on its own subdomain instead of sharing the WHMCS domain.
+- Addon: Select multiple free IPv4 addresses in a pool's edit view and remove them in one action.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.

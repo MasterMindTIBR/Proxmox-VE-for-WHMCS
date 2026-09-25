@@ -901,6 +901,13 @@ function pvewhmcs_output($vars) {
 			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 address was not deleted.</div>';
 		}
 	}
+	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip_bulk') {
+		if (pvewhmcs_valid_csrf()) {
+			removeip_bulk((array) ($_POST['ids'] ?? []), (int) $_POST['pool_id']);
+		} else {
+			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 addresses were not deleted.</div>';
+		}
+	}
 	echo'
 	</div>
 	';
@@ -2552,15 +2559,24 @@ function list_ips() {
     // Determine the WHMCS Admin Directory URL for the link
     $adminUrl = 'clientsservices.php'; 
 
-    echo '<table class="datatable">
+    $pool_id = (int) $_GET['id'];
+
+    echo '<form method="post" onsubmit="return confirm(\'Selected IPv4 addresses will be deleted from the pool, continue?\')">
+            <input type="hidden" name="pvewhmcs_action" value="removeip_bulk">
+            <input type="hidden" name="pool_id" value="' . $pool_id . '">' . pvewhmcs_csrf_field() . '
+            <div style="margin-bottom:10px;">
+                <button type="submit" class="btn btn-default btn-sm"><i class="fa fa-trash"></i>&nbsp; Delete Selected</button>
+            </div>
+            <table class="datatable">
             <tr>
+                <th><input type="checkbox" onclick="var c=this.checked;document.querySelectorAll(\'.pvewhmcs-ip-checkbox\').forEach(function(cb){cb.checked=c;});"></th>
                 <th>IPv4 Address</th>
                 <th>Subnet Mask</th>
                 <th>Action</th>
             </tr>';
 
     // Loop through IPs in the pool
-    foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
+    foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $pool_id)->get() as $ip) {
         
         // Query tblhosting to see if this IP is currently "occupied"
         // Occupied = assigned to a service that is Active, Suspended, or Completed
@@ -2570,6 +2586,11 @@ function list_ips() {
             ->first();
 
         echo '<tr>
+                <td>';
+        if (!$service) {
+            echo '<input type="checkbox" class="pvewhmcs-ip-checkbox" name="ids[]" value="' . (int) $ip->id . '">';
+        }
+        echo '</td>
                 <td>' . $ip->ipaddress . '</td>
                 <td>' . $ip->mask . '</td>
                 <td>';
@@ -2578,25 +2599,58 @@ function list_ips() {
             // IP is in use: Create a link to the related service
             $serviceLink = $adminUrl . '?userid=' . $service->userid . '&id=' . $service->id;
             echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
-        } else {
-            // IP is free (not in tblhosting OR status is Terminated/Cancelled/Fraud/Pending)
-            echo '<form method="post" style="display:inline" onsubmit="return confirm(\'IPv4 address will be deleted from the pool, continue?\')">
-                    <input type="hidden" name="pvewhmcs_action" value="removeip"><input type="hidden" name="pool_id" value="' . (int) $ip->pool_id . '"><input type="hidden" name="id" value="' . (int) $ip->id . '">' . pvewhmcs_csrf_field() . '
-                    <button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
-                  </form>';
         }
-        
+
         echo '</td></tr>';
     }
-    echo '</table>';
+    echo '</table>
+            <div style="margin-top:10px;">
+                <button type="submit" class="btn btn-default btn-sm"><i class="fa fa-trash"></i>&nbsp; Delete Selected</button>
+            </div>
+          </form>';
 }
 
-// IP POOL FORM ACTION: Remove IP from Pool
+// IP POOL FORM ACTION: Remove a single IP from Pool
 function removeip($id, $pool_id) {
 	Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
 	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
 	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Address deleted.';
 	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Deleted selected item successfully.';
+}
+
+// IP POOL FORM ACTION: Remove multiple IPs from a Pool at once. Re-checks
+// occupancy server-side (rather than trusting which checkboxes were
+// rendered) so a tampered request can't delete an IP still assigned to a
+// live service.
+function removeip_bulk(array $ids, $pool_id) {
+	$ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+	$deleted = 0;
+
+	if (!empty($ids)) {
+		$candidates = Capsule::table('mod_pvewhmcs_ip_addresses')
+			->where('pool_id', '=', $pool_id)
+			->whereIn('id', $ids)
+			->get();
+
+		$deletable_ids = [];
+		foreach ($candidates as $candidate) {
+			$occupied = Capsule::table('tblhosting')
+				->where('dedicatedip', '=', $candidate->ipaddress)
+				->whereIn('domainstatus', ['Active', 'Suspended', 'Completed'])
+				->exists();
+			if (!$occupied) {
+				$deletable_ids[] = $candidate->id;
+			}
+		}
+
+		if (!empty($deletable_ids)) {
+			$deleted = Capsule::table('mod_pvewhmcs_ip_addresses')->whereIn('id', $deletable_ids)->delete();
+		}
+	}
+
+	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
+	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Addresses deleted.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = $deleted . ' address(es) removed from the pool.';
 }
 
 function time2format($s) {
