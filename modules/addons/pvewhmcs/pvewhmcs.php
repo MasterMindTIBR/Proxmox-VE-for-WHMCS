@@ -282,6 +282,18 @@ SQL
 				$table->string('console_relay_secret', 255)->nullable()->default(null)->after('debug_mode');
 			});
 		}
+
+		if (!Capsule::schema()->hasColumn('mod_pvewhmcs', 'console_relay_host')) {
+			Capsule::schema()->table('mod_pvewhmcs', function ($table) {
+				$table->string('console_relay_host', 255)->nullable()->default(null)->after('console_relay_secret');
+			});
+		}
+
+		if (!Capsule::schema()->hasColumn('mod_pvewhmcs', 'console_relay_port')) {
+			Capsule::schema()->table('mod_pvewhmcs', function ($table) {
+				$table->integer('console_relay_port')->unsigned()->nullable()->default(null)->after('console_relay_host');
+			});
+		}
 	}
 }
 
@@ -852,6 +864,9 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
 	<i class="fa fa-list"></i>&nbsp; List: IPv4 Pools
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool">
+	<i class="fa fa-plus-square"></i>&nbsp; New: IPv4 Pool
+	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
 	<i class="fa fa-plus"></i>&nbsp; Add: IPv4 to Pool
 	</a>
@@ -977,7 +992,7 @@ function pvewhmcs_output($vars) {
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
 			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="' . $config->vnc_secret . '">
-			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
 	<tr>
@@ -987,6 +1002,24 @@ function pvewhmcs_output($vars) {
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
 			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="' . htmlspecialchars((string) $config->console_relay_secret, ENT_QUOTES, 'UTF-8') . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Shared secret with the noVNC console relay (32+ random characters, e.g. <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">openssl rand -hex 32</code>). Paste the same value into the relay\'s <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">config.json</code>. Required for VNC proxying without exposing Proxmox publicly.</p>
+		</td>
+	</tr>
+	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Console Relay Host</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_host" id="console_relay_host" placeholder="e.g. vnc.example.com" value="' . htmlspecialchars((string) $config->console_relay_host, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Hostname the browser opens the console WebSocket against. Leave blank to use the WHMCS domain. Set this when the relay is deployed on its own subdomain.</p>
+		</td>
+	</tr>
+	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Console Relay Port</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_port" id="console_relay_port" placeholder="443" value="' . htmlspecialchars((string) $config->console_relay_port, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Leave blank for the default HTTPS port (443). Only set this if the relay subdomain serves HTTPS on a non-standard port.</p>
 		</td>
 	</tr>
 	<tr>
@@ -1288,6 +1321,8 @@ function save_config() {
 						'start_vmid' => $_POST['start_vmid'],
 						'debug_mode' => $_POST['debug_mode'] ?? 0,
 						'console_relay_secret' => trim((string) ($_POST['console_relay_secret'] ?? '')),
+						'console_relay_host' => trim((string) ($_POST['console_relay_host'] ?? '')) ?: null,
+						'console_relay_port' => ($_POST['console_relay_port'] ?? '') !== '' ? (int) $_POST['console_relay_port'] : null,
 					]
 				);
 			}
@@ -2379,7 +2414,6 @@ function update_lxc_plan() {
 
 // IP POOLS: List all Pools
 function list_ip_pools() {
-	echo '<a class="btn btn-default" href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IPv4 Pool</a>';
 	echo '<table class="datatable"><tr><th>ID</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 		echo '<tr>';
