@@ -12,6 +12,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - noVNC: Route console WebSockets through a new self-hosted relay instead of the browser connecting to Proxmox directly, removing the public-IP, PTR, and same-registrable-domain requirements.
 - noVNC: Console Relay Host/Port config lets the relay run on its own subdomain instead of sharing the WHMCS domain.
 - Addon: Select multiple free IPv4 addresses in a pool's edit view and remove them in one action.
+- noVNC: The Console Relay moved to its own repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.

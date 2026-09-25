@@ -159,9 +159,9 @@ process; that relay is the only thing that connects to Proxmox's
 
 1. Install & configure the module properly (see Section 1 above).
 2. Create the restricted `vnc` PVE user below.
-3. Deploy the Console Relay (see
-   [modules/servers/pvewhmcs/console-relay/README.md](modules/servers/pvewhmcs/console-relay/README.md))
-   and generate a shared secret with `openssl rand -hex 32`.
+3. Deploy the Console Relay — source and instructions live in its own
+   repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay)
+   — and generate a shared secret with `openssl rand -hex 32`.
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config:
    - **VNC Secret** = the `vnc` PVE user's password. This is a Proxmox
      credential, unrelated to the relay secret below; it's still required.
