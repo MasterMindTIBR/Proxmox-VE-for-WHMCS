@@ -114,6 +114,9 @@ In WHMCS Server configuration, leave **Secure** enabled to verify the Proxmox TL
 
 If the WHMCS server connects by IP address, the Proxmox certificate must include that IP address in a Subject Alternative Name when Secure is enabled. Prefer a DNS hostname that WHMCS can resolve to the internal Proxmox address and that appears in the certificate.
 
+### Proxmox server overview
+
+The module shortcut on the WHMCS Server configuration page displays a live Proxmox summary: cluster name when applicable, node count, QEMU VM count, and LXC container count. It requires the configured API user to read `/cluster/status` and `/cluster/resources`; the login shortcut remains available when those statistics cannot be read.
 
 #### Admin GUI: QEMU Plan :: Creation interface
 
