@@ -129,6 +129,53 @@ function pvewhmcs_with_vmid_lock($server_id, $callback) {
 	}
 }
 
+function pvewhmcs_cluster_usage_stats(array $cluster_status, array $resources) {
+	$cluster_name = null;
+	foreach ($cluster_status as $status) {
+		if (!is_array($status) || ($status['type'] ?? '') !== 'cluster') {
+			continue;
+		}
+
+		$cluster_name = trim((string) ($status['name'] ?? ''));
+		break;
+	}
+
+	$stats = array(
+		'cluster_name' => $cluster_name,
+		'nodes' => 0,
+		'qemu' => 0,
+		'lxc' => 0,
+	);
+	foreach ($resources as $resource) {
+		if (!is_array($resource)) {
+			continue;
+		}
+
+		$type = $resource['type'] ?? '';
+		if ($type === 'node') {
+			$stats['nodes']++;
+		} elseif ($type === 'qemu' || $type === 'lxc') {
+			$stats[$type]++;
+		}
+	}
+
+	return $stats;
+}
+
+function pvewhmcs_cluster_usage_stats_html(array $stats) {
+	$cluster = $stats['cluster_name'] === null
+		? 'No'
+		: 'Yes (' . htmlspecialchars($stats['cluster_name'], ENT_QUOTES, 'UTF-8') . ')';
+
+	return '<div style="margin-top:10px;color:#555;">'
+		. '<strong>Proxmox Stats</strong>'
+		. '<span style="margin-left:12px;">Cluster: ' . $cluster . '</span>'
+		. '<span style="margin-left:12px;">Nodes: ' . (int) $stats['nodes'] . '</span>'
+		. '<span style="margin-left:12px;">QEMU: ' . (int) $stats['qemu'] . '</span>'
+		. '<span style="margin-left:12px;">LXC: ' . (int) $stats['lxc'] . '</span>'
+		. '</div>';
+}
+
 /**
  * AdminLink: show a direct link to the Proxmox UI on :8006.
  * Falls back to server IP if hostname is empty.
@@ -142,9 +189,31 @@ function pvewhmcs_AdminLink(array $params) {
     }
 
     $url = 'https://' . $host . ':' . $port;
+    $stats = '<div style="margin-top:10px;color:#777;">Proxmox Stats: unavailable.</div>';
+    try {
+        $proxmox = new PVE2_API(
+            $host,
+            $params['serverusername'] ?? '',
+            'pam',
+            $params['serverpassword'] ?? '',
+            $port,
+            pvewhmcs_verify_tls($params)
+        );
+        if ($proxmox->login()) {
+            $stats = pvewhmcs_cluster_usage_stats_html(
+                pvewhmcs_cluster_usage_stats(
+                    $proxmox->get('/cluster/status'),
+                    $proxmox->get('/cluster/resources')
+                )
+            );
+        }
+    } catch (Throwable $e) {
+        // The admin shortcut must remain usable if the stats request fails.
+    }
+
     return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">
                 <input type="submit" value="Log in to PVE" class="btn btn-sm btn-default" />
-            </form>';
+            </form>' . $stats;
 }
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
