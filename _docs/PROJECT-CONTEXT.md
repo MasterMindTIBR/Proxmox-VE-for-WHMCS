@@ -14,7 +14,7 @@ O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstrea
 | Cliente da API Proxmox | `modules/addons/pvewhmcs/proxmox.php` | Login, tickets, requisições HTTP para `/api2/json` e descoberta de nós |
 | Provisioning | `modules/servers/pvewhmcs/pvewhmcs.php` | Callbacks WHMCS, criação, clone, suspend, unsuspend, terminate, área do cliente e console |
 | Schema | `modules/addons/pvewhmcs/db.sql` | Instalações novas |
-| Console web | `modules/servers/pvewhmcs/novnc_router.php` e `novnc/` | Ticket de console e noVNC vendorizado |
+| Console web | `modules/servers/pvewhmcs/console-relay/` e `novnc/` | Relay Node.js WS↔WSS até o Proxmox e cliente noVNC vendorizado |
 
 ## Deploy por webhook
 
@@ -47,6 +47,10 @@ Suspend, unsuspend, terminate, VNC e área do cliente usam `mod_pvewhmcs_vms` pa
 
 `PVE2_API::login()` classifica certificado TLS, credenciais e conectividade. `pvewhmcs_TestConnection()` retorna essas mensagens ao WHMCS em vez de `An Unknown Error Occurred`.
 
+### Console (noVNC) sem exposição pública
+
+O browser nunca conversa direto com o Proxmox. `pvewhmcs_noVNC()` assina host, path e o `PVEAuthCookie` do usuário restrito `vnc@pve` num token HMAC de vida curta (`pvewhmcs_build_console_token()`, em `proxmox.php`) e monta o link apontando `vnc.html` pro próprio domínio do WHMCS. O servidor web do WHMCS faz `proxy_pass` do prefixo `/pve-console-ws/` pro processo Node em `modules/servers/pvewhmcs/console-relay/`, que decodifica o token, abre a conexão real `wss://` pro Proxmox (apresentando o cookie ele mesmo) e faz o bridge de bytes. Segredo compartilhado: `mod_pvewhmcs.console_relay_secret` (WHMCS) = `config.json.secret` (relay). Isso elimina PTR, mesmo-domínio-registrável e o parsing de TLD de 2 partes que a versão anterior exigia.
+
 ### Rede
 
 O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O sufixo é opcional e pode ser textual. `vmbr` usa `VARCHAR(64)` a partir da migração `1.3.6`, preservando `vmbr` + `0`, nomes completos como `private`, e sufixos textuais.
@@ -68,9 +72,9 @@ O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O s
 
 O certificado do Proxmox precisa incluir a cadeia completa no `pveproxy` em `8006`. Certificados folha Let’s Encrypt sem o intermediário falham no PHP cURL com `unable to get local issuer certificate`, mesmo quando alguns navegadores aceitam a conexão por terem o intermediário em cache. Instale `fullchain.pem`, não apenas `cert.pem`.
 
-## Ponto pendente antes de produção
+## Console (noVNC): superfície de segurança resolvida
 
-O console entrega tickets no query string e cria um cookie compartilhado pelo domínio registrável. Trate noVNC como superfície de segurança e valide a topologia de domínios, logs HTTP e proxy reverso antes de mudar esse fluxo.
+O ponto pendente anterior (ticket no query string + cookie compartilhado por domínio registrável) foi resolvido: veja "Console (noVNC) sem exposição pública" acima. O relay ainda é um processo separado do PHP do WHMCS — trate logs dele (stdout/journalctl) como parte da superfície auditável ao investigar falhas de console.
 
 ## Commit de fork analisado
 

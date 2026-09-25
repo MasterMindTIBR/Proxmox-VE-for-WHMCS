@@ -11,6 +11,8 @@ Edite os dois módulos quando a mudança atravessar a integração:
 
 O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVNC. Não altere-o para corrigir código do módulo. Atualize-o somente como dependência vendorizada, com origem e versão explícitas.
 
+`modules/servers/pvewhmcs/console-relay/` é um processo Node.js separado (não faz parte do runtime PHP do WHMCS): faz a ponte WS↔WSS entre o browser e o `vncwebsocket` do Proxmox, para o Proxmox nunca precisar de IP público. Leia o README dele antes de mexer no fluxo de console.
+
 ## Arquitetura e dados
 
 - `modules/addons/pvewhmcs/proxmox.php` define `PVE2_API`, usado por ambos os módulos. Alterações no transporte, autenticação ou TLS afetam todas as operações.
@@ -32,6 +34,7 @@ O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVN
 8. Correções pontuais verificadas devem receber commit convencional e `push` para `origin/master` sem pedir confirmação. Peça confirmação antes de uma mudança ampla de arquitetura, dependências, schema, comportamento de provisioning ou superfície de segurança.
 9. Para conexões Proxmox, prefira `serverhostname`; `serverip` é o fallback. Porta vazia significa `8006`. Não troque validação TLS por bypass global: `Secure` continua a exceção explícita por servidor.
 10. `pvewhmcs_AdminLink()` consulta estatísticas ao vivo. Falhas em `/cluster/status` ou `/cluster/resources` não podem remover nem atrasar o atalho de login de forma perceptível.
+11. O console (noVNC) nunca conecta o browser direto no Proxmox. `pvewhmcs_build_console_token()` (`proxmox.php`) assina host/path/cookie do Proxmox num token opaco de curta duração; só `modules/servers/pvewhmcs/console-relay/server.js` decodifica e abre a conexão real. Não volte a expor `PVEAuthCookie`, host ou porta do Proxmox diretamente ao browser — isso reintroduziria a exigência de PTR/mesmo domínio que essa arquitetura eliminou.
 
 ## Verificação
 

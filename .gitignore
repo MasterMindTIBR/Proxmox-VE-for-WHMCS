@@ -1,3 +1,5 @@
 .DS_Store
 modules/addons/pvewhmcs/github-webhook.local.php
 modules/addons/pvewhmcs/github-webhook.lock
+modules/servers/pvewhmcs/console-relay/config.json
+modules/servers/pvewhmcs/console-relay/node_modules/

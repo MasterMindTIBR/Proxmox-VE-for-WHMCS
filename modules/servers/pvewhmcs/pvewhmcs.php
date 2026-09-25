@@ -1539,12 +1539,33 @@ function pvewhmcs_noVNC($params) {
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
-		// Get WHMCS base URL (including subdirectory)
+
+		// The browser never talks to Proxmox directly. It opens a WebSocket
+		// to this WHMCS domain, which the web server reverse-proxies to the
+		// console relay (modules/servers/pvewhmcs/console-relay/). The relay
+		// is the only party that ever sees PVEAuthCookie or the real Proxmox
+		// host/port, so Proxmox never needs a public IP, a PTR record, or to
+		// share a registrable domain with WHMCS.
+		$token = pvewhmcs_build_console_token(array(
+			'host' => $serverip,
+			'port' => (int) $serverport,
+			'path' => $path,
+			'cookie' => $pveticket,
+			'verify' => pvewhmcs_verify_tls($params),
+		));
+
 		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
-		// Construct the noVNC Router URL with the path already prepared now
-		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
-		// Build and deliver the noVNC Router hyperlink for access
-		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
+		list($relay_host, $relay_port) = pvewhmcs_relay_public_endpoint($CONFIG['SystemURL']);
+		$relay_path = PVEWHMCS_CONSOLE_RELAY_PATH . '/' . $token;
+
+		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc/vnc.html'
+			. '?host=' . urlencode($relay_host)
+			. '&port=' . urlencode((string) $relay_port)
+			. '&path=' . urlencode($relay_path)
+			. '&password=' . urlencode($vncticket)
+			. '&encrypt=true&autoconnect=true';
+
+		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" target="_blank" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
