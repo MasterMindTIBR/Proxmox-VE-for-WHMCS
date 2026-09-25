@@ -14,7 +14,7 @@ O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstrea
 | Cliente da API Proxmox | `modules/addons/pvewhmcs/proxmox.php` | Login, tickets, requisições HTTP para `/api2/json` e descoberta de nós |
 | Provisioning | `modules/servers/pvewhmcs/pvewhmcs.php` | Callbacks WHMCS, criação, clone, suspend, unsuspend, terminate, área do cliente e console |
 | Schema | `modules/addons/pvewhmcs/db.sql` | Instalações novas |
-| Console web | `modules/servers/pvewhmcs/console-relay/` e `novnc/` | Relay Node.js WS↔WSS até o Proxmox e cliente noVNC vendorizado |
+| Console web | `modules/servers/pvewhmcs/novnc/` (vendorizado) + repo separado [`junglivre/pvewhmcs-console-relay`](https://github.com/junglivre/pvewhmcs-console-relay) | Cliente noVNC e relay Node.js WS↔WSS até o Proxmox |
 
 ## Deploy por webhook
 
@@ -49,7 +49,7 @@ Suspend, unsuspend, terminate, VNC e área do cliente usam `mod_pvewhmcs_vms` pa
 
 ### Console (noVNC) sem exposição pública
 
-O browser nunca conversa direto com o Proxmox. `pvewhmcs_noVNC()` assina host, path e o `PVEAuthCookie` do usuário restrito `vnc@pve` num token HMAC de vida curta (`pvewhmcs_build_console_token()`, em `proxmox.php`) e monta o link apontando `vnc.html` pro host resolvido por `pvewhmcs_relay_public_endpoint()`. Esse host é `mod_pvewhmcs.console_relay_host`/`console_relay_port` quando configurado (relay em subdomínio dedicado, roteado inteiramente pelo Plesk) ou o domínio do WHMCS como fallback (relay compartilhando domínio via `proxy_pass` no prefixo `/pve-console-ws/`). Em ambos os casos o processo Node em `modules/servers/pvewhmcs/console-relay/` decodifica o token, abre a conexão real `wss://` pro Proxmox (apresentando o cookie ele mesmo) e faz o bridge de bytes. Segredo compartilhado: `mod_pvewhmcs.console_relay_secret` (WHMCS) = `config.json.secret` (relay). Isso elimina PTR, mesmo-domínio-registrável e o parsing de TLD de 2 partes que a versão anterior exigia.
+O browser nunca conversa direto com o Proxmox. `pvewhmcs_noVNC()` assina host, path e o `PVEAuthCookie` do usuário restrito `vnc@pve` num token HMAC de vida curta (`pvewhmcs_build_console_token()`, em `proxmox.php`) e monta o link apontando `vnc.html` pro host resolvido por `pvewhmcs_relay_public_endpoint()`. Esse host é `mod_pvewhmcs.console_relay_host`/`console_relay_port` quando configurado (relay em subdomínio dedicado, roteado inteiramente pelo Plesk) ou o domínio do WHMCS como fallback (relay compartilhando domínio via `proxy_pass` no prefixo `/pve-console-ws/`). Em ambos os casos o relay — código-fonte em [`junglivre/pvewhmcs-console-relay`](https://github.com/junglivre/pvewhmcs-console-relay), repositório separado deste, não uma pasta aqui — decodifica o token, abre a conexão real `wss://` pro Proxmox (apresentando o cookie ele mesmo) e faz o bridge de bytes. Segredo compartilhado: `mod_pvewhmcs.console_relay_secret` (WHMCS) = `config.json.secret` (relay). Isso elimina PTR, mesmo-domínio-registrável e o parsing de TLD de 2 partes que a versão anterior exigia.
 
 ### Rede
 
