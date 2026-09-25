@@ -198,6 +198,8 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl ? 2 : 0);
+		curl_setopt($prox_ch, CURLOPT_CONNECTTIMEOUT, 10);
+		curl_setopt($prox_ch, CURLOPT_TIMEOUT, 30);
 
 		$login_ticket = curl_exec($prox_ch);
 		$login_request_info = curl_getinfo($prox_ch);
@@ -368,6 +370,8 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl ? 2 : 0);
+		curl_setopt($prox_ch, CURLOPT_CONNECTTIMEOUT, 10);
+		curl_setopt($prox_ch, CURLOPT_TIMEOUT, 30);
 
 		$action_response = curl_exec($prox_ch);
 

@@ -16,6 +16,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Provisioning: Serialize IPv4 allocation and VMID selection across concurrent requests.
 - Addon: Protect plan, IPv4 pool, and IPv4 address deletion with POST and CSRF validation.
 - Connections: Default an omitted Proxmox port to `8006`, prefer the configured hostname, and report TLS, authentication, and connectivity failures.
+- Addon: Fix a crash when adding IPv4 addresses to a pool while no pool existed yet.
+- Admin GUI: Only fetch live Proxmox data for the Nodes, Guests, and Logs tabs when actually viewing them, instead of on every single admin page load; add cURL timeouts to every Proxmox API call so an unreachable/slow host can no longer hang a page indefinitely.
 
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 

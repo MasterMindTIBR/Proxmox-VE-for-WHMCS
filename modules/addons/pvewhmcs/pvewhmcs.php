@@ -377,14 +377,14 @@ function pvewhmcs_output($vars) {
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
-	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes</a></li>
-	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#guests">Guests</a></li>
+	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=nodes">Nodes</a></li>
+	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=guests">Guests</a></li>
 	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans</a></li>
 	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4</a></li>
 	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
 	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#support">Support</a></li>
 	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#config">Config</a></li>
-	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
+	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=logs">Logs</a></li>
 	</ul>
 	</div>
 	<style>
@@ -454,8 +454,15 @@ function pvewhmcs_output($vars) {
 	}
 
 	// NODES / GUESTS tab in ADMIN GUI
+	// Only fetch live Proxmox data when this specific tab is requested (real
+	// navigation, not the JS-only tab switch used by the cheap tabs below).
+	// Rendering this unconditionally on every page load - regardless of
+	// which tab the admin actually wants - was the main cause of slow/timing
+	// out page loads: it forced a fresh login + /cluster/resources fetch +
+	// per-node RRD graphs on every single admin page view.
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 
+	if ($_GET['tab'] === 'nodes') {
 	// Fetch all enabled Servers that use pvewhmcs
 	$servers = Capsule::table('tblservers')
 		->where('type', '=', 'pvewhmcs')
@@ -527,13 +534,14 @@ function pvewhmcs_output($vars) {
 			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-server"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ccc;">('.htmlspecialchars($serverip).')</small></h3>';
 			echo '</div>';
 			echo '<div class="panel-body">';
+			$server_version = $proxmox->get_version();
 
 			// -------- Per-Node Info with RRD Graphs --------
 			foreach ($nodes as $n) {
 				$n_name    = isset($n['node']) ? $n['node'] : '(node)';
 				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
 				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
-				$n_version = $proxmox->get_version();
+				$n_version = $server_version;
 				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 1) : 0;
 				$n_maxcpu  = isset($n['maxcpu']) ? $n['maxcpu'] : 0;
 				$n_mem_pct = (isset($n['mem']) && isset($n['maxmem']) && $n['maxmem'] > 0)
@@ -611,11 +619,13 @@ function pvewhmcs_output($vars) {
 			echo '</div>'; // panel
 		}
 	}
+	}
 	echo '</div>';
 
 	// ======== GUESTS TAB ========
 	echo '<div id="guests" class="tab-pane '.($_GET['tab']=="guests" ? "active" : "").'" >';
 
+	if ($_GET['tab'] === 'guests') {
 	// Re-use servers data for guests tab
 	$servers = Capsule::table('tblservers')
 		->where('type', '=', 'pvewhmcs')
@@ -717,6 +727,7 @@ function pvewhmcs_output($vars) {
 			echo '</div>'; // panel-body
 			echo '</div>'; // panel
 		}
+	}
 	}
 	echo '</div>';
 
@@ -1014,6 +1025,8 @@ function pvewhmcs_output($vars) {
 	// LOGS tab in ADMIN GUI
 	echo '<div id="logs" class="tab-pane ' . (isset($_GET['tab']) && $_GET['tab'] === 'logs' ? 'active' : '') . '">';
 
+	if ($_GET['tab'] === 'logs') {
+
 	try {
 	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
 	    if (!isset($proxmox)) {
@@ -1124,6 +1137,7 @@ function pvewhmcs_output($vars) {
 	} catch (Throwable $e) {
 	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
 	        . htmlspecialchars($e->getMessage()) . '</div>';
+	}
 	}
 	echo '</div></div>'; 
 	// End of tabbed content
@@ -2441,6 +2455,7 @@ function removeIpPool($id) {
 // IP POOL FORM ACTION: Add IP to Pool
 function add_ip_2_pool() {
 	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
+	$gateways = array();
 	echo '<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
