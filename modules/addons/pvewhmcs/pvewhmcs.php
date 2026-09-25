@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.7";
+	return "1.3.6";
 }
 
 function pvewhmcs_verify_server_tls($secure) {
@@ -254,10 +254,7 @@ function pvewhmcs_upgrade($vars) {
 		Capsule::schema()->table('mod_pvewhmcs_plans', function ($table) {
 			$table->string('vmbr', 64)->nullable()->default(null)->change();
 		});
-	}
 
-	// SQL Operations for v1.3.7
-	if (version_compare($currentlyInstalledVersion, '1.3.7', 'lt')) {
 		if (!Capsule::schema()->hasTable('mod_pvewhmcs_logs')) {
 			Capsule::statement(<<<'SQL'
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
