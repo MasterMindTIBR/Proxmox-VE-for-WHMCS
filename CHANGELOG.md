@@ -17,6 +17,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.
 - Provisioning: Serialize IPv4 allocation and VMID selection across concurrent requests.
+- Provisioning: Name QEMU guests and set LXC hostnames from the WHMCS order/service ID and customer-selected hostname.
+- noVNC: Log upstream WebSocket close and HTTP handshake details in the standalone console relay.
 - Documentation: Clarify that the QEMU ISO custom field accepts only the filename stored under `local:iso/`.
 - Connections: Default an omitted Proxmox port to `8006`, prefer the configured hostname, and report TLS, authentication, and connectivity failures.
 - Addon: Fix a crash when adding IPv4 addresses to a pool while no pool existed yet.
