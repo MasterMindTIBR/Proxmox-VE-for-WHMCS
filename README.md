@@ -108,6 +108,13 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
 7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
 
+### TLS certificate verification
+
+In WHMCS Server configuration, leave **Secure** enabled to verify the Proxmox TLS certificate. This is the required production setting. The module still communicates with Proxmox over HTTPS when Secure is disabled, but skips certificate and hostname validation for that server. Disable it only for a deliberately accepted self-signed or private-PKI exception.
+
+If the WHMCS server connects by IP address, the Proxmox certificate must include that IP address in a Subject Alternative Name when Secure is enabled. Prefer a DNS hostname that WHMCS can resolve to the internal Proxmox address and that appears in the certificate.
+
+
 #### Admin GUI: QEMU Plan :: Creation interface
 
 <img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="_images/zQEMUplanAdd.png">
@@ -205,10 +212,11 @@ You may add different config via PVE/`pvesh` manually of course, if you need to 
 
 ### vmbr / SDN: Config type
 
-This depends on your configuration on the PVE Host/s - bridge (vmbr0 etc) or software-defined (SDN).
+This depends on your configuration on the PVE Host/s: bridge (`vmbr0` etc), a bridge name without a suffix, or software-defined networking (SDN).
 
-- **If normal (bridged)** - use `vmbr` as the Network, then use `0` as the Interface ID - this makes up `vmbr0`.
-- **If SDN (Software Defined Network)** - use SDN Name for Network, leave Interface ID blank (= no suffix).
+- **Numbered bridge**: use `vmbr` as the Network and `0` as the optional suffix to form `vmbr0`.
+- **Named bridge or SDN**: enter the complete name as the Network and leave the suffix blank, for example `private`, `mgmt`, or an SDN name.
+- **Textual suffix**: use Network `vnet` and suffix `customer-a` to form `vnetcustomer-a`.
 
 ## ⚙️ 4. VM/CT PLANS: Setting everything up
 

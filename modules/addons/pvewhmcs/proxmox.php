@@ -40,7 +40,7 @@ class PVE2_API {
 	protected $login_ticket_timestamp = null;
 	protected $cluster_node_list = null;
 
-	public function __construct ($hostname, $username, $realm, $password, $port = 8006, $verify_ssl = false) {
+	public function __construct ($hostname, $username, $realm, $password, $port = 8006, $verify_ssl = true) {
 		if (empty($hostname) || empty($username) || empty($realm) || empty($password) || empty($port)) {
 			throw new PVE2_Exception("PVE2 API: Hostname/Username/Realm/Password/Port required for PVE2_API object constructor.", 1);
 		}
@@ -96,7 +96,7 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
-		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl);
+		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl ? 2 : 0);
 
 		$login_ticket = curl_exec($prox_ch);
 		$login_request_info = curl_getinfo($prox_ch);
@@ -116,8 +116,8 @@ class PVE2_API {
 			// Login failed.
 			// Just to be safe, set this to null again.
 			$this->login_ticket_timestamp = null;
-			if ($login_request_info['ssl_verify_result'] == 1) {
-				throw new PVE2_Exception("PVE2 API: Invalid SSL cert on {$this->hostname} - check that the hostname is correct, and that it appears in the server certificate's SAN list. Alternatively set the verify_ssl flag to false if you are using internal self-signed certs (ensure you are aware of the security risks before doing so).", 4);
+			if ($this->verify_ssl && !empty($login_request_info['ssl_verify_result'])) {
+				throw new PVE2_Exception("PVE2 API: Invalid SSL cert on {$this->hostname} - check that the hostname is correct, and that it appears in the server certificate's SAN list. Alternatively disable certificate verification for this WHMCS server only if you understand the risk.", 4);
 			}
 			return false;
 		} else {
@@ -243,8 +243,8 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_HEADER, true);
 		curl_setopt($prox_ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
-		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
+		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl ? 2 : 0);
 
 		$action_response = curl_exec($prox_ch);
 

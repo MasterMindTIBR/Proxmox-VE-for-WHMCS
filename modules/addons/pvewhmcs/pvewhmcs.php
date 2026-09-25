@@ -45,7 +45,53 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.5";
+	return "1.3.6";
+}
+
+function pvewhmcs_verify_server_tls($secure) {
+	if ($secure === null || $secure === '') {
+		return true;
+	}
+
+	return filter_var($secure, FILTER_VALIDATE_BOOLEAN);
+}
+
+function pvewhmcs_plan_network_input($required) {
+	$bridge = trim((string) ($_POST['bridge'] ?? ''));
+	$suffix = trim((string) ($_POST['vmbr'] ?? ''));
+
+	if ($bridge === '') {
+		if ($required) {
+			throw new InvalidArgumentException('Network name is required for bridged networking.');
+		}
+
+		return array('', '');
+	}
+
+	$network = $bridge . $suffix;
+	if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,62}$/', $network)) {
+		throw new InvalidArgumentException('Network name may contain only letters, numbers, dots, hyphens, and underscores.');
+	}
+
+	return array($bridge, $suffix);
+}
+
+function pvewhmcs_csrf_token() {
+	if (empty($_SESSION['pvewhmcs_csrf_token'])) {
+		$_SESSION['pvewhmcs_csrf_token'] = bin2hex(random_bytes(32));
+	}
+
+	return $_SESSION['pvewhmcs_csrf_token'];
+}
+
+function pvewhmcs_csrf_field() {
+	return '<input type="hidden" name="pvewhmcs_csrf_token" value="' . htmlspecialchars(pvewhmcs_csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+}
+
+function pvewhmcs_valid_csrf() {
+	$submitted = $_POST['pvewhmcs_csrf_token'] ?? '';
+
+	return is_string($submitted) && hash_equals(pvewhmcs_csrf_token(), $submitted);
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -151,6 +197,13 @@ function pvewhmcs_upgrade($vars) {
 				);
 			}
 	    }
+	}
+
+	// SQL Operations for v1.3.6
+	if (version_compare($currentlyInstalledVersion, '1.3.6', 'lt')) {
+		Capsule::schema()->table('mod_pvewhmcs_plans', function ($table) {
+			$table->string('vmbr', 64)->nullable()->default(null)->change();
+		});
 	}
 }
 
@@ -340,12 +393,15 @@ function pvewhmcs_output($vars) {
 			// Decrypt server password (same approach as ClientArea)
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
+			$verify_ssl     = pvewhmcs_verify_server_tls($pve->secure ?? null);
 
 			// Login + get cluster/resources
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport, $verify_ssl);
 			if (!$proxmox->login()) {
 				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
@@ -495,11 +551,14 @@ function pvewhmcs_output($vars) {
 		foreach ($servers as $pve) {
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
+			$verify_ssl     = pvewhmcs_verify_server_tls($pve->secure ?? null);
 
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport, $verify_ssl);
 			if (!$proxmox->login()) {
 				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
@@ -618,8 +677,12 @@ function pvewhmcs_output($vars) {
 			lxc_plan_edit($_GET['id']) ;
 	}
 
-	if($_GET['action']=='removeplan') {
-		remove_plan($_GET['id']) ;
+	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeplan') {
+		if (pvewhmcs_valid_csrf()) {
+			remove_plan((int) $_POST['id']);
+		} else {
+			echo '<div class="alert alert-danger">Invalid CSRF token. Plan was not deleted.</div>';
+		}
 	}
 
 
@@ -681,8 +744,10 @@ function pvewhmcs_output($vars) {
 			echo '<td>' . $vm->unpriv . '</td>';
 			echo '<td>
 			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
-			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=removeplan&amp;id=' . $vm->id . '" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
-			</td>';
+			<form method="post" style="display:inline" onsubmit="return confirm(\'Plan will be deleted, continue?\')">
+			<input type="hidden" name="pvewhmcs_action" value="removeplan"><input type="hidden" name="id" value="' . (int) $vm->id . '">' . pvewhmcs_csrf_field() . '
+			<button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
+			</form></td>';
 			echo '</tr>';
 		}
 		echo '</tbody></table>';
@@ -715,14 +780,22 @@ function pvewhmcs_output($vars) {
 	if (isset($_POST['newIPpool'])) {
 		save_ip_pool() ;
 	}
-	if ($_GET['action']=='removeippool') {
-		removeIpPool($_GET['id']) ;
+	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeippool') {
+		if (pvewhmcs_valid_csrf()) {
+			removeIpPool((int) $_POST['id']);
+		} else {
+			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 pool was not deleted.</div>';
+		}
 	}
 	if ($_GET['action']=='list_ips') {
 		list_ips();
 	}
-	if ($_GET['action']=='removeip') {
-		removeip($_GET['id'],$_GET['pool_id']);
+	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip') {
+		if (pvewhmcs_valid_csrf()) {
+			removeip((int) $_POST['id'], (int) $_POST['pool_id']);
+		} else {
+			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 address was not deleted.</div>';
+		}
 	}
 	echo'
 	</div>
@@ -851,12 +924,14 @@ function pvewhmcs_output($vars) {
 	        }
 
 	        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
-	        $serverpassword = $dec['password'] ?? '';
+	        $serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	        if (!$serverpassword) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
+	        $serverport = !empty($pve->port) ? (int) $pve->port : 8006;
+	        $verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
+	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
 	        if (!$proxmox->login()) {
 	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
 	        }
@@ -1373,10 +1448,10 @@ function qemu_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - Bridge/NIC ID</td>
+	<td class="fieldlabel">Network - Suffix (optional)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
+	<input type="text" size="8" name="vmbr" id="vmbr" value="" placeholder="0">
+	Optional suffix appended to the network name. Enter 0 for "vmbr0"; leave blank for a complete network name such as "private".
 	</td>
 	</tr>
 	<tr>
@@ -1690,10 +1765,10 @@ function qemu_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - Bridge/NIC ID</td>
+	<td class="fieldlabel">Network - Suffix (optional)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
-	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '" placeholder="0">
+	Optional suffix appended to the network name. Enter 0 for "vmbr0"; leave blank for a complete network name such as "private".
 	</td>
 	</tr>
 	<tr>
@@ -1801,10 +1876,10 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - Bridge/NIC ID</td>
+	<td class="fieldlabel">Network - Suffix (optional)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
+	<input type="text" size="8" name="vmbr" id="vmbr" value="" placeholder="0">
+	Optional suffix appended to the network name. Enter 0 for "vmbr0"; leave blank for a complete network name such as "private".
 	</td>
 	</tr>
 	<tr>
@@ -1943,10 +2018,10 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - Bridge/NIC ID</td>
+	<td class="fieldlabel">Network - Suffix (optional)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
-	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '" placeholder="0">
+	Optional suffix appended to the network name. Enter 0 for "vmbr0"; leave blank for a complete network name such as "private".
 	</td>
 	</tr>
 	<tr>
@@ -2015,8 +2090,9 @@ function lxc_plan_edit($id) {
 // MODULE FORM ACTION: Save QEMU Plan
 function save_qemu_plan() {
 	try {
+		list($bridge, $vmbr) = pvewhmcs_plan_network_input(($_POST['netmode'] ?? 'bridge') === 'bridge');
 		Capsule::connection()->transaction(
-			function ($connectionManager)
+			function ($connectionManager) use ($bridge, $vmbr)
 			{
 				/** @var \Illuminate\Database\Connection $connectionManager */
 				$connectionManager->table('mod_pvewhmcs_plans')->insert(
@@ -2038,8 +2114,8 @@ function save_qemu_plan() {
 						'diskio' => $_POST['diskio'],
 						'storage' => $_POST['storage'],
 						'netmode' => $_POST['netmode'],
-						'bridge' => $_POST['bridge'],
-						'vmbr' => $_POST['vmbr'],
+						'bridge' => $bridge,
+						'vmbr' => $vmbr,
 						'netmodel' => $_POST['netmodel'],
 						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
@@ -2061,6 +2137,7 @@ function save_qemu_plan() {
 
 // MODULE FORM ACTION: Update QEMU Plan
 function update_qemu_plan() {
+	list($bridge, $vmbr) = pvewhmcs_plan_network_input(($_POST['netmode'] ?? 'bridge') === 'bridge');
 	Capsule::table('mod_pvewhmcs_plans')
 	->where('id', $_GET['id'])
 	->update(
@@ -2082,8 +2159,8 @@ function update_qemu_plan() {
 			'diskio' => $_POST['diskio'],
 			'storage' => $_POST['storage'],
 			'netmode' => $_POST['netmode'],
-			'bridge' => $_POST['bridge'],
-			'vmbr' => $_POST['vmbr'],
+			'bridge' => $bridge,
+			'vmbr' => $vmbr,
 			'netmodel' => $_POST['netmodel'],
 			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
@@ -2109,8 +2186,9 @@ function remove_plan($id) {
 // MODULE FORM ACTION: Save LXC Plan
 function save_lxc_plan() {
 	try {
+		list($bridge, $vmbr) = pvewhmcs_plan_network_input(true);
 		Capsule::connection()->transaction(
-			function ($connectionManager)
+			function ($connectionManager) use ($bridge, $vmbr)
 			{
 				/** @var \Illuminate\Database\Connection $connectionManager */
 				$connectionManager->table('mod_pvewhmcs_plans')->insert(
@@ -2125,8 +2203,8 @@ function save_lxc_plan() {
 						'disk' => $_POST['disk'],
 						'diskio' => $_POST['diskio'],
 						'storage' => $_POST['storage'],
-						'bridge' => $_POST['bridge'],
-						'vmbr' => $_POST['vmbr'],
+						'bridge' => $bridge,
+						'vmbr' => $vmbr,
 						'netmodel' => $_POST['netmodel'],
 						'vlanid' => $_POST['vlanid'],
 						'netrate' => $_POST['netrate'],
@@ -2148,6 +2226,7 @@ function save_lxc_plan() {
 
 // MODULE FORM ACTION: Update LXC Plan
 function update_lxc_plan() {
+	list($bridge, $vmbr) = pvewhmcs_plan_network_input(true);
 	Capsule::table('mod_pvewhmcs_plans')
 	->where('id', $_GET['id'])
 	->update(
@@ -2162,8 +2241,8 @@ function update_lxc_plan() {
 			'disk' => $_POST['disk'],
 			'diskio' => $_POST['diskio'],
 			'storage' => $_POST['storage'],
-			'bridge' => $_POST['bridge'],
-			'vmbr' => $_POST['vmbr'],
+			'bridge' => $bridge,
+			'vmbr' => $vmbr,
 			'netmodel' => $_POST['netmodel'],
 			'vlanid' => $_POST['vlanid'],
 			'netrate' => $_POST['netrate'],
@@ -2189,8 +2268,10 @@ function list_ip_pools() {
 		echo '<td>' . $pool->gateway . '</td>';
 		echo '<td>
 		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=list_ips&amp;id=' . $pool->id . '"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
-		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeippool&amp;id=' . $pool->id . '" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
-		</td>';
+		<form method="post" style="display:inline" onsubmit="return confirm(\'Pool and all IPv4 addresses assigned to it will be deleted, continue?\')">
+		<input type="hidden" name="pvewhmcs_action" value="removeippool"><input type="hidden" name="id" value="' . (int) $pool->id . '">' . pvewhmcs_csrf_field() . '
+		<button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
+		</form></td>';
 		echo '</tr>';
 	}
 	echo '</table>';
@@ -2344,9 +2425,10 @@ function list_ips() {
             echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
         } else {
             // IP is free (not in tblhosting OR status is Terminated/Cancelled/Fraud/Pending)
-            echo '<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeip&amp;pool_id=' . $ip->pool_id . '&amp;id=' . $ip->id . '" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')">
-                    <img height="16" width="16" border="0" alt="Edit" src="images/delete.gif">
-                  </a>';
+            echo '<form method="post" style="display:inline" onsubmit="return confirm(\'IPv4 address will be deleted from the pool, continue?\')">
+                    <input type="hidden" name="pvewhmcs_action" value="removeip"><input type="hidden" name="pool_id" value="' . (int) $ip->pool_id . '"><input type="hidden" name="id" value="' . (int) $ip->id . '">' . pvewhmcs_csrf_field() . '
+                    <button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
+                  </form>';
         }
         
         echo '</td></tr>';
