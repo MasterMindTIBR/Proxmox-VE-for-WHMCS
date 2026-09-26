@@ -1311,16 +1311,60 @@ function pvewhmcs_AdminCustomButtonArray() {
 	return $buttonarray;
 }
 
+/**
+ * Resolves the client-facing language code the same way WHMCS itself
+ * names its own /lang/*.php files (e.g. "english", "portuguese-br"),
+ * preferring the specific client's own selection over the site default,
+ * since WHMCS doesn't pass a language code into
+ * pvewhmcs_ClientAreaCustomButtonArray() (no $params there at all).
+ */
+function pvewhmcs_client_lang_code(array $params = array()) {
+	$code = $params['clientsdetails']['language']
+		?? ($_SESSION['Language'] ?? null)
+		?? ($GLOBALS['CONFIG']['Language'] ?? null)
+		?? 'english';
+	$code = strtolower(preg_replace('/[^a-z0-9-]/i', '', (string) $code));
+
+	return $code !== '' ? $code : 'english';
+}
+
+/**
+ * Loads modules/servers/pvewhmcs/lang/<code>.php into $_PVEWHMCS_LANG and
+ * returns it, falling back to english.php for languages this module
+ * hasn't been translated into yet. Used both server-side (button labels,
+ * noVNC launcher text) and passed into clientarea.tpl as {$lang.key}.
+ */
+function pvewhmcs_load_client_lang(array $params = array()) {
+	static $cache = array();
+	$code = pvewhmcs_client_lang_code($params);
+	if (isset($cache[$code])) {
+		return $cache[$code];
+	}
+
+	$dir = __DIR__ . '/lang/';
+	$file = is_file($dir . $code . '.php') ? $dir . $code . '.php' : $dir . 'english.php';
+
+	$_PVEWHMCS_LANG = array();
+	if (is_file($file)) {
+		include $file;
+	}
+
+	$cache[$code] = $_PVEWHMCS_LANG;
+
+	return $_PVEWHMCS_LANG;
+}
+
 // MODULE BUTTONS: Client Interface button regos
 function pvewhmcs_ClientAreaCustomButtonArray() {
+	$lang = pvewhmcs_load_client_lang();
 	$buttonarray = array(
-		"<i class='fa fa-2x fa-flag-checkered'></i> Start" => "vmStart",
-		"<i class='fa fa-2x fa-sync'></i> Reboot" => "vmReboot",
-		"<i class='fa fa-2x fa-power-off'></i> Power Off" => "vmShutdown",
-		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
-		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
-		"<i class='fa fa-2x fa-search'></i>  Check Status" => "vmCheck",
-		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> Console (HTML5)" => "noVNC",
+		"<i class='fa fa-2x fa-flag-checkered'></i> " . ($lang['btn_start'] ?? 'Start') => "vmStart",
+		"<i class='fa fa-2x fa-sync'></i> " . ($lang['btn_reboot'] ?? 'Reboot') => "vmReboot",
+		"<i class='fa fa-2x fa-power-off'></i> " . ($lang['btn_poweroff'] ?? 'Power Off') => "vmShutdown",
+		"<i class='fa fa-2x fa-stop'></i>  " . ($lang['btn_hardstop'] ?? 'Hard Stop') => "vmStop",
+		"<i class='fa fa-2x fa-chart-bar'></i>  " . ($lang['btn_statistics'] ?? 'Statistics') => "vmStat",
+		"<i class='fa fa-2x fa-search'></i>  " . ($lang['btn_checkstatus'] ?? 'Check Status') => "vmCheck",
+		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> " . ($lang['btn_console'] ?? 'Console (HTML5)') => "noVNC",
 	);
 	return $buttonarray;
 }
@@ -1517,6 +1561,7 @@ function pvewhmcs_ClientArea($params) {
 			'vm_status' => $vm_status,
 			'vm_statistics' => $vm_statistics,
 			'vm_vncproxy' => $vm_vncproxy,
+			'lang' => pvewhmcs_load_client_lang($params),
 		),
 	);
 }
@@ -1595,10 +1640,12 @@ function pvewhmcs_prepare_noVNC($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	$lang = pvewhmcs_load_client_lang($params);
+
 	try {
 		$prepared = pvewhmcs_prepare_noVNC($params);
 	} catch (\Throwable $e) {
-		return 'Failed to prepare noVNC. ' . $e->getMessage();
+		return ($lang['novnc_prepare_failed'] ?? 'Failed to prepare noVNC.') . ' ' . $e->getMessage();
 	}
 
 	$escaped_url = htmlspecialchars($prepared['url'], ENT_QUOTES, 'UTF-8');
@@ -1614,8 +1661,8 @@ function pvewhmcs_noVNC($params) {
 	</style>
 	<div class="pvewhmcs-novnc-loading">
 		<span class="pvewhmcs-novnc-spinner" aria-hidden="true"></span>
-		<strong>Abrindo o console noVNC...</strong>
-		<br><small>Se não abrir automaticamente, <a href="' . $escaped_url . '">clique aqui para abrir o console</a>.</small>
+		<strong>' . htmlspecialchars($lang['novnc_opening'] ?? 'Opening the noVNC console...', ENT_QUOTES, 'UTF-8') . '</strong>
+		<br><small>' . htmlspecialchars($lang['novnc_manual_prefix'] ?? "If it doesn't open automatically,", ENT_QUOTES, 'UTF-8') . ' <a href="' . $escaped_url . '">' . htmlspecialchars($lang['novnc_manual_link'] ?? 'click here to open the console', ENT_QUOTES, 'UTF-8') . '</a>.</small>
 	</div>
 	<script>
 		window.location.replace(' . $script_url . ');
