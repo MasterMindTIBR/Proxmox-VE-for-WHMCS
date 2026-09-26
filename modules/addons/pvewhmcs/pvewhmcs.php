@@ -647,20 +647,24 @@ function pvewhmcs_output($vars) {
 				echo '</div>';
 				echo '</div>';
 
-				// Live Stats Row
-				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
-				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				// Live Stats Grid (2x2: CPU+RAM on top, QEMU+LXC below)
+				echo '<div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">';
+				echo '<div style="text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">CPU: <code>' . $n_cpu_pct . '%</code></div>';
 				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_maxcpu . ' Cores</strong></div>';
 				echo '</div>';
-				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">RAM: <code>' . $n_mem_pct . '%</code></div>';
 				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_mem_used . ' of ' . $n_mem_max . 'GB</strong></div>';
 				echo '</div>';
-				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:16px;font-weight:bold;color:#5c3d7a;">QEMU: <code>' . $node_qemu_linked . ' (' . $node_qemu . ')</code></div>';
-				echo '<div style="font-size:16px;font-weight:bold;color:#5c3d7a;">LXC: <code>' . $node_lxc_linked . ' (' . $node_lxc . ')</code></div>';
+				echo '<div style="text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="font-size:20px;font-weight:bold;color:#5c3d7a;">QEMU: <code>' . $node_qemu_linked . ' (' . $node_qemu . ')</code></div>';
 				echo '<div style="font-size:10px;color:#999;text-transform:uppercase;margin-top:2px;">Customers (all)</div>';
+				echo '</div>';
+				echo '<div style="text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="font-size:20px;font-weight:bold;color:#5c3d7a;">LXC: <code>' . $node_lxc_linked . ' (' . $node_lxc . ')</code></div>';
+				echo '<div style="font-size:10px;color:#999;text-transform:uppercase;margin-top:2px;">Customers (all)</div>';
+				echo '</div>';
 				echo '</div>';
 
 				// RRD Graphs Section
@@ -1110,7 +1114,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VNC Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="" placeholder="' . (strlen((string) $config->vnc_secret) > 0 ? '•••••••••••••••• (unchanged if left blank)' : 'Not set') . '">
+			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="" placeholder="' . (strlen((string) $config->vnc_secret) > 0 ? '••••••••••••••••' : 'Not set') . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). Leave blank to keep the current value. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
@@ -1119,7 +1123,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">Console Relay Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="" placeholder="' . (strlen((string) $config->console_relay_secret) > 0 ? '•••••••••••••••• (unchanged if left blank)' : 'Not set') . '">
+			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="" placeholder="' . (strlen((string) $config->console_relay_secret) > 0 ? '••••••••••••••••' : 'Not set') . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Shared secret with the noVNC console relay (32+ random characters, e.g. <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">openssl rand -hex 32</code>). Paste the same value into the relay\'s <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">config.json</code>. Required for VNC proxying without exposing Proxmox publicly. Leave blank to keep the current value.</p>
 		</td>
 	</tr>
