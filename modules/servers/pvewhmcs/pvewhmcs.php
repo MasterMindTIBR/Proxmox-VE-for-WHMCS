@@ -1313,15 +1313,34 @@ function pvewhmcs_AdminCustomButtonArray() {
 
 /**
  * Resolves the client-facing language code the same way WHMCS itself
- * names its own /lang/*.php files (e.g. "english", "portuguese-br"),
- * preferring the specific client's own selection over the site default,
- * since WHMCS doesn't pass a language code into
- * pvewhmcs_ClientAreaCustomButtonArray() (no $params there at all).
+ * names its own /lang/*.php files (e.g. "english", "portuguese-br").
+ *
+ * $params never carries a language code directly (WHMCS's own docs
+ * confirm clientsdetails has no 'language' key), so this reads
+ * tblclients.language — the same column WHMCS's GetClientsDetails API
+ * exposes — keyed by the always-present $params['userid']. That works
+ * regardless of session/admin-preview/cron context, unlike
+ * $_SESSION['Language'], which only reflects the current HTTP session
+ * and is kept here purely as a last-resort fallback.
  */
 function pvewhmcs_client_lang_code(array $params = array()) {
-	$code = $params['clientsdetails']['language']
+	static $dbLangCache = array();
+
+	$code = null;
+	$clientId = (int) ($params['userid'] ?? 0);
+	if ($clientId > 0) {
+		if (!array_key_exists($clientId, $dbLangCache)) {
+			try {
+				$dbLangCache[$clientId] = Capsule::table('tblclients')->where('id', $clientId)->value('language');
+			} catch (\Throwable $e) {
+				$dbLangCache[$clientId] = null;
+			}
+		}
+		$code = $dbLangCache[$clientId] ?: null;
+	}
+
+	$code = $code
 		?? ($_SESSION['Language'] ?? null)
-		?? ($GLOBALS['CONFIG']['Language'] ?? null)
 		?? 'english';
 	$code = strtolower(preg_replace('/[^a-z0-9-]/i', '', (string) $code));
 
