@@ -898,8 +898,8 @@ function pvewhmcs_output($vars) {
 		lxc_plan_add() ;
 	}
 
-	// List of VM / CT Plans
-	if ($_GET['action']=='planlist') {
+	// List of VM / CT Plans (default view when the tab opens with no action yet)
+	if (!isset($_GET['action']) || $_GET['action']=='planlist') {
 		echo '
 		<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">
 		<tbody>
@@ -981,7 +981,7 @@ function pvewhmcs_output($vars) {
 	</a>
 	</div>
 	';
-	if ($_GET['action']=='list_ip_pools') {
+	if (!isset($_GET['action']) || $_GET['action']=='list_ip_pools') {
 		list_ip_pools() ;
 	}
 	if ($_GET['action']=='new_ip_pool') {
