@@ -858,9 +858,6 @@ function pvewhmcs_output($vars) {
 	if ($_GET['tab'] === 'vmplans') {
 	echo '
 	<div class="btn-group" role="group" aria-label="...">
-	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
-	<i class="fa fa-list"></i>&nbsp; List: Guest Plans
-	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_qemu_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: QEMU Plan
 	</a>
@@ -974,9 +971,6 @@ function pvewhmcs_output($vars) {
 	if ($_GET['tab'] === 'ippools') {
 	echo '
 	<div class="btn-group">
-	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
-	<i class="fa fa-list"></i>&nbsp; List: IPv4 Pools
-	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool">
 	<i class="fa fa-plus-square"></i>&nbsp; New: IPv4 Pool
 	</a>
