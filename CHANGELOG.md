@@ -21,6 +21,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - noVNC: Log upstream WebSocket close and HTTP handshake details in the standalone console relay.
 - noVNC: Send a Proxmox-origin header from the standalone relay to match the browser console handshake.
 - noVNC: Request Proxmox's generated VNC password and pass it to noVNC instead of reusing the WebSocket ticket.
+- noVNC: Renamed the client area button to "Console (HTML5)" and fixed the console reliably reaching noVNC. The Proxmox VNC proxy and relay connection are now prepared server-side before the page redirects to noVNC, and the launch token is capped at 2 minutes, so a slow click-through can no longer let the short-lived Proxmox VNC proxy expire. The console still opens in the current tab; WHMCS renders this button as a plain form, not a menu item, so there is no reliable way to force it into a new tab.
 - Documentation: Clarify that the QEMU ISO custom field accepts only the filename stored under `local:iso/`.
 - Connections: Default an omitted Proxmox port to `8006`, prefer the configured hostname, and report TLS, authentication, and connectivity failures.
 - Addon: Fix a crash when adding IPv4 addresses to a pool while no pool existed yet.

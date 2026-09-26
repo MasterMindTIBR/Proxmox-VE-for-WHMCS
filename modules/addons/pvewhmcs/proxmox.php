@@ -130,6 +130,51 @@ function pvewhmcs_relay_public_endpoint($system_url) {
 
 	return array($host, (int) $port);
 }
+function pvewhmcs_console_relay_preconnect($relay_host, $relay_port, $relay_path) {
+	$relay_host = trim((string) $relay_host);
+	$relay_port = (int) $relay_port;
+	$relay_path = '/' . ltrim((string) $relay_path, '/');
+	if ($relay_host === '' || $relay_port < 1 || $relay_port > 65535) {
+		throw new InvalidArgumentException('Invalid Console Relay endpoint.');
+	}
+
+	$authority = $relay_host;
+	if (strpos($relay_host, ':') !== false && $relay_host[0] !== '[') {
+		$authority = '[' . $relay_host . ']';
+	}
+	$url = 'https://' . $authority . ($relay_port === 443 ? '' : ':' . $relay_port) . $relay_path . '/prepare';
+	$curl = curl_init($url);
+	if ($curl === false) {
+		throw new RuntimeException('Unable to initialize the Console Relay preconnect.');
+	}
+
+	curl_setopt_array($curl, array(
+		CURLOPT_CUSTOMREQUEST => 'POST',
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_CONNECTTIMEOUT => 3,
+		CURLOPT_TIMEOUT => 8,
+		CURLOPT_HTTPHEADER => array('Accept: application/json'),
+		CURLOPT_SSL_VERIFYPEER => true,
+		CURLOPT_SSL_VERIFYHOST => 2,
+	));
+	$response = curl_exec($curl);
+	$curl_error = curl_error($curl);
+	$status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+	curl_close($curl);
+
+	if ($response === false || $status < 200 || $status >= 300) {
+		$detail = $curl_error !== '' ? ' ' . $curl_error : '';
+		throw new RuntimeException('Console Relay preconnect failed (HTTP ' . $status . ').' . $detail);
+	}
+
+	$decoded = json_decode((string) $response, true);
+	if (!is_array($decoded) || empty($decoded['ready'])) {
+		throw new RuntimeException('Console Relay did not acknowledge the preconnect.');
+	}
+
+	return true;
+}
+
 
 class PVE2_API {
 	protected $hostname;
