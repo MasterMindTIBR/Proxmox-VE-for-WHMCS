@@ -78,6 +78,49 @@ function pvewhmcs_action_log_service_labels(array $service_ids) {
 	return $labels;
 }
 
+/**
+ * Maps every Proxmox guest (vtype:vmid) provisioned through this specific
+ * WHMCS server to its linked service/client, so the Nodes and Guests admin
+ * tabs can distinguish customer-owned guests from ones that exist on the
+ * cluster but aren't tracked in mod_pvewhmcs_vms (manually created, imported
+ * without linking, or left behind after a service was deleted).
+ */
+function pvewhmcs_guest_hosting_map($server_id) {
+	$map = array();
+	$rows = Capsule::table('mod_pvewhmcs_vms')
+		->join('tblhosting', 'tblhosting.id', '=', 'mod_pvewhmcs_vms.id')
+		->leftJoin('tblclients', 'tblclients.id', '=', 'tblhosting.userid')
+		->where('tblhosting.server', '=', $server_id)
+		->select(
+			'mod_pvewhmcs_vms.vmid',
+			'mod_pvewhmcs_vms.vtype',
+			'tblhosting.id as hosting_id',
+			'tblhosting.domain',
+			'tblhosting.domainstatus',
+			'tblclients.id as client_id',
+			'tblclients.firstname',
+			'tblclients.lastname',
+			'tblclients.companyname'
+		)
+		->get();
+
+	foreach ($rows as $row) {
+		$name = trim((string) $row->companyname) !== ''
+			? $row->companyname
+			: trim(($row->firstname ?? '') . ' ' . ($row->lastname ?? ''));
+		$key = $row->vtype . ':' . (int) $row->vmid;
+		$map[$key] = array(
+			'hosting_id'  => (int) $row->hosting_id,
+			'client_id'   => (int) $row->client_id,
+			'client_name' => $name !== '' ? $name : null,
+			'domain'      => $row->domain,
+			'status'      => $row->domainstatus,
+		);
+	}
+
+	return $map;
+}
+
 function pvewhmcs_render_action_log_table($entries, array $labels) {
 	$html = '<table class="pve-table"><thead><tr>'
 		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Result</th><th>Details</th>'
@@ -391,11 +434,11 @@ function pvewhmcs_output($vars) {
 	<ul class="nav nav-tabs admin-tabs">
 	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=nodes">Nodes</a></li>
 	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=guests">Guests</a></li>
-	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4</a></li>
-	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
-	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#support">Support</a></li>
-	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#config">Config</a></li>
+	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans">Plans</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools">IPv4</a></li>
+	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=actions">Actions</a></li>
+	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=support">Support</a></li>
+	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=config">Config</a></li>
 	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" role="tab" href="'. pvewhmcs_BASEURL .'&amp;tab=logs">Logs</a></li>
 	</ul>
 	</div>
@@ -540,6 +583,12 @@ function pvewhmcs_output($vars) {
 				return isset($g['status']) && $g['status'] === 'running';
 			});
 
+			// Cross-reference with mod_pvewhmcs_vms so each node can show how
+			// many of its guests are actually tied to a WHMCS service, vs.
+			// existing on the cluster untracked (manually created, imported
+			// without linking, or orphaned after a service was deleted).
+			$hosting_map = pvewhmcs_guest_hosting_map($pve->id);
+
 			// ======== CLUSTER HEADER PANEL ========
 			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
 			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
@@ -561,6 +610,27 @@ function pvewhmcs_output($vars) {
 					: 0;
 				$n_mem_used = isset($n['mem']) ? round($n['mem'] / 1073741824, 1) : 0;
 				$n_mem_max  = isset($n['maxmem']) ? round($n['maxmem'] / 1073741824, 1) : 0;
+
+				// QEMU/LXC guests on this node, and how many are linked to a
+				// WHMCS service ("customer-owned (total)").
+				$node_qemu = 0;
+				$node_qemu_linked = 0;
+				$node_lxc = 0;
+				$node_lxc_linked = 0;
+				foreach ($guests as $g) {
+					if (($g['node'] ?? null) !== $n_name) {
+						continue;
+					}
+					$g_key = ($g['type'] ?? '') . ':' . (isset($g['vmid']) ? (int) $g['vmid'] : 0);
+					$g_linked = isset($hosting_map[$g_key]);
+					if (($g['type'] ?? '') === 'qemu') {
+						$node_qemu++;
+						$node_qemu_linked += $g_linked ? 1 : 0;
+					} elseif (($g['type'] ?? '') === 'lxc') {
+						$node_lxc++;
+						$node_lxc_linked += $g_linked ? 1 : 0;
+					}
+				}
 
 				$status_color = ($n_status === 'online') ? '#5cb85c' : '#d9534f';
 
@@ -587,6 +657,10 @@ function pvewhmcs_output($vars) {
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">RAM: <code>' . $n_mem_pct . '%</code></div>';
 				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_mem_used . ' of ' . $n_mem_max . 'GB</strong></div>';
 				echo '</div>';
+				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="font-size:16px;font-weight:bold;color:#5c3d7a;">QEMU: <code>' . $node_qemu_linked . ' (' . $node_qemu . ')</code></div>';
+				echo '<div style="font-size:16px;font-weight:bold;color:#5c3d7a;">LXC: <code>' . $node_lxc_linked . ' (' . $node_lxc . ')</code></div>';
+				echo '<div style="font-size:10px;color:#999;text-transform:uppercase;margin-top:2px;">Customers (all)</div>';
 				echo '</div>';
 
 				// RRD Graphs Section
@@ -638,6 +712,16 @@ function pvewhmcs_output($vars) {
 	echo '<div id="guests" class="tab-pane '.($_GET['tab']=="guests" ? "active" : "").'" >';
 
 	if ($_GET['tab'] === 'guests') {
+	$show_all = isset($_GET['show_all']) && $_GET['show_all'] == '1';
+	$toggle_url_linked = pvewhmcs_BASEURL . '&tab=guests';
+	$toggle_url_all = pvewhmcs_BASEURL . '&tab=guests&show_all=1';
+	echo '<div style="margin-bottom:15px;">';
+	echo '<div class="btn-group" role="group">';
+	echo '<a class="btn ' . (!$show_all ? 'btn-primary' : 'btn-default') . '" href="' . htmlspecialchars($toggle_url_linked, ENT_QUOTES, 'UTF-8') . '">Customers Only</a>';
+	echo '<a class="btn ' . ($show_all ? 'btn-primary' : 'btn-default') . '" href="' . htmlspecialchars($toggle_url_all, ENT_QUOTES, 'UTF-8') . '">Show All</a>';
+	echo '</div>';
+	echo '</div>';
+
 	// Re-use servers data for guests tab
 	$servers = Capsule::table('tblservers')
 		->where('type', '=', 'pvewhmcs')
@@ -671,19 +755,27 @@ function pvewhmcs_output($vars) {
 			}
 
 			// Filter guests only
-			$guests = [];
+			$all_guests = [];
 			foreach ($cluster_resources as $resource) {
 				if (isset($resource['type']) && ($resource['type'] === 'qemu' || $resource['type'] === 'lxc')) {
-					$guests[] = $resource;
+					$all_guests[] = $resource;
 				}
 			}
+
+			$hosting_map = pvewhmcs_guest_hosting_map($pve->id);
+			$is_linked = function ($g) use ($hosting_map) {
+				$key = ($g['type'] ?? '') . ':' . (isset($g['vmid']) ? (int) $g['vmid'] : 0);
+				return isset($hosting_map[$key]);
+			};
+			$linked_total = count(array_filter($all_guests, $is_linked));
+			$guests = $show_all ? $all_guests : array_values(array_filter($all_guests, $is_linked));
 
 			$running_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'running'; }));
 			$stopped_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'stopped'; }));
 
 			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
 			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
-			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> ' . htmlspecialchars($serverlabel) . ' <small style="color:#ddd;">(' . count($guests) . ' guests: ' . $running_count . ' running, ' . $stopped_count . ' stopped)</small></h3>';
+			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> ' . htmlspecialchars($serverlabel) . ' <small style="color:#ddd;">(' . count($guests) . ' shown: ' . $running_count . ' running, ' . $stopped_count . ' stopped &bull; ' . $linked_total . ' of ' . count($all_guests) . ' linked to a customer)</small></h3>';
 			echo '</div>';
 			echo '<div class="panel-body" style="padding:0;padding-top:8px;">';
 
@@ -692,6 +784,7 @@ function pvewhmcs_output($vars) {
 				echo '<thead><tr>
 						<th>VMID</th>
 						<th>Name</th>
+						<th>Customer</th>
 						<th>Status</th>
 						<th>Type</th>
 						<th>Node</th>
@@ -719,9 +812,20 @@ function pvewhmcs_output($vars) {
 					$type_icon = ($g_type === 'qemu') ? 'fa-desktop' : 'fa-cube';
 					$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
 
+					$linked = $hosting_map[$g_type . ':' . $g_vmid] ?? null;
+					if ($linked) {
+						$customer_label = htmlspecialchars((string) ($linked['client_name'] ?? ('Client #' . $linked['client_id'])), ENT_QUOTES, 'UTF-8');
+						$domain_label = htmlspecialchars((string) ($linked['domain'] ?? ''), ENT_QUOTES, 'UTF-8');
+						$customer_cell = '<a href="clientssummary.php?userid=' . (int) $linked['client_id'] . '" style="color:#5c3d7a;">' . $customer_label . '</a>'
+							. ($domain_label !== '' ? '<div style="color:#888;font-size:11px;">' . $domain_label . '</div>' : '');
+					} else {
+						$customer_cell = '<span style="display:inline-block;padding:2px 8px;border-radius:3px;background:#f0ad4e;color:#fff;font-size:10px;text-transform:uppercase;">Unlinked</span>';
+					}
+
 					echo '<tr>';
 					echo '<td><code>' . $g_vmid . '</code></td>';
 					echo '<td><i class="fa ' . $type_icon . '" style="color:#666;"></i> <strong>' . htmlspecialchars($g_name) . '</strong></td>';
+					echo '<td>' . $customer_cell . '</td>';
 					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:' . $status_color . ';color:#fff;font-size:10px;text-transform:uppercase;">' . htmlspecialchars($g_status) . '</span></td>';
 					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">' . htmlspecialchars($g_type) . '</span></td>';
 					echo '<td>' . htmlspecialchars($g_node) . '</td>';
@@ -733,7 +837,9 @@ function pvewhmcs_output($vars) {
 				}
 				echo '</tbody></table>';
 			} else {
-				echo '<div class="alert alert-info" style="margin:15px;">No guests found on this cluster.</div>';
+				echo '<div class="alert alert-info" style="margin:15px;">' . ($show_all
+					? 'No guests found on this cluster.'
+					: 'No customer-linked guests found on this cluster. <a href="' . htmlspecialchars($toggle_url_all, ENT_QUOTES, 'UTF-8') . '">Show all guests</a> to include unlinked ones.') . '</div>';
 			}
 
 			echo '</div>'; // panel-body
@@ -744,8 +850,9 @@ function pvewhmcs_output($vars) {
 	echo '</div>';
 
 	// VM / CT PLANS tab in ADMIN GUI
+	echo '<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">';
+	if ($_GET['tab'] === 'vmplans') {
 	echo '
-	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
 	<i class="fa fa-list"></i>&nbsp; List: Guest Plans
@@ -853,13 +960,15 @@ function pvewhmcs_output($vars) {
 		}
 		echo '</tbody></table>';
 	}
+	}
 	echo '
 	</div>
 	';
 
 	// IPv4 POOLS tab in ADMIN GUI
+	echo '<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >';
+	if ($_GET['tab'] === 'ippools') {
 	echo '
-	<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 	<div class="btn-group">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=list_ip_pools">
 	<i class="fa fa-list"></i>&nbsp; List: IPv4 Pools
@@ -907,12 +1016,12 @@ function pvewhmcs_output($vars) {
 			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 addresses were not deleted.</div>';
 		}
 	}
-	echo'
-	</div>
-	';
+	}
+	echo '</div>';
 
 	// ACTIONS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
+	if ($_GET['tab'] === 'actions') {
 
 	$action_history = Capsule::table('mod_pvewhmcs_logs')->orderBy('id', 'desc')->limit(200)->get();
 	$failed_actions = Capsule::table('mod_pvewhmcs_logs')->where('level', 'error')->orderBy('id', 'desc')->limit(200)->get();
@@ -934,10 +1043,12 @@ function pvewhmcs_output($vars) {
 		echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels);
 	}
 
+	}
 	echo '</div>';
 
 	// SUPPORT tab in ADMIN GUI
 	echo '<div id="support" class="tab-pane '.($_GET['tab']=="support" ? "active" : "").'" >';
+	if ($_GET['tab'] === 'support') {
 	echo '
 	<div style="max-width:800px;">
 		<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;margin-bottom:20px;">
@@ -981,11 +1092,13 @@ function pvewhmcs_output($vars) {
 		</div>
 		<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>';
+	}
 	echo '</div>';
 
 	// Config Tab
-	$config= Capsule::table('mod_pvewhmcs')->where('id', '=', '1')->get()[0];
 	echo '<div id="config" class="tab-pane '.($_GET['tab']=="config" ? "active" : "").'" >' ;
+	if ($_GET['tab'] === 'config') {
+	$config= Capsule::table('mod_pvewhmcs')->where('id', '=', '1')->get()[0];
 	echo '
 	<div style="max-width:800px;">
 	<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
@@ -997,8 +1110,8 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VNC Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="' . $config->vnc_secret . '">
-			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
+			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="" placeholder="' . (strlen((string) $config->vnc_secret) > 0 ? '•••••••••••••••• (unchanged if left blank)' : 'Not set') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). Leave blank to keep the current value. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
 	<tr>
@@ -1006,8 +1119,8 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">Console Relay Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="' . htmlspecialchars((string) $config->console_relay_secret, ENT_QUOTES, 'UTF-8') . '">
-			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Shared secret with the noVNC console relay (32+ random characters, e.g. <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">openssl rand -hex 32</code>). Paste the same value into the relay\'s <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">config.json</code>. Required for VNC proxying without exposing Proxmox publicly.</p>
+			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="console_relay_secret" id="console_relay_secret" value="" placeholder="' . (strlen((string) $config->console_relay_secret) > 0 ? '•••••••••••••••• (unchanged if left blank)' : 'Not set') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Shared secret with the noVNC console relay (32+ random characters, e.g. <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">openssl rand -hex 32</code>). Paste the same value into the relay\'s <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">config.json</code>. Required for VNC proxying without exposing Proxmox publicly. Leave blank to keep the current value.</p>
 		</td>
 	</tr>
 	<tr>
@@ -1059,6 +1172,7 @@ function pvewhmcs_output($vars) {
 	<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>
 	';
+	}
 	echo '</div>';
 
 	// LOGS tab in ADMIN GUI
@@ -1321,16 +1435,25 @@ function save_config() {
 			function ($connectionManager)
 			{
 				/** @var \Illuminate\Database\Connection $connectionManager */
-				$connectionManager->table('mod_pvewhmcs')->update(
-					[
-						'vnc_secret' => $_POST['vnc_secret'],
-						'start_vmid' => $_POST['start_vmid'],
-						'debug_mode' => $_POST['debug_mode'] ?? 0,
-						'console_relay_secret' => trim((string) ($_POST['console_relay_secret'] ?? '')),
-						'console_relay_host' => trim((string) ($_POST['console_relay_host'] ?? '')) ?: null,
-						'console_relay_port' => ($_POST['console_relay_port'] ?? '') !== '' ? (int) $_POST['console_relay_port'] : null,
-					]
-				);
+				$update = [
+					'start_vmid' => $_POST['start_vmid'],
+					'debug_mode' => $_POST['debug_mode'] ?? 0,
+					'console_relay_host' => trim((string) ($_POST['console_relay_host'] ?? '')) ?: null,
+					'console_relay_port' => ($_POST['console_relay_port'] ?? '') !== '' ? (int) $_POST['console_relay_port'] : null,
+				];
+
+				// Secrets are masked (blank) in the form; only overwrite the
+				// stored value when the admin actually typed a new one.
+				$vnc_secret = trim((string) ($_POST['vnc_secret'] ?? ''));
+				if ($vnc_secret !== '') {
+					$update['vnc_secret'] = $vnc_secret;
+				}
+				$console_relay_secret = trim((string) ($_POST['console_relay_secret'] ?? ''));
+				if ($console_relay_secret !== '') {
+					$update['console_relay_secret'] = $console_relay_secret;
+				}
+
+				$connectionManager->table('mod_pvewhmcs')->update($update);
 			}
 		);
 		$_SESSION['pvewhmcs']['infomsg']['title']='Module Config saved.' ;
