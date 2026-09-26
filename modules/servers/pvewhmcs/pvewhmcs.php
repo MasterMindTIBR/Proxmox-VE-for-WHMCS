@@ -1320,7 +1320,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
 		"<i class='fa fa-2x fa-search'></i>  Check Status" => "vmCheck",
-		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
+		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> Console (HTML5)" => "noVNC",
 	);
 	return $buttonarray;
 }
@@ -1527,84 +1527,99 @@ function pvewhmcs_vmStat($params) {
 }
 
 // VNC: Console access to VM/CT via noVNC
-function pvewhmcs_noVNC($params) {
+function pvewhmcs_prepare_noVNC($params) {
 	global $CONFIG;
-	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
+
+	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
-	
-	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
+
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox_server->login()) {
-		return 'Failed to prepare noVNC. Unable to connect to server.';
+		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
 	}
-	
-	// Early prep work - find guest and node using server credentials
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
-		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		throw new Exception("Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})");
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest, $params['serviceid']);
 	if (empty($guest_node)) {
-		return 'Failed to prepare noVNC. Unable to determine node.';
+		throw new Exception('Failed to prepare noVNC. Unable to determine node.');
 	}
-	
-	// Now use VNC credentials for the actual VNC proxy request (restricted permissions)
-	$vncusername = 'vnc';
+
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport, pvewhmcs_verify_tls($params));
-	if ($proxmox->login()) {
-		$vm_vncproxy = $proxmox->post(
-			'/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy',
-			array('websocket' => '1', 'generate-password' => '1')
-		);
-
-		if (empty($vm_vncproxy['ticket']) || empty($vm_vncproxy['port']) || empty($vm_vncproxy['password'])) {
-			throw new Exception('Failed to prepare noVNC. Proxmox did not return a complete VNC proxy session.');
-		}
-
-		// The API ticket authorizes the WebSocket; the generated password
-		// authenticates noVNC to the VNC stream.
-		$pveticket = $proxmox->getTicket();
-		$vncticket = $vm_vncproxy['ticket'];
-		$vncstream_password = $vm_vncproxy['password'];
-		// $path should only contain the actual path without any query parameters
-		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
-
-		// The browser never talks to Proxmox directly. It opens a WebSocket
-		// to this WHMCS domain, which the web server reverse-proxies to the
-		// console relay (modules/servers/pvewhmcs/console-relay/). The relay
-		// is the only party that ever sees PVEAuthCookie or the real Proxmox
-		// host/port, so Proxmox never needs a public IP, a PTR record, or to
-		// share a registrable domain with WHMCS.
-		$token = pvewhmcs_build_console_token(array(
-			'host' => $serverip,
-			'port' => (int) $serverport,
-			'path' => $path,
-			'cookie' => $pveticket,
-			'verify' => pvewhmcs_verify_tls($params),
-		));
-
-		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
-		list($relay_host, $relay_port) = pvewhmcs_relay_public_endpoint($CONFIG['SystemURL']);
-		$relay_path = PVEWHMCS_CONSOLE_RELAY_PATH . '/' . $token;
-
-		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc/vnc.html'
-			. '?host=' . urlencode($relay_host)
-			. '&port=' . urlencode((string) $relay_port)
-			. '&path=' . urlencode($relay_path)
-			. '&password=' . urlencode($vncstream_password)
-			. '&encrypt=true&autoconnect=true';
-
-		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" target="_blank" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
-		return $vncreply;
-	} else {
-		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
-		return $vncreply;
+	$proxmox = new PVE2_API($serverip, 'vnc', 'pve', $vncpassword, $serverport, pvewhmcs_verify_tls($params));
+	if (!$proxmox->login()) {
+		throw new Exception('Failed to prepare noVNC. Please contact Technical Support.');
 	}
+
+	$vm_vncproxy = $proxmox->post(
+		'/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy',
+		array('websocket' => '1', 'generate-password' => '1')
+	);
+	if (empty($vm_vncproxy['ticket']) || empty($vm_vncproxy['port']) || empty($vm_vncproxy['password'])) {
+		throw new Exception('Failed to prepare noVNC. Proxmox did not return a complete VNC proxy session.');
+	}
+
+	$pveticket = $proxmox->getTicket();
+	$vncticket = $vm_vncproxy['ticket'];
+	$vncstream_password = $vm_vncproxy['password'];
+	$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+	$token = pvewhmcs_build_console_token(array(
+		'host' => $serverip,
+		'port' => (int) $serverport,
+		'path' => $path,
+		'cookie' => $pveticket,
+		'verify' => pvewhmcs_verify_tls($params),
+	), 120);
+
+	$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
+	list($relay_host, $relay_port) = pvewhmcs_relay_public_endpoint($CONFIG['SystemURL']);
+	$relay_path = PVEWHMCS_CONSOLE_RELAY_PATH . '/' . $token;
+	pvewhmcs_console_relay_preconnect($relay_host, $relay_port, $relay_path);
+
+	$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc/vnc.html'
+		. '?host=' . urlencode($relay_host)
+		. '&port=' . urlencode((string) $relay_port)
+		. '&path=' . urlencode($relay_path)
+		. '&password=' . urlencode($vncstream_password)
+		. '&encrypt=true&autoconnect=true';
+
+	return array(
+		'url' => $url,
+	);
+}
+
+// VNC: Console access to VM/CT via noVNC
+function pvewhmcs_noVNC($params) {
+	try {
+		$prepared = pvewhmcs_prepare_noVNC($params);
+	} catch (\Throwable $e) {
+		return 'Failed to prepare noVNC. ' . $e->getMessage();
+	}
+
+	$escaped_url = htmlspecialchars($prepared['url'], ENT_QUOTES, 'UTF-8');
+	$script_url = json_encode($prepared['url'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
+	// vncproxy + relay preconnect already ran synchronously above; this
+	// just redirects the current page to the real noVNC URL.
+	return '<style>
+		@keyframes pvewhmcs-novnc-spin { to { transform: rotate(360deg); } }
+		.pvewhmcs-novnc-loading { text-align: center; padding: 32px; }
+		.pvewhmcs-novnc-spinner { display: inline-block; width: 28px; height: 28px; border: 4px solid #ddd; border-top-color: #337ab7; border-radius: 50%; animation: pvewhmcs-novnc-spin .8s linear infinite; vertical-align: middle; margin-right: 10px; }
+		.pvewhmcs-novnc-loading a { color: #337ab7; font-weight: bold; }
+	</style>
+	<div class="pvewhmcs-novnc-loading">
+		<span class="pvewhmcs-novnc-spinner" aria-hidden="true"></span>
+		<strong>Abrindo o console noVNC...</strong>
+		<br><small>Se não abrir automaticamente, <a href="' . $escaped_url . '">clique aqui para abrir o console</a>.</small>
+	</div>
+	<script>
+		window.location.replace(' . $script_url . ');
+	</script>';
 }
 
 // VNC: Console access to VM/CT via SPICE

@@ -176,6 +176,11 @@ The relay only needs network reachability to your PVE hosts, not a public
 IP for them. If you're proxying that reachability yourself (VPN, private
 network, etc.), that's your responsibility to configure & diagnose.
 
+The WHMCS server must also be able to reach the configured relay HTTPS
+endpoint. The module preconnects the relay server-side before returning the
+noVNC URL; this is what makes the console tolerant of slow browsers and slow
+asset loads.
+
 ### Creating the VNC User within Proxmox VE
 
 1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
@@ -190,10 +195,14 @@ network, etc.), that's your responsibility to configure & diagnose.
 
 <img alt="Client Area GUI showing the reply which links off to the VNC Console/Client" src="_images/zConsoleReady.png">
 
-### Important info about Console Access
-
-Once you have it configured, clicking noVNC in Client Area provides a direct
-link — click it:
+When noVNC is clicked in the Client Area, the module creates the Proxmox VNC
+proxy and preconnects the relay entirely server-side, in that same request,
+before the current page redirects to noVNC. This avoids letting the
+short-lived Proxmox VNC proxy ticket expire while a slow browser or noVNC
+asset load is still starting. The console opens by navigating the current
+tab/page, not a separate window — WHMCS renders this button as a plain
+`<form>` submitted through its own AJAX handler, not a menu item, so there
+is no reliable, browser-portable way to force it into a new tab.
 
 <img alt="Client Area is ready for you to click into noVNC terminal console" src="_images/zVNCprepared.png">
 
