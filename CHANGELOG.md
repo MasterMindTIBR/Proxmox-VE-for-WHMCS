@@ -15,6 +15,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Admin GUI: Guests tab shows which VMs/CTs are linked to a WHMCS service vs. unlinked (orphaned/manually created), with a "Customers Only / Show All" toggle defaulting to customers-only.
 - Admin GUI: Nodes tab shows per-node QEMU/LXC counts as `customer-linked (total)`, alongside the existing CPU/RAM stats.
 - Admin GUI: Plans, IPv4, Actions, Support, and Config tabs are now real navigable URLs (`&tab=...`) like Nodes/Guests/Logs already were, instead of client-side-only Bootstrap tab switches sharing one URL.
+- Client Area: Service info page, action buttons, and noVNC launcher now match the client's own WHMCS language automatically (English + Brazilian Portuguese included; add more via `modules/servers/pvewhmcs/lang/`).
 - noVNC: The Console Relay moved to its own repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
 
 ### 🐛 Bug Fix

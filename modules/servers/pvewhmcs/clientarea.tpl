@@ -295,7 +295,7 @@
 			<div class="pve-status-badge">
 				<img src="./modules/servers/pvewhmcs/img/{$vm_status['status']}.png" alt="{$vm_status['status']}"/>
 				<span class="status-text">{$vm_status['status']}</span>
-				<span class="uptime-text">Up {$vm_status['uptime']}</span>
+				<span class="uptime-text">{$lang['uptime_prefix']} {$vm_status['uptime']}</span>
 			</div>
 			
 			{* Resource Gauges *}
@@ -339,18 +339,18 @@
 	{* Specifications Table *}
 	<table class="pve-specs-table">
 		<tr>
-			<td><span class="spec-label">Memory</span> <span class="spec-sublabel">(RAM)</span></td>
+			<td><span class="spec-label">{$lang['memory']}</span> <span class="spec-sublabel">{$lang['memory_sub']}</span></td>
 			<td><span class="spec-value">{$vm_config['memory']}MB</span></td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">Compute</span> <span class="spec-sublabel">(CPU)</span></td>
+			<td><span class="spec-label">{$lang['compute']}</span> <span class="spec-sublabel">{$lang['compute_sub']}</span></td>
 			<td>
-				<span class="spec-value">{$vm_config['cores']} core(s)</span>
-				<div class="spec-detail">on {$vm_config['sockets']} socket(s)</div>
+				<span class="spec-value">{$vm_config['cores']} {$lang['cores_suffix']}</span>
+				<div class="spec-detail">{$lang['sockets_on']} {$vm_config['sockets']} {$lang['sockets_suffix']}</div>
 			</td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">Storage</span> <span class="spec-sublabel">(SSD/HDD)</span></td>
+			<td><span class="spec-label">{$lang['storage']}</span> <span class="spec-sublabel">{$lang['storage_sub']}</span></td>
 			<td>
 				{if $vm_config['rootfs']}
 					{assign var="rootfs_parts" value=","|explode:$vm_config['rootfs']}
@@ -379,21 +379,21 @@
 			</td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">IPv4</span> <span class="spec-sublabel">(Networking)</span></td>
+			<td><span class="spec-label">{$lang['ipv4']}</span> <span class="spec-sublabel">{$lang['ipv4_sub']}</span></td>
 			<td>
 				<span class="spec-value">{$vm_config['ipv4']}</span>
-				<div class="spec-detail">Mask: {$vm_config['netmask4']} &bull; Gateway: {$vm_config['gateway4']}</div>
+				<div class="spec-detail">{$lang['mask_label']}: {$vm_config['netmask4']} &bull; {$lang['gateway_label']}: {$vm_config['gateway4']}</div>
 			</td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">IP Config</span> <span class="spec-sublabel">(IPv4/v6)</span></td>
+			<td><span class="spec-label">{$lang['ip_config']}</span> <span class="spec-sublabel">{$lang['ip_config_sub']}</span></td>
 			<td>
-				{if $vm_config['ipconfig0']}<div class="spec-detail"><strong>NIC #0:</strong> {($vm_config['ipconfig0']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
-				{if $vm_config['ipconfig1']}<div class="spec-detail"><strong>NIC #1:</strong> {($vm_config['ipconfig1']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
+				{if $vm_config['ipconfig0']}<div class="spec-detail"><strong>{$lang['nic0']}:</strong> {($vm_config['ipconfig0']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
+				{if $vm_config['ipconfig1']}<div class="spec-detail"><strong>{$lang['nic1']}:</strong> {($vm_config['ipconfig1']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
 			</td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">NIC #0</span> <span class="spec-sublabel">(Primary)</span></td>
+			<td><span class="spec-label">{$lang['nic0']}</span> <span class="spec-sublabel">{$lang['nic0_sub']}</span></td>
 			<td>
 				{assign var="net0_parts" value=","|explode:$vm_config['net0']}
 				{foreach from=$net0_parts item=part name=netloop}
@@ -410,7 +410,7 @@
 		</tr>
 		{if $vm_config['net1']}
 		<tr>
-			<td><span class="spec-label">NIC #1</span> <span class="spec-sublabel">(Secondary)</span></td>
+			<td><span class="spec-label">{$lang['nic1']}</span> <span class="spec-sublabel">{$lang['nic1_sub']}</span></td>
 			<td>
 				{assign var="net1_parts" value=","|explode:$vm_config['net1']}
 				{foreach from=$net1_parts item=part name=netloop}
@@ -428,12 +428,12 @@
 		{/if}
 		{if $vm_config['sshkeys']}
 		<tr>
-			<td><span class="spec-label">SSH Keys</span> <span class="spec-sublabel">(Public)</span></td>
+			<td><span class="spec-label">{$lang['ssh_keys']}</span> <span class="spec-sublabel">{$lang['ssh_keys_sub']}</span></td>
 			<td><div class="spec-detail" style="word-break:break-all;">{$vm_config['sshkeys']}</div></td>
 		</tr>
 		{/if}
 		<tr>
-			<td><span class="spec-label">Kernel</span> <span class="spec-sublabel">(OS)</span></td>
+			<td><span class="spec-label">{$lang['kernel']}</span> <span class="spec-sublabel">{$lang['kernel_sub']}</span></td>
 			<td><span class="spec-value">{$vm_config['ostype']}</span></td>
 		</tr>
 	</table>
@@ -441,53 +441,53 @@
 	{* Statistics Section *}
 	{if ($smarty.get.a eq 'vmStat')}
 	<div class="pve-stats-section">
-		<h4><i class="fa fa-line-chart"></i> Guest Statistics</h4>
+		<h4><i class="fa fa-line-chart"></i> {$lang['guest_statistics']}</h4>
 		
 		{if $vm_statistics['cpu']['day']}
 		<ul class="pve-stats-tabs" role="tablist">
-			<li class="active"><a data-toggle="tab" role="tab" href="#dailystat">Daily</a></li>
-			<li><a data-toggle="tab" role="tab" href="#weeklystat">Weekly</a></li>
-			<li><a data-toggle="tab" role="tab" href="#monthlystat">Monthly</a></li>
-			<li><a data-toggle="tab" role="tab" href="#yearlystat">Yearly</a></li>
+			<li class="active"><a data-toggle="tab" role="tab" href="#dailystat">{$lang['daily']}</a></li>
+			<li><a data-toggle="tab" role="tab" href="#weeklystat">{$lang['weekly']}</a></li>
+			<li><a data-toggle="tab" role="tab" href="#monthlystat">{$lang['monthly']}</a></li>
+			<li><a data-toggle="tab" role="tab" href="#yearlystat">{$lang['yearly']}</a></li>
 		</ul>
 		<div class="pve-stats-content tab-content">
 			<div id="dailystat" class="tab-pane active">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['day']}" alt="CPU (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['day']}" alt="Memory (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['day']}" alt="Network I/O (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['day']}" alt="Disk I/O (Daily)"/>
+					<img src="data:image/png;base64,{$vm_statistics['cpu']['day']}" alt="CPU ({$lang['daily']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['mem']['day']}" alt="{$lang['memory']} ({$lang['daily']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['netinout']['day']}" alt="{$lang['net_io']} ({$lang['daily']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['diskrw']['day']}" alt="{$lang['disk_io']} ({$lang['daily']})"/>
 				</div>
 			</div>
 			<div id="weeklystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['week']}" alt="CPU (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['week']}" alt="Memory (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['week']}" alt="Network I/O (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['week']}" alt="Disk I/O (Weekly)"/>
+					<img src="data:image/png;base64,{$vm_statistics['cpu']['week']}" alt="CPU ({$lang['weekly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['mem']['week']}" alt="{$lang['memory']} ({$lang['weekly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['netinout']['week']}" alt="{$lang['net_io']} ({$lang['weekly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['diskrw']['week']}" alt="{$lang['disk_io']} ({$lang['weekly']})"/>
 				</div>
 			</div>
 			<div id="monthlystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['month']}" alt="CPU (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['month']}" alt="Memory (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['month']}" alt="Network I/O (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['month']}" alt="Disk I/O (Monthly)"/>
+					<img src="data:image/png;base64,{$vm_statistics['cpu']['month']}" alt="CPU ({$lang['monthly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['mem']['month']}" alt="{$lang['memory']} ({$lang['monthly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['netinout']['month']}" alt="{$lang['net_io']} ({$lang['monthly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['diskrw']['month']}" alt="{$lang['disk_io']} ({$lang['monthly']})"/>
 				</div>
 			</div>
 			<div id="yearlystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['year']}" alt="CPU (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['year']}" alt="Memory (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['year']}" alt="Network I/O (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['year']}" alt="Disk I/O (Yearly)"/>
+					<img src="data:image/png;base64,{$vm_statistics['cpu']['year']}" alt="CPU ({$lang['yearly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['mem']['year']}" alt="{$lang['memory']} ({$lang['yearly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['netinout']['year']}" alt="{$lang['net_io']} ({$lang['yearly']})"/>
+					<img src="data:image/png;base64,{$vm_statistics['diskrw']['year']}" alt="{$lang['disk_io']} ({$lang['yearly']})"/>
 				</div>
 			</div>
 		</div>
 		{else}
 		<div class="pve-alert-warning">
 			<i class="fa fa-exclamation-triangle"></i>
-			Stats Error: RRD Unavailable. Ask Support to upgrade/migrate RRD Data using: <code>proxmox-rrd-migration-tool</code>
+			{$lang['stats_error']} <code>proxmox-rrd-migration-tool</code>
 		</div>
 		{/if}
 	</div>

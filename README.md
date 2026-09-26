@@ -138,6 +138,16 @@ WHMCS does not expose a provisioning-module callback for custom fields in its na
 
 <img alt="WHMCS Admin > Configuration > Servers interface, showing link button to Proxmox GUI, labelled with the PVE hostname" src="_images/zServerListLink.png">
 
+### Client Area language
+
+The Client Area service info page, buttons, and noVNC launcher automatically
+match the client's own WHMCS language (falling back to English for any
+language this module hasn't been translated into yet) — no configuration
+needed. Translations live in `modules/servers/pvewhmcs/lang/`; add a new
+`<language>.php` file there (matching WHMCS's own language system names,
+e.g. `portuguese-br`) to add another language. `english.php` is the
+reference for every key.
+
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
 The browser never talks to Proxmox directly. It opens a WebSocket to the WHMCS
