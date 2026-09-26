@@ -12,6 +12,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - noVNC: Route console WebSockets through a new self-hosted relay instead of the browser connecting to Proxmox directly, removing the public-IP, PTR, and same-registrable-domain requirements.
 - noVNC: Console Relay Host/Port config lets the relay run on its own subdomain instead of sharing the WHMCS domain.
 - Addon: Select multiple free IPv4 addresses in a pool's edit view and remove them in one action.
+- Admin GUI: Guests tab shows which VMs/CTs are linked to a WHMCS service vs. unlinked (orphaned/manually created), with a "Customers Only / Show All" toggle defaulting to customers-only.
+- Admin GUI: Nodes tab shows per-node QEMU/LXC counts as `customer-linked (total)`, alongside the existing CPU/RAM stats.
+- Admin GUI: Plans, IPv4, Actions, Support, and Config tabs are now real navigable URLs (`&tab=...`) like Nodes/Guests/Logs already were, instead of client-side-only Bootstrap tab switches sharing one URL.
 - noVNC: The Console Relay moved to its own repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
 
 ### 🐛 Bug Fix
@@ -28,6 +31,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Provisioning: Fix `Illegal mix of collations` on IPv4 reservation when `tblhosting.dedicatedip` and `mod_pvewhmcs_ip_addresses.ipaddress` use different collations (common on installs with a legacy WHMCS charset/collation).
 - Admin GUI: Only fetch live Proxmox data for the Nodes, Guests, and Logs tabs when actually viewing them, instead of on every single admin page load; add cURL timeouts to every Proxmox API call so an unreachable/slow host can no longer hang a page indefinitely.
 - Addon: The "New IPv4 Pool" button is now always visible on the IPv4 tab instead of only after clicking "List".
+- Addon: Config tab no longer exposes the VNC Secret and Console Relay Secret in plain text; they render blank/masked, and saving with them left blank keeps the stored value instead of overwriting it with an empty string.
+- Client Area: Removed the "Config (Tweaks) / On-boot?" and "Boot Order" rows from the service info tab — internal Proxmox boot-device details the customer doesn't need and shouldn't have to see.
 
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 

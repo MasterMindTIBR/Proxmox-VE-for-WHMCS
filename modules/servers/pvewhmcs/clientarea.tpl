@@ -379,10 +379,6 @@
 			</td>
 		</tr>
 		<tr>
-			<td><span class="spec-label">Boot Order</span></td>
-			<td><span class="spec-value">{($vm_config['boot']|replace:'order=':''|replace:';':' → ')}</span></td>
-		</tr>
-		<tr>
 			<td><span class="spec-label">IPv4</span> <span class="spec-sublabel">(Networking)</span></td>
 			<td>
 				<span class="spec-value">{$vm_config['ipv4']}</span>
@@ -430,10 +426,6 @@
 			</td>
 		</tr>
 		{/if}
-		<tr>
-			<td><span class="spec-label">Config</span> <span class="spec-sublabel">(Tweaks)</span></td>
-			<td><span class="spec-detail"><strong>On-boot?</strong> {if $vm_config['onboot']}Yes!{else}No (Contact Support){/if}</span></td>
-		</tr>
 		{if $vm_config['sshkeys']}
 		<tr>
 			<td><span class="spec-label">SSH Keys</span> <span class="spec-sublabel">(Public)</span></td>
