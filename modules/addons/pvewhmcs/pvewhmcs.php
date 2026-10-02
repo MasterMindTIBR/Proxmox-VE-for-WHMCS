@@ -337,6 +337,12 @@ SQL
 				$table->integer('console_relay_port')->unsigned()->nullable()->default(null)->after('console_relay_host');
 			});
 		}
+
+		if (!Capsule::schema()->hasColumn('mod_pvewhmcs', 'name_pattern')) {
+			Capsule::schema()->table('mod_pvewhmcs', function ($table) {
+				$table->string('name_pattern', 255)->nullable()->default(null)->after('console_relay_port');
+			});
+		}
 	}
 }
 
@@ -1149,6 +1155,15 @@ function pvewhmcs_output($vars) {
 		</td>
 	</tr>
 	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">VM Name Pattern (Global Default)</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:400px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="name_pattern" id="name_pattern" placeholder="e.g. vm{vmid}-{clientname}-{hostname}" value="' . htmlspecialchars((string) $config->name_pattern, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Used for any product whose own "VM Name Pattern" (per-product config) is left blank. Leave both blank to keep the legacy <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">&lt;order/service id&gt;-&lt;hostname&gt;</code> name. Tokens: <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">{vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}</code></p>
+		</td>
+	</tr>
+	<tr>
 		<td style="padding:15px 0;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">Debug Mode</label>
 		</td>
@@ -1438,6 +1453,7 @@ function save_config() {
 					'debug_mode' => $_POST['debug_mode'] ?? 0,
 					'console_relay_host' => trim((string) ($_POST['console_relay_host'] ?? '')) ?: null,
 					'console_relay_port' => ($_POST['console_relay_port'] ?? '') !== '' ? (int) $_POST['console_relay_port'] : null,
+					'name_pattern' => trim((string) ($_POST['name_pattern'] ?? '')) ?: null,
 				];
 
 				// Secrets are masked (blank) in the form; only overwrite the
