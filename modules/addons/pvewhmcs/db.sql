@@ -133,5 +133,6 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `gateway` varchar(255) NOT NULL,
   `created` datetime DEFAULT NULL,
   `v6prefix` varchar(128) DEFAULT NULL,
+  `ha_suspended` tinyint(1) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`)
 );

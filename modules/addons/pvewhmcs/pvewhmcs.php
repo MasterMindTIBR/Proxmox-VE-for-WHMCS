@@ -343,6 +343,15 @@ SQL
 				$table->string('name_pattern', 255)->nullable()->default(null)->after('console_relay_port');
 			});
 		}
+
+		// Tracks whether SuspendAccount itself flipped a pre-existing HA
+		// resource from 'started' to 'stopped', so UnsuspendAccount only
+		// restores HA state the module actually changed.
+		if (!Capsule::schema()->hasColumn('mod_pvewhmcs_vms', 'ha_suspended')) {
+			Capsule::schema()->table('mod_pvewhmcs_vms', function ($table) {
+				$table->boolean('ha_suspended')->default(0)->after('v6prefix');
+			});
+		}
 	}
 }
 
