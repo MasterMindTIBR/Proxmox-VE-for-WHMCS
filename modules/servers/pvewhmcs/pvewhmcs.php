@@ -144,6 +144,65 @@ function pvewhmcs_guest_vmid($service_id) {
 }
 
 /**
+ * Replaces the module-managed lifecycle tag while preserving unrelated tags.
+ * Proxmox stores guest tags as a semicolon-separated string.
+ */
+function pvewhmcs_lifecycle_tags($existingTags, $lifecycleTag) {
+	$managedTags = array('CANCELADO' => true, 'SUSPENSO' => true);
+	$tags = array();
+
+	foreach (explode(';', (string) $existingTags) as $tag) {
+		$tag = trim($tag);
+		if ($tag === '' || isset($managedTags[strtoupper($tag)])) {
+			continue;
+		}
+		$tags[$tag] = true;
+	}
+
+	if ($lifecycleTag !== null) {
+		$tags[$lifecycleTag] = true;
+	}
+
+	return implode(';', array_keys($tags));
+}
+
+function pvewhmcs_guest_api_path($node, $guest) {
+	if (!in_array($guest->vtype, array('qemu', 'lxc'), true)) {
+		throw new InvalidArgumentException("Unsupported Proxmox guest type {$guest->vtype}.");
+	}
+
+	return '/nodes/' . $node . '/' . $guest->vtype . '/' . $guest->vmid;
+}
+
+function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lifecycleTag) {
+	$guestPath = pvewhmcs_guest_api_path($node, $guest);
+	$config = $proxmox->get($guestPath . '/config');
+	$tags = pvewhmcs_lifecycle_tags($config['tags'] ?? '', $lifecycleTag);
+
+	return $proxmox->post(
+		$guestPath . '/config',
+		$tags === '' ? array('delete' => 'tags') : array('tags' => $tags)
+	);
+}
+
+function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
+	$haType = $guest->vtype === 'qemu' ? 'vm' : ($guest->vtype === 'lxc' ? 'ct' : null);
+	if ($haType === null) {
+		throw new InvalidArgumentException("Unsupported Proxmox guest type {$guest->vtype}.");
+	}
+
+	$sid = $haType . ':' . $guest->vmid;
+	$resources = $proxmox->get('/cluster/ha/resources');
+	foreach ((array) $resources as $resource) {
+		if (($resource['sid'] ?? '') === $sid) {
+			return $proxmox->put('/cluster/ha/resources/' . $sid, array('state' => 'disabled'));
+		}
+	}
+
+	return $proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'disabled'));
+}
+
+/**
  * Build a Proxmox guest name/hostname. Resolution order:
  *   1. Per-product pattern (`$params['configoption3']`, field "VM Name Pattern").
  *   2. Global default pattern (`mod_pvewhmcs.name_pattern`, addon Config tab), when (1) is blank.
@@ -1019,38 +1078,30 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// Log and fire request
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	if (!$proxmox->login()) {
+		return "Error suspending account. Couldn't login to PVE.";
 	}
 
-	// DEBUG - Log the request parameters before it's fired
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	if (empty($guest_node)) {
+		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+	}
+
+	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$response = array(
+		'stop' => $proxmox->post($guestPath . '/status/stop', array()),
+		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'SUSPENSO'),
+	);
+
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
+		logModuleCall('pvewhmcs', __FUNCTION__, $guestPath, json_encode($response));
 	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+
+	return "success";
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
@@ -1061,49 +1112,35 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// Log and fire request
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	if (!$proxmox->login()) {
+		return "Error unsuspending account. Couldn't login to PVE.";
 	}
 
-	// DEBUG - Log the request parameters before it's fired
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	if (empty($guest_node)) {
+		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+	}
+
+	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$response = array(
+		'start' => $proxmox->post($guestPath . '/status/start', array()),
+		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, null),
+	);
+
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
+		logModuleCall('pvewhmcs', __FUNCTION__, $guestPath, json_encode($response));
 	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+
+	return "success";
 }
 
-// PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
-// Sequence:
-//   1. Connect to PVE and look up the guest record in mod_pvewhmcs_vms.
-//   2. Locate which cluster node the VMID currently lives on.
-//      - If not found on the cluster, the VM was already removed manually:
-//        clean up the DB row and return success.
-//   3. Guard against VMID reuse (Issue #194): if another WHMCS service now
-//      holds the same VMID in mod_pvewhmcs_vms, Proxmox recycled it after a
-//      manual termination left the original row orphaned. Clean up the stale
-//      row and abort — the live VM must not be touched.
-//   4. All checks passed: stop the guest (if running), delete it from PVE,
-//      then remove the DB row.
+// PVE API FUNCTION, ADMIN: Cancel a Service on the hypervisor.
+// The guest is retained for recovery: stop it, mark it CANCELADO, and make
+// its HA resource disabled. The service-to-VM mapping is retained as well.
 function pvewhmcs_TerminateAccount_impl(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverusername = $params["serverusername"];
@@ -1111,55 +1148,39 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if ($proxmox->login()){
-
-		// STEP 1: Look up the guest record for this WHMCS Service ID.
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-
-		// STEP 2: Locate the cluster node the VMID lives on.
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			// VM is no longer present on the cluster — already removed manually.
-			// Clean up the orphaned DB row so the VMID cannot match a future reused guest.
-			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-			return "success";
-		}
-
-		// STEP 3: Guard against VMID reuse (Issue #194).
-		// If mod_pvewhmcs_vms contains another row for this VMID, Proxmox recycled it
-		// for a new service after the original was manually terminated without going
-		// through this function. The VM on PVE now belongs to the new service — abort.
-		$vmid_owner = Capsule::table('mod_pvewhmcs_vms')
-			->where('vmid', '=', $guest->vmid)
-			->where('id', '!=', $params['serviceid'])
-			->first();
-		if ($vmid_owner !== null) {
-			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-			return "Error: VMID {$guest->vmid} is now assigned to Service #{$vmid_owner->id}. Stale record for Service #{$params['serviceid']} cleaned up. VM was NOT deleted.";
-		}
-
-		// STEP 4: Ownership confirmed. Stop the guest (if running) then delete it.
-		$pve_cmdparam = array();
-		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
-		if ($guest_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
-			sleep(30);
-		}
-		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid, array('skiplock' => 1));
-		if ($delete_response) {
-			// Delete the DB row now that the guest has been removed from PVE.
-			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-			return "success";
-		} else {
-			$response_message = isset($delete_response['errors']) ? json_encode($delete_response['errors']) : "Unknown Error, consider using Debug Mode.";
-			return "Error terminating account: {$response_message}";
-		}
-	} else {
-		return "Error terminating account. Couldn't login to PVE.";
+	if (!$proxmox->login()) {
+		return "Error cancelling account. Couldn't login to PVE.";
 	}
+
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	if (empty($guest_node)) {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+		return "success";
+	}
+
+	$vmid_owner = Capsule::table('mod_pvewhmcs_vms')
+		->where('vmid', '=', $guest->vmid)
+		->where('id', '!=', $params['serviceid'])
+		->first();
+	if ($vmid_owner !== null) {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+		return "Error: VMID {$guest->vmid} is now assigned to Service #{$vmid_owner->id}. Stale record for Service #{$params['serviceid']} cleaned up. VM was NOT changed.";
+	}
+
+	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$status = $proxmox->get($guestPath . '/status/current');
+	if (($status['status'] ?? null) !== 'stopped') {
+		$proxmox->post($guestPath . '/status/stop', array());
+	}
+	pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'CANCELADO');
+	pvewhmcs_disable_guest_ha($proxmox, $guest);
+
+	return "success";
 }
 
 // GENERAL CLASS: WHMCS Decrypter

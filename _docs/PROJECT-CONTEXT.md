@@ -39,6 +39,14 @@ O módulo usa `Illuminate\Database\Capsule\Manager` para acesso ao banco. O serv
 
 Suspend, unsuspend, terminate, VNC e área do cliente usam `mod_pvewhmcs_vms` para localizar VMID e tipo. `pvewhmcs_find_guest_node()` consulta `/cluster/resources`, portanto a associação WHMCS→VMID precisa permanecer consistente.
 
+### HA, armazenamento compartilhado e migração
+
+O módulo não mantém afinidade de node no banco: antes de cada ação relevante consulta `/cluster/resources`, encontra o node que hospeda o VMID e chama a API daquele node. Live migration e recuperação HA alteram o node de execução, mas não quebram esse fluxo enquanto o cluster tiver quorum e a conta da API puder ler recursos.
+
+O módulo não escolhe destino de migração, não configura grupos/regras HA, não faz storage migration e não aciona rebalancing. Em Ceph RBD, os discos são compartilhados e a live migration move principalmente estado de execução; em storage local o Proxmox precisa mover/copiar os discos. Rebalance/backfill do Ceph não é provocado por live migration, mas ambos disputam rede, CPU e I/O. Não planejar migração de manutenção durante `HEALTH_WARN`, recovery ou backfill.
+
+`TerminateAccount` é o fluxo de cancelamento e preserva o guest para recuperação: para o guest se necessário, substitui a tag de ciclo de vida por `CANCELADO` e cria/atualiza o recurso HA `vm:<vmid>`/`ct:<vmid>` com estado `disabled`; não apaga VM/CT nem seu vínculo. `SuspendAccount` para o guest e aplica `SUSPENSO`; `UnsuspendAccount` inicia o guest e remove a tag. Cores não vão pela API do guest: o administrador configura em **Datacenter → Options → Tag Style** o `color-map` `CANCELADO:#dc2626:#ffffff;SUSPENSO:#7e22ce:#ffffff`, preservando os mapeamentos existentes.
+
 ### Conexão com Proxmox
 
 `pvewhmcs_connection_host()` prefere `serverhostname` e usa `serverip` apenas como fallback. Use o hostname DNS que aparece no SAN do certificado quando **Secure** estiver habilitado; ele pode resolver para um endereço privado.
