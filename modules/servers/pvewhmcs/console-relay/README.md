@@ -1,7 +1,7 @@
 # Console Relay (noVNC)
 
 The Console Relay's source and deployment instructions live in their own
-repository: **[junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay)**.
+repository: **[MasterMindTIBR/pvewhmcs-console-relay](https://github.com/MasterMindTIBR/pvewhmcs-console-relay)**.
 
 It bridges a browser's noVNC WebSocket to Proxmox's `vncwebsocket` API
 endpoint, so Proxmox never needs a public IP, a PTR record, or to share a

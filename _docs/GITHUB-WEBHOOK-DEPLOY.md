@@ -1,6 +1,6 @@
 # Deploy do módulo por webhook GitHub
 
-O receiver `modules/addons/pvewhmcs/github-webhook.php` recebe somente eventos `push` assinados do repositório `junglivre/Proxmox-VE-for-WHMCS`, branch `master`.
+O receiver `modules/addons/pvewhmcs/github-webhook.php` recebe somente eventos `push` assinados do repositório `MasterMindTIBR/Proxmox-VE-for-WHMCS`, branch `master`.
 
 Ele baixa o ZIP do commit recebido, extrai e sincroniza somente:
 
