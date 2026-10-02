@@ -19,6 +19,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - noVNC: The Console Relay moved to its own repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
 - Provisioning: "VM Name Pattern" config lets admins template the Proxmox guest name/hostname with tokens (`{vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}`) instead of the fixed `<order/service id>-<hostname>` layout. Settable per-product (Plan/Pool tab) and as a global default (addon Config tab); per-product wins when both are set, and leaving both blank keeps the legacy name.
 - Provisioning: Cancelled services now retain the guest for recovery, stop it, tag it `CANCELADO`, and disable its HA resource; suspension changes HA-managed guests to `stopped` so HA cannot restart them, then applies `SUSPENSO`, cleared on unsuspend.
+- Provisioning: Cancelled and suspended services now disable Proxmox start-at-boot. Unsuspension restores HA service state but leaves start-at-boot disabled until an administrator enables it.
 
 ### 🐛 Bug Fix
 - Addon: Respect the configured Proxmox port and decode HTML entities in decrypted server passwords.
