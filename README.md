@@ -126,6 +126,16 @@ WHMCS does not expose a provisioning-module callback for custom fields in its na
 
 **Addons > Proxmox VE for WHMCS > Actions** lists every `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` call the module has run, newest first, with the linked WHMCS service, Proxmox VMID, and result. **Failed Actions** filters that same list to the calls that returned or threw an error, so you can triage without scrolling past every success. Existing installs pick this up automatically the next time WHMCS runs the module's upgrade routine.
 
+### HA, shared storage, and lifecycle
+
+The module resolves the current node from `/cluster/resources` immediately before lifecycle, power, and console actions. It therefore follows a VM/CT after a Proxmox live migration or HA recovery; it does not use the node selected at provisioning as a permanent location. It does not itself choose migration targets, configure HA groups/rules, or run storage migration/rebalancing.
+
+For Ceph RBD and other real shared storage, live migration changes the compute node while disks remain available through the shared backend. With node-local disks, Proxmox must copy or move storage as part of migration; marking local storage as shared is unsafe. Ceph recovery/backfill/rebalancing is separate from VM migration but competes for CPU, disk, and network capacity, so defer planned migrations until `ceph -s` is healthy.
+
+Cancelling a WHMCS service keeps its VM/CT and `mod_pvewhmcs_vms` link for recovery: the module stops the guest, replaces any lifecycle tag with `CANCELADO`, and sets the corresponding HA resource (`vm:<vmid>` or `ct:<vmid>`) to `disabled`. It never deletes the guest as part of this callback. Suspending a service stops the guest and applies `SUSPENSO`; unsuspending starts it and removes that lifecycle tag.
+
+Tag color is a Proxmox datacenter-wide display setting, not a per-guest API property. In **Datacenter → Options → Tag Style**, retain existing settings and add `CANCELADO:#dc2626:#ffffff` and `SUSPENSO:#7e22ce:#ffffff` to the `color-map`. The module API account needs permission to update guest configuration and HA resources; if these tags are registered, it also needs the required `Sys.Modify` privilege.
+
 #### Admin GUI: QEMU Plan :: Creation interface
 
 <img alt="Plan Creation GUI for adding a new QEMU VM Plan" src="_images/zQEMUplanAdd.png">
