@@ -174,6 +174,14 @@ function pvewhmcs_guest_api_path($node, $guest) {
 	return '/nodes/' . $node . '/' . $guest->vtype . '/' . $guest->vmid;
 }
 
+/**
+ * Prevents a guest from starting automatically when its Proxmox node boots.
+ */
+function pvewhmcs_disable_guest_start_at_boot(PVE2_API $proxmox, $node, $guest) {
+	return $proxmox->post(pvewhmcs_guest_api_path($node, $guest) . '/config', array('onboot' => 0));
+}
+
+
 function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lifecycleTag, $config = null) {
 	$guestPath = pvewhmcs_guest_api_path($node, $guest);
 	$config = $config ?? $proxmox->get($guestPath . '/config');
@@ -1117,6 +1125,7 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	$haStopped = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'started', 'stopped');
 	$response = array(
 		'ha' => $haStopped ? 'stopped' : 'unchanged',
+		'onboot' => pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest),
 		'stop' => $proxmox->post($guestPath . '/status/stop', array()),
 		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'SUSPENSO'),
 	);
@@ -1202,6 +1211,7 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	if (($status['status'] ?? null) !== 'stopped') {
 		$proxmox->post($guestPath . '/status/stop', array());
 	}
+	pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest);
 	pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'CANCELADO');
 	pvewhmcs_disable_guest_ha($proxmox, $guest);
 
