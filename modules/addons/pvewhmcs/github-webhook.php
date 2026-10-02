@@ -9,7 +9,7 @@
 
 declare(strict_types=1);
 
-const PVEWHMCS_WEBHOOK_REPOSITORY = 'junglivre/Proxmox-VE-for-WHMCS';
+const PVEWHMCS_WEBHOOK_REPOSITORY = 'MasterMindTIBR/Proxmox-VE-for-WHMCS';
 const PVEWHMCS_WEBHOOK_BRANCH = 'master';
 const PVEWHMCS_WEBHOOK_MAX_PAYLOAD_BYTES = 1048576;
 const PVEWHMCS_WEBHOOK_PRESERVED_FILES = array(

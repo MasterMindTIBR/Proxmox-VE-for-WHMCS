@@ -11,7 +11,7 @@ Edite os dois módulos quando a mudança atravessar a integração:
 
 O diretório `modules/servers/pvewhmcs/novnc/` é uma cópia vendorizada do noVNC. Não altere-o para corrigir código do módulo. Atualize-o somente como dependência vendorizada, com origem e versão explícitas.
 
-O Console Relay (noVNC) não vive mais neste repositório: fonte e deploy estão em [`junglivre/pvewhmcs-console-relay`](https://github.com/junglivre/pvewhmcs-console-relay) (`git@github.com:junglivre/pvewhmcs-console-relay.git`). `modules/servers/pvewhmcs/console-relay/README.md` aqui é só um ponteiro. Mudanças no protocolo do token (`pvewhmcs_build_console_token()`/`proxmox.php`) precisam de um commit correspondente naquele repo — releia o README dele antes de mexer no contrato do token.
+O Console Relay (noVNC) não vive mais neste repositório: fonte e deploy estão em [`MasterMindTIBR/pvewhmcs-console-relay`](https://github.com/MasterMindTIBR/pvewhmcs-console-relay) (`git@github.com:MasterMindTIBR/pvewhmcs-console-relay.git`). `modules/servers/pvewhmcs/console-relay/README.md` aqui é só um ponteiro. Mudanças no protocolo do token (`pvewhmcs_build_console_token()`/`proxmox.php`) precisam de um commit correspondente naquele repo — releia o README dele antes de mexer no contrato do token.
 
 ## Arquitetura e dados
 

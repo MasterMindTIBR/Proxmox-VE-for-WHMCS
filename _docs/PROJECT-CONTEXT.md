@@ -4,7 +4,7 @@
 
 O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende, reativa e remove QEMU/LXC; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
 
-O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstream `7ff41ccecde7`. Correções e funcionalidades continuam se acumulando nessa mesma versão até uma decisão explícita de liberar; a branch `master` contém a linha publicada do fork e o remoto `origin` aponta para `junglivre/Proxmox-VE-for-WHMCS`.
+O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstream `7ff41ccecde7`. Correções e funcionalidades continuam se acumulando nessa mesma versão até uma decisão explícita de liberar; a branch `master` contém a linha publicada do fork e o remoto `origin` aponta para `MasterMindTIBR/Proxmox-VE-for-WHMCS`.
 
 ## Mapa de execução
 
@@ -14,11 +14,11 @@ O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstrea
 | Cliente da API Proxmox | `modules/addons/pvewhmcs/proxmox.php` | Login, tickets, requisições HTTP para `/api2/json` e descoberta de nós |
 | Provisioning | `modules/servers/pvewhmcs/pvewhmcs.php` | Callbacks WHMCS, criação, clone, suspend, unsuspend, terminate, área do cliente e console |
 | Schema | `modules/addons/pvewhmcs/db.sql` | Instalações novas |
-| Console web | `modules/servers/pvewhmcs/novnc/` (vendorizado) + repo separado [`junglivre/pvewhmcs-console-relay`](https://github.com/junglivre/pvewhmcs-console-relay) | Cliente noVNC e relay Node.js WS↔WSS até o Proxmox |
+| Console web | `modules/servers/pvewhmcs/novnc/` (vendorizado) + repo separado [`MasterMindTIBR/pvewhmcs-console-relay`](https://github.com/MasterMindTIBR/pvewhmcs-console-relay) | Cliente noVNC e relay Node.js WS↔WSS até o Proxmox |
 
 ## Deploy por webhook
 
-`modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `junglivre/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
+`modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `MasterMindTIBR/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
 
 `github-webhook.local.php` guarda o segredo HMAC e, para repositório privado, um token GitHub com `Contents: Read-only`. O deploy preserva esse arquivo, o receiver e o lock; remove arquivos antigos do módulo que não existam no commit recebido.
 
@@ -49,7 +49,7 @@ Suspend, unsuspend, terminate, VNC e área do cliente usam `mod_pvewhmcs_vms` pa
 
 ### Console (noVNC) sem exposição pública
 
-O browser nunca conversa direto com o Proxmox. `pvewhmcs_noVNC()` assina host, path e o `PVEAuthCookie` do usuário restrito `vnc@pve` num token HMAC de vida curta (`pvewhmcs_build_console_token()`, em `proxmox.php`) e monta o link apontando `vnc.html` pro host resolvido por `pvewhmcs_relay_public_endpoint()`. Esse host é `mod_pvewhmcs.console_relay_host`/`console_relay_port` quando configurado (relay em subdomínio dedicado, roteado inteiramente pelo Plesk) ou o domínio do WHMCS como fallback (relay compartilhando domínio via `proxy_pass` no prefixo `/pve-console-ws/`). Em ambos os casos o relay — código-fonte em [`junglivre/pvewhmcs-console-relay`](https://github.com/junglivre/pvewhmcs-console-relay), repositório separado deste, não uma pasta aqui — decodifica o token, abre a conexão real `wss://` pro Proxmox (apresentando o cookie ele mesmo) e faz o bridge de bytes. Segredo compartilhado: `mod_pvewhmcs.console_relay_secret` (WHMCS) = `config.json.secret` (relay). Isso elimina PTR, mesmo-domínio-registrável e o parsing de TLD de 2 partes que a versão anterior exigia.
+O browser nunca conversa direto com o Proxmox. `pvewhmcs_noVNC()` assina host, path e o `PVEAuthCookie` do usuário restrito `vnc@pve` num token HMAC de vida curta (`pvewhmcs_build_console_token()`, em `proxmox.php`) e monta o link apontando `vnc.html` pro host resolvido por `pvewhmcs_relay_public_endpoint()`. Esse host é `mod_pvewhmcs.console_relay_host`/`console_relay_port` quando configurado (relay em subdomínio dedicado, roteado inteiramente pelo Plesk) ou o domínio do WHMCS como fallback (relay compartilhando domínio via `proxy_pass` no prefixo `/pve-console-ws/`). Em ambos os casos o relay — código-fonte em [`MasterMindTIBR/pvewhmcs-console-relay`](https://github.com/MasterMindTIBR/pvewhmcs-console-relay), repositório separado deste, não uma pasta aqui — decodifica o token, abre a conexão real `wss://` pro Proxmox (apresentando o cookie ele mesmo) e faz o bridge de bytes. Segredo compartilhado: `mod_pvewhmcs.console_relay_secret` (WHMCS) = `config.json.secret` (relay). Isso elimina PTR, mesmo-domínio-registrável e o parsing de TLD de 2 partes que a versão anterior exigia.
 
 ### Rede
 
