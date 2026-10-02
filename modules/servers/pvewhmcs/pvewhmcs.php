@@ -174,9 +174,9 @@ function pvewhmcs_guest_api_path($node, $guest) {
 	return '/nodes/' . $node . '/' . $guest->vtype . '/' . $guest->vmid;
 }
 
-function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lifecycleTag) {
+function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lifecycleTag, $config = null) {
 	$guestPath = pvewhmcs_guest_api_path($node, $guest);
-	$config = $proxmox->get($guestPath . '/config');
+	$config = $config ?? $proxmox->get($guestPath . '/config');
 	$tags = pvewhmcs_lifecycle_tags($config['tags'] ?? '', $lifecycleTag);
 
 	return $proxmox->post(
@@ -185,18 +185,40 @@ function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lif
 	);
 }
 
-function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
+function pvewhmcs_guest_ha_sid($guest) {
 	$haType = $guest->vtype === 'qemu' ? 'vm' : ($guest->vtype === 'lxc' ? 'ct' : null);
 	if ($haType === null) {
 		throw new InvalidArgumentException("Unsupported Proxmox guest type {$guest->vtype}.");
 	}
 
-	$sid = $haType . ':' . $guest->vmid;
-	$resources = $proxmox->get('/cluster/ha/resources');
-	foreach ((array) $resources as $resource) {
+	return $haType . ':' . $guest->vmid;
+}
+
+function pvewhmcs_guest_ha_resource(PVE2_API $proxmox, $guest) {
+	$sid = pvewhmcs_guest_ha_sid($guest);
+	foreach ((array) $proxmox->get('/cluster/ha/resources') as $resource) {
 		if (($resource['sid'] ?? '') === $sid) {
-			return $proxmox->put('/cluster/ha/resources/' . $sid, array('state' => 'disabled'));
+			return $resource;
 		}
+	}
+
+	return null;
+}
+
+function pvewhmcs_set_guest_ha_state_if_managed(PVE2_API $proxmox, $guest, $fromState, $toState) {
+	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
+	if ($resource === null || ($resource['state'] ?? null) !== $fromState) {
+		return false;
+	}
+
+	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => $toState));
+}
+
+function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
+	$sid = pvewhmcs_guest_ha_sid($guest);
+	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
+	if ($resource !== null) {
+		return $proxmox->put('/cluster/ha/resources/' . $sid, array('state' => 'disabled'));
 	}
 
 	return $proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'disabled'));
@@ -1092,7 +1114,9 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$haStopped = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'started', 'stopped');
 	$response = array(
+		'ha' => $haStopped ? 'stopped' : 'unchanged',
 		'stop' => $proxmox->post($guestPath . '/status/stop', array()),
 		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'SUSPENSO'),
 	);
@@ -1126,8 +1150,9 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$haStarted = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'stopped', 'started');
 	$response = array(
-		'start' => $proxmox->post($guestPath . '/status/start', array()),
+		'start' => $haStarted ? 'requested through HA' : $proxmox->post($guestPath . '/status/start', array()),
 		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, null),
 	);
 
