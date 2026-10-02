@@ -222,14 +222,19 @@ function pvewhmcs_set_guest_ha_state_if_managed(PVE2_API $proxmox, $guest, $from
 	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => $toState));
 }
 
+/**
+ * Disables HA only for a guest that was already HA-managed. Never creates a
+ * new HA resource: a guest with no HA resource was never using HA, and
+ * creating one would leave an HA reference behind that blocks VM/CT deletion
+ * for a guest the admin never put under HA in the first place.
+ */
 function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
-	$sid = pvewhmcs_guest_ha_sid($guest);
 	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
-	if ($resource !== null) {
-		return $proxmox->put('/cluster/ha/resources/' . $sid, array('state' => 'disabled'));
+	if ($resource === null) {
+		return null;
 	}
 
-	return $proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'disabled'));
+	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => 'disabled'));
 }
 
 /**
@@ -1122,9 +1127,13 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	$haStopped = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'started', 'stopped');
+	// Only transition HA state for a guest that was already HA-managed (existing
+	// resource with state 'started'). `ha_suspended` records whether the module
+	// itself made that change, so UnsuspendAccount knows whether to act on HA.
+	$haManagedBySuspend = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'started', 'stopped');
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haManagedBySuspend ? 1 : 0]);
 	$response = array(
-		'ha' => $haStopped ? 'stopped' : 'unchanged',
+		'ha' => $haManagedBySuspend ? 'stopped' : 'not managed by HA or unchanged',
 		'onboot' => pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest),
 		'stop' => $proxmox->post($guestPath . '/status/stop', array()),
 		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'SUSPENSO'),
@@ -1159,9 +1168,21 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	$haStarted = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'stopped', 'started');
+	// Only act on HA if THIS module changed it during the matching suspend
+	// (see `ha_suspended` above). If the guest was never HA-managed, or an
+	// admin touched HA externally since, leave HA alone and start it directly.
+	$haManagedBySuspend = (bool) ($guest->ha_suspended ?? 0);
+	if ($haManagedBySuspend) {
+		$haRestored = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'stopped', 'started');
+		$startResult = $haRestored
+			? 'requested through HA'
+			: 'HA resource state changed outside the module since suspension; guest left untouched, check HA manually';
+	} else {
+		$startResult = $proxmox->post($guestPath . '/status/start', array());
+	}
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => 0]);
 	$response = array(
-		'start' => $haStarted ? 'requested through HA' : $proxmox->post($guestPath . '/status/start', array()),
+		'start' => $startResult,
 		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, null),
 	);
 
@@ -1214,6 +1235,7 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest);
 	pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'CANCELADO');
 	pvewhmcs_disable_guest_ha($proxmox, $guest);
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => 0]);
 
 	return "success";
 }
