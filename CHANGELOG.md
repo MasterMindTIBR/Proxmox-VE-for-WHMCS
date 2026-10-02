@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.6] - 2026-09-25 - _"Networks and Safeguards"_
+## [1.3.6] - 2026-10-02 - _"Networks and Safeguards"_
 
 ### 🚀 Feature
 - Network plans: Bridge suffix is optional and supports textual suffixes.
