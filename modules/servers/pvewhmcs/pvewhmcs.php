@@ -144,19 +144,74 @@ function pvewhmcs_guest_vmid($service_id) {
 }
 
 /**
- * Build a Proxmox guest name from the WHMCS order/service ID and hostname.
+ * Build a Proxmox guest name/hostname. Resolution order:
+ *   1. Per-product pattern (`$params['configoption3']`, field "VM Name Pattern").
+ *   2. Global default pattern (`mod_pvewhmcs.name_pattern`, addon Config tab), when (1) is blank.
+ *   3. Legacy hardcoded `<orderid-or-serviceid>-<hostname>` layout, when both (1) and (2) are blank.
  *
- * WHMCS supplies the customer-selected hostname in the standard `domain`
- * provisioning parameter. Proxmox names must not contain whitespace or path
- * separators, and QEMU names are limited to 63 characters.
+ * Supported pattern tokens:
+ *   {vmid}        Proxmox VMID allocated for this guest (pass once known; see $vmid param).
+ *   {node}        Proxmox node selected for creation (pass once known; see $node param).
+ *   {serviceid}   WHMCS service ID (tblhosting.id).
+ *   {orderid}     WHMCS order ID.
+ *   {clientid}    WHMCS client ID (tblclients.id).
+ *   {clientname}  Client's first + last name, sanitized.
+ *   {hostname}    Customer-entered hostname (the standard `domain` provisioning param).
+ *   {pid}         WHMCS product ID (tblproducts.id).
+ *   {plan}        Selected PVE plan title (mod_pvewhmcs_plans.title).
+ *   {date}        Creation date (Y-m-d).
+ *
+ * Call this ONLY once each token's source value is actually known -- in particular,
+ * {vmid}/{node} are resolved by the caller (inside the VMID allocation lock) and must be
+ * passed in explicitly; calling this before then will render them as empty strings.
+ *
+ * Proxmox names/hostnames must not contain whitespace or path separators, and QEMU names
+ * are limited to 63 characters.
  */
-function pvewhmcs_guest_name(array $params) {
+function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = null, ?string $planTitle = null) {
 	$identifier = (int) ($params['orderid'] ?? ($params['serviceid'] ?? 0));
 	$hostname = trim((string) ($params['domain'] ?? ''));
 	$hostname = preg_replace('/[^A-Za-z0-9._-]+/', '-', $hostname);
 	$hostname = trim($hostname, '.-');
 
-	$name = ($identifier ?: 'vm') . ($hostname !== '' ? '-' . $hostname : '');
+	$pattern = trim((string) ($params['configoption3'] ?? ''));
+
+	if ($pattern === '') {
+		$pattern = trim((string) (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('name_pattern') ?? ''));
+	}
+
+	if ($pattern === '') {
+		$name = ($identifier ?: 'vm') . ($hostname !== '' ? '-' . $hostname : '');
+		return substr($name, 0, 63);
+	}
+
+	$clientName = trim(
+		($params['clientsdetails']['firstname'] ?? '') . ' ' . ($params['clientsdetails']['lastname'] ?? '')
+	);
+	$clientName = preg_replace('/[^A-Za-z0-9._-]+/', '-', $clientName);
+	$clientName = trim($clientName, '.-');
+
+	$tokens = array(
+		'{vmid}' => $vmid !== null ? (string) $vmid : '',
+		'{node}' => $node !== null ? preg_replace('/[^A-Za-z0-9._-]+/', '-', $node) : '',
+		'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
+		'{orderid}' => (string) (int) ($params['orderid'] ?? 0),
+		'{clientid}' => (string) (int) ($params['clientsdetails']['userid'] ?? $params['userid'] ?? 0),
+		'{clientname}' => $clientName,
+		'{hostname}' => $hostname,
+		'{pid}' => (string) (int) ($params['pid'] ?? 0),
+		'{plan}' => $planTitle !== null ? preg_replace('/[^A-Za-z0-9._-]+/', '-', $planTitle) : '',
+		'{date}' => date('Y-m-d'),
+	);
+
+	$name = strtr($pattern, $tokens);
+	$name = preg_replace('/[^A-Za-z0-9._-]+/', '-', $name);
+	$name = trim($name, '.-');
+
+	if ($name === '') {
+		$name = $identifier ?: 'vm';
+	}
+
 	return substr($name, 0, 63);
 }
 
@@ -362,7 +417,7 @@ function pvewhmcs_ConfigOptions() {
 	
 	// OPTIONS FOR THE QEMU/LXC PACKAGE; ties WHMCS PRODUCT to MODULE PLAN/POOL
 	// Ref: https://developers.whmcs.com/provisioning-modules/config-options/
-	// SQL/Param: configoption1 configoption2
+	// SQL/Param: configoption1 configoption2 configoption3
 	$configarray = array(
 		"Plan" => array(
 			"FriendlyName" => "PVE Plan",
@@ -375,6 +430,15 @@ function pvewhmcs_ConfigOptions() {
 			"Type" => "dropdown",
 			'Options'=> $ippools,
 			"Description" => "(IPv4) Allocation Pool"
+		),
+		"NamePattern" => array(
+			"FriendlyName" => "VM Name Pattern",
+			"Type" => "text",
+			"Size" => "60",
+			"Description" => "Optional. Leave blank to use the Module Config tab's global default; leave both "
+				. "blank to keep the legacy '<order/service id>-<hostname>' name. "
+				. "Tokens: {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
+				. "Example: vm{vmid}-{clientname}-{hostname}"
 		),
 	);
 
@@ -405,9 +469,10 @@ function pvewhmcs_CreateAccount_impl($params) {
 	$serverpassword = $params["serverpassword"];
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 
-	// Prepare the service config array
+	// Prepare the service config array. The guest name/hostname is built once the real
+	// Proxmox VMID (and, for the template-clone path, the target node) are known -- see
+	// pvewhmcs_guest_name() and its call sites inside the VMID allocation locks below.
 	$vm_settings = array();
-	$guest_name = pvewhmcs_guest_name($params);
 
 	// Reserve a pool entry and record it in one transaction. The row lock prevents
 	// concurrent provisioning requests from assigning the same address.
@@ -448,10 +513,10 @@ function pvewhmcs_CreateAccount_impl($params) {
 			}
 			unset($nodes);
 			// Hold a database advisory lock until Proxmox accepts the clone and owns the VMID.
-			list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $guest_name, &$vm_settings) {
+			list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $params, $plan, &$vm_settings) {
 				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
 				$vm_settings['newid'] = $vmid;
-				$vm_settings['name'] = $guest_name;
+				$vm_settings['name'] = pvewhmcs_guest_name($params, $vmid, $template_node, $plan->title);
 				$vm_settings['full'] = true;
 				$vm_settings['target'] = $template_node;
 				$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
@@ -605,7 +670,7 @@ function pvewhmcs_CreateAccount_impl($params) {
 		// No longer inheriting WHMCS Service ID, so //
 		// $vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
-			$vm_settings['hostname'] = $guest_name;
+			// hostname set later, once the VMID/node are known -- see the allocation lock below.
 			///////////////////////////
 			// LXC: Preparation Work //
 			///////////////////////////
@@ -649,7 +714,7 @@ function pvewhmcs_CreateAccount_impl($params) {
 			////////////////////////////
 			// QEMU: Preparation Work //
 			////////////////////////////
-			$vm_settings['name'] = $guest_name;
+			// name set later, once the VMID/node are known -- see the allocation lock below.
 			$vm_settings['scsihw'] = 'virtio-scsi-single';
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
@@ -746,9 +811,10 @@ function pvewhmcs_CreateAccount_impl($params) {
 				}
 
 				// Hold a database advisory lock until Proxmox accepts the create request.
-				list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $guest_type, &$vm_settings) {
+				list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $guest_type, $params, $plan, &$vm_settings) {
 					$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
 					$vm_settings['vmid'] = $vmid;
+					$vm_settings[$guest_type === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $template_node, $plan->title);
 					$response = $proxmox->post('/nodes/' . $template_node . '/' . $guest_type, $vm_settings);
 
 					return array($vmid, $response);
