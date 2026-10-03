@@ -1046,6 +1046,9 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
 	<i class="fa fa-plus"></i>&nbsp; Add: IPv4 to Pool
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=reserved_ips">
+	<i class="fa fa-lock"></i>&nbsp; Reserved IPv4
+	</a>
 	</div>
 	';
 	$ip_action = $_GET['action'] ?? '';
@@ -1065,8 +1068,14 @@ function pvewhmcs_output($vars) {
 	if (($_POST['pvewhmcs_action'] ?? '') === 'removeippool') {
 		removeIpPool((int) $_POST['id']);
 	}
+	if (($_POST['pvewhmcs_action'] ?? '') === 'release_ipv4_reservation') {
+		pvewhmcs_release_ipv4_reservation($_POST);
+	}
 	if ($ip_action == 'list_ips') {
 		list_ips();
+	}
+	if ($ip_action == 'reserved_ips') {
+		list_reserved_ips();
 	}
 	if (isset($_POST['single_delete_id']) && $_POST['single_delete_id'] !== '') {
 		removeip((int) $_POST['single_delete_id'], (int) $_POST['pool_id']);
@@ -2700,20 +2709,84 @@ function pvewhmcs_ip_service($ipaddress) {
 		->first();
 }
 
-// IP POOL FORM ACTION: Remove Pool (refused while any of its addresses is in use)
-function removeIpPool($id) {
-	$addresses = Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->pluck('ipaddress')->all();
-	$busy = empty($addresses) ? null : Capsule::table('tblhosting')
-		->whereIn('dedicatedip', $addresses)
-		->whereIn('domainstatus', pvewhmcs_ip_busy_statuses())
+// A cancelled service retains its current pool address only while its guest link
+// remains. vms.ipaddress is intentionally not consulted: it is guest history.
+function pvewhmcs_ip_reservation_service($ipaddress) {
+	return Capsule::table('tblhosting as h')
+		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
+		->where('h.dedicatedip', '=', $ipaddress)
+		->where('h.domainstatus', '=', 'Terminated')
+		->select('h.id', 'h.userid', 'h.dedicatedip', 'v.vmid')
 		->first();
-	if ($busy !== null) {
-		echo '<div class="alert alert-danger">IPv4 Pool #' . (int) $id . ' was not deleted: ' . htmlspecialchars((string) $busy->dedicatedip) . ' is in use by Service #' . (int) $busy->id . '.</div>';
-		return;
+}
+
+// Pool-address rows must be locked before their service rows. The caller has
+// already locked those address rows; this locks every service currently using
+// one, then the guest links needed to distinguish a cancelled reservation.
+function pvewhmcs_locked_ip_blockers(array $addresses) {
+	$addresses = array_values(array_unique(array_filter($addresses, function ($address) {
+		return is_string($address) && $address !== '';
+	})));
+	if (empty($addresses)) {
+		return array();
 	}
 
-	Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
-	Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
+	$services = Capsule::table('tblhosting')
+		->whereIn('dedicatedip', $addresses)
+		->orderBy('id')
+		->lock('for update')
+		->get();
+	$serviceIds = array();
+	foreach ($services as $service) {
+		$serviceIds[] = (int) $service->id;
+	}
+	$guestRows = empty($serviceIds) ? array() : Capsule::table('mod_pvewhmcs_vms')
+		->whereIn('id', $serviceIds)
+		->orderBy('id')
+		->lock('for update')
+		->get(array('id'));
+	$guestIds = array();
+	foreach ($guestRows as $guest) {
+		$guestIds[(int) $guest->id] = true;
+	}
+	$blockers = array();
+	foreach ($services as $service) {
+		if (in_array($service->domainstatus, pvewhmcs_ip_busy_statuses(), true)) {
+			$blockers[(string) $service->dedicatedip] = array('type' => 'in_use', 'service' => $service);
+		} elseif ($service->domainstatus === 'Terminated' && isset($guestIds[(int) $service->id])) {
+			$blockers[(string) $service->dedicatedip] = array('type' => 'reservation', 'service' => $service);
+		}
+	}
+
+	return $blockers;
+}
+
+function pvewhmcs_ip_blocker_message($blocker) {
+	$service = $blocker['service'];
+	return htmlspecialchars((string) $service->dedicatedip) . ' is ' . ($blocker['type'] === 'reservation' ? 'reserved for cancelled' : 'in use by') . ' Service #' . (int) $service->id . '.';
+}
+
+// IP POOL FORM ACTION: Remove Pool (refused while an address is in use or reserved).
+function removeIpPool($id) {
+	$result = Capsule::connection()->transaction(function () use ($id) {
+		$addresses = Capsule::table('mod_pvewhmcs_ip_addresses')
+			->where('pool_id', '=', $id)
+			->orderBy('id')
+			->lock('for update')
+			->get();
+		$blockers = pvewhmcs_locked_ip_blockers($addresses->pluck('ipaddress')->all());
+		if (!empty($blockers)) {
+			return array('blocker' => reset($blockers));
+		}
+
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
+		Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
+		return array('deleted' => true);
+	});
+	if (isset($result['blocker'])) {
+		echo '<div class="alert alert-danger">IPv4 Pool #' . (int) $id . ' was not deleted: ' . pvewhmcs_ip_blocker_message($result['blocker']) . '</div>';
+		return;
+	}
 
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Pool Deleted.' ;
@@ -2834,12 +2907,14 @@ function list_ips() {
     // Loop through IPs in the pool
     foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $pool_id)->get() as $ip) {
         
-        // Occupied = held by a service that is Active, Suspended, Completed or Pending
+        // An address is also unavailable when its cancelled service still has
+        // the retained guest link. Never infer that from vms.ipaddress.
         $service = pvewhmcs_ip_service($ip->ipaddress);
+		$reservation = $service ? null : pvewhmcs_ip_reservation_service($ip->ipaddress);
 
         echo '<tr>
                 <td>';
-        if (!$service) {
+        if (!$service && !$reservation) {
             echo '<input type="checkbox" class="pvewhmcs-ip-checkbox" name="ids[]" value="' . (int) $ip->id . '">';
         }
         echo '</td>
@@ -2850,7 +2925,10 @@ function list_ips() {
         if ($service) {
             // IP is in use: Create a link to the related service
             $serviceLink = $adminUrl . '?userid=' . $service->userid . '&id=' . $service->id;
-            echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
+            echo 'In use: <a href="' . htmlspecialchars($serviceLink, ENT_QUOTES, 'UTF-8') . '" target="_blank">Service #' . (int) $service->id . '</a>';
+		} elseif ($reservation) {
+			$serviceLink = $adminUrl . '?userid=' . $reservation->userid . '&id=' . $reservation->id;
+			echo 'Reserved: <a href="' . htmlspecialchars($serviceLink, ENT_QUOTES, 'UTF-8') . '" target="_blank">Service #' . (int) $reservation->id . '</a>';
         } else {
             // IP is free: an individual delete button, scoped to just this
             // row by its own name/value pair (not the shared "ids[]"
@@ -2868,6 +2946,94 @@ function list_ips() {
           </form>';
 }
 
+// IP POOL FORM: List retained IPv4 reservations for cancelled guests.
+function list_reserved_ips() {
+	$adminUrl = 'clientsservices.php';
+	$reservations = Capsule::table('mod_pvewhmcs_ip_addresses as i')
+		->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
+		->join('tblhosting as h', 'h.dedicatedip', '=', 'i.ipaddress')
+		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
+		->leftJoin('tblclients as c', 'c.id', '=', 'h.userid')
+		->where('h.domainstatus', '=', 'Terminated')
+		->orderBy('i.ipaddress')
+		->select(
+			'i.id as address_id', 'i.pool_id', 'i.ipaddress', 'p.title as pool_title',
+			'h.id as service_id', 'h.userid', 'v.vmid', 'c.firstname', 'c.lastname', 'c.companyname'
+		)
+		->get();
+
+	echo '<table class="datatable"><tr><th>IPv4</th><th>Pool</th><th>Service</th><th>VMID</th><th>Client</th><th>Action</th></tr>';
+	foreach ($reservations as $reservation) {
+		$ipaddress = (string) $reservation->ipaddress;
+		$poolTitle = (string) $reservation->pool_title;
+		$serviceUrl = $adminUrl . '?userid=' . (int) $reservation->userid . '&id=' . (int) $reservation->service_id;
+		$client = trim((string) $reservation->firstname . ' ' . (string) $reservation->lastname);
+		if ($client === '') {
+			$client = (string) $reservation->companyname;
+		}
+		echo '<tr>'
+			. '<td>' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td>' . htmlspecialchars($poolTitle, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td><a href="' . htmlspecialchars($serviceUrl, ENT_QUOTES, 'UTF-8') . '">Service #' . (int) $reservation->service_id . '</a></td>'
+			. '<td>' . (int) $reservation->vmid . '</td>'
+			. '<td>' . htmlspecialchars($client, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td><form method="post">'
+			. '<input type="hidden" name="pvewhmcs_action" value="release_ipv4_reservation">'
+			. '<input type="hidden" name="address_id" value="' . (int) $reservation->address_id . '">'
+			. '<input type="hidden" name="pool_id" value="' . (int) $reservation->pool_id . '">'
+			. '<input type="hidden" name="service_id" value="' . (int) $reservation->service_id . '">'
+			. '<input type="hidden" name="ipaddress" value="' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '">'
+			. pvewhmcs_csrf_field()
+			. '<label><input type="checkbox" name="release_confirmation" value="1" required> I confirm this retained CANCELADO guest cannot return to the network using this IPv4 after release.</label> '
+			. '<button type="submit" class="btn btn-danger btn-sm">Release reservation</button>'
+			. '</form></td>'
+			. '</tr>';
+	}
+	echo '</table>';
+}
+
+function pvewhmcs_release_ipv4_reservation(array $post) {
+	$addressId = (int) ($post['address_id'] ?? 0);
+	$poolId = (int) ($post['pool_id'] ?? 0);
+	$serviceId = (int) ($post['service_id'] ?? 0);
+	$ipaddress = trim((string) ($post['ipaddress'] ?? ''));
+	if (($post['release_confirmation'] ?? '') !== '1' || $addressId < 1 || $poolId < 1 || $serviceId < 1 || !filter_var($ipaddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		echo '<div class="alert alert-danger">Reservation was not released: confirm the cancelled-guest warning and submit the unchanged reservation details.</div>';
+		return;
+	}
+
+	try {
+		Capsule::connection()->transaction(function () use ($addressId, $poolId, $serviceId, $ipaddress) {
+			$address = Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('id', '=', $addressId)
+				->where('pool_id', '=', $poolId)
+				->lock('for update')
+				->first();
+			if ($address === null || (string) $address->ipaddress !== $ipaddress) {
+				throw new RuntimeException('The requested pool address no longer matches this reservation.');
+			}
+
+			$service = Capsule::table('tblhosting')->where('id', '=', $serviceId)->lock('for update')->first();
+			if ($service === null || $service->domainstatus !== 'Terminated' || (string) $service->dedicatedip !== $ipaddress) {
+				throw new RuntimeException('The service is no longer a cancelled reservation for this address.');
+			}
+			$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceId)->lock('for update')->first();
+			if ($guest === null) {
+				throw new RuntimeException('The retained guest link no longer exists for this service.');
+			}
+
+			Capsule::table('tblhosting')->where('id', '=', $serviceId)->update(array('dedicatedip' => ''));
+		});
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">Reservation was not released: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</div>';
+		return;
+	}
+
+	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 reservation released.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'The cancelled service no longer reserves this IPv4 address. Its guest record and historical address were retained.';
+	header('Location: ' . pvewhmcs_BASEURL . '&tab=ippools&action=reserved_ips');
+}
+
 // IP POOL FORM ACTION: Remove a single IP from Pool (same checks as the bulk path)
 function removeip($id, $pool_id) {
 	removeip_bulk(array($id), $pool_id);
@@ -2881,30 +3047,44 @@ function removeip_bulk(array $ids, $pool_id) {
 	$ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
 	$deleted = 0;
 	$in_use = 0;
+	$reserved = 0;
 
 	if (!empty($ids)) {
-		$candidates = Capsule::table('mod_pvewhmcs_ip_addresses')
-			->where('pool_id', '=', $pool_id)
-			->whereIn('id', $ids)
-			->get();
-
-		$deletable_ids = [];
-		foreach ($candidates as $candidate) {
-			if (pvewhmcs_ip_service($candidate->ipaddress) === null) {
-				$deletable_ids[] = $candidate->id;
-			} else {
-				$in_use++;
+		$result = Capsule::connection()->transaction(function () use ($ids, $pool_id) {
+			$candidates = Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('pool_id', '=', $pool_id)
+				->whereIn('id', $ids)
+				->orderBy('id')
+				->lock('for update')
+				->get();
+			$blockers = pvewhmcs_locked_ip_blockers($candidates->pluck('ipaddress')->all());
+			$deletableIds = array();
+			$inUse = 0;
+			$reserved = 0;
+			foreach ($candidates as $candidate) {
+				$blocker = $blockers[(string) $candidate->ipaddress] ?? null;
+				if ($blocker === null) {
+					$deletableIds[] = (int) $candidate->id;
+				} elseif ($blocker['type'] === 'reservation') {
+					$reserved++;
+				} else {
+					$inUse++;
+				}
 			}
-		}
-
-		if (!empty($deletable_ids)) {
-			$deleted = Capsule::table('mod_pvewhmcs_ip_addresses')->whereIn('id', $deletable_ids)->delete();
-		}
+			$deleted = empty($deletableIds) ? 0 : Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('pool_id', '=', $pool_id)
+				->whereIn('id', $deletableIds)
+				->delete();
+			return compact('deleted', 'inUse', 'reserved');
+		});
+		$deleted = $result['deleted'];
+		$in_use = $result['inUse'];
+		$reserved = $result['reserved'];
 	}
 
 	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
 	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Addresses deleted.';
-	$_SESSION['pvewhmcs']['infomsg']['message'] = $deleted . ' address(es) removed from the pool.' . ($in_use > 0 ? ' ' . $in_use . ' kept because a service still uses them.' : '');
+	$_SESSION['pvewhmcs']['infomsg']['message'] = $deleted . ' address(es) removed from the pool.' . ($in_use > 0 ? ' ' . $in_use . ' kept because a service still uses them.' : '') . ($reserved > 0 ? ' ' . $reserved . ' kept as cancelled-guest reservation(s).' : '');
 }
 
 function time2format($s) {

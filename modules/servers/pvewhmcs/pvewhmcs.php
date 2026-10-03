@@ -300,68 +300,111 @@ function pvewhmcs_wait_recorded_provisioning_task(PVE2_API $proxmox, $serviceId,
 }
 
 /**
- * Under the server VMID lock, lock the service and pool row and write the
- * irreversible marker before a create/clone POST. The dedicated IP changes in
- * this same transaction, so a process death cannot expose it for reuse.
+ * Under the server VMID lock, lock a candidate pool address before the target
+ * service and write the irreversible marker before a create/clone POST. The
+ * dedicated IP changes in this same transaction, so a process death cannot
+ * expose it for reuse.
  */
 function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmid, $vtype, $node, $mode, $userId, $ipv6) {
-	return Capsule::connection()->transaction(function () use ($poolId, $serviceId, $serverId, $vmid, $vtype, $node, $mode, $userId, $ipv6) {
-		$service = Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
-		if ($service === null) {
-			throw new RuntimeException("Service #{$serviceId} no longer exists.");
-		}
-		if ((int) ($service->server ?? 0) !== (int) $serverId) {
-			throw new RuntimeException("Service #{$serviceId} changed Proxmox servers while provisioning was prepared; retry with its current server.");
-		}
-		$linked = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->lock('for update')->first();
-		if ($linked !== null) {
-			return array('existing' => $linked);
-		}
-		if (trim((string) ($service->dedicatedip ?? '')) !== '') {
-			throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
-		}
+	// This is only an optimistic candidate list. Every item is revalidated once
+	// its address row is locked, before the marker or dedicated IP is changed.
+	$candidateIds = Capsule::table('mod_pvewhmcs_ip_addresses')
+		->where('pool_id', '=', $poolId)
+		->orderBy('id')
+		->pluck('id')
+		->all();
+	foreach ($candidateIds as $candidateId) {
+		$result = Capsule::connection()->transaction(function () use ($candidateId, $poolId, $serviceId, $serverId, $vmid, $vtype, $node, $mode, $userId, $ipv6) {
+			// Keep this first: release and deletion take the same lock order.
+			$ip = Capsule::table('mod_pvewhmcs_ip_addresses as i')
+				->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
+				->where('i.id', '=', (int) $candidateId)
+				->where('i.pool_id', '=', $poolId)
+				->select('i.id', 'i.pool_id', 'i.ipaddress', 'i.mask', 'p.gateway')
+				->lock('for update')
+				->first();
+			if ($ip === null) {
+				return null;
+			}
 
-		$rows = Capsule::select(
-			"SELECT i.ipaddress, i.mask, p.gateway\n"
-			. " FROM mod_pvewhmcs_ip_addresses i\n"
-			. " INNER JOIN mod_pvewhmcs_ip_pools p ON p.id = i.pool_id\n"
-			. " WHERE i.pool_id = :pool_id\n"
-			. " AND NOT EXISTS (\n"
-			. "   SELECT 1 FROM tblhosting h\n"
-			. "   WHERE CONVERT(h.dedicatedip USING utf8mb4) = CONVERT(i.ipaddress USING utf8mb4)\n"
-			. "   AND h.domainstatus IN (\"Active\", \"Suspended\", \"Completed\", \"Pending\")\n"
-			. " )\n"
-			. " AND NOT EXISTS (\n"
-			. "   SELECT 1 FROM mod_pvewhmcs_vms v\n"
-			. "   WHERE CONVERT(v.ipaddress USING utf8mb4) = CONVERT(i.ipaddress USING utf8mb4)\n"
-			. "   AND COALESCE(v.provisioning_state, 'ready') <> 'ready'\n"
-			. " )\n"
-			. " ORDER BY i.id LIMIT 1 FOR UPDATE",
-			array('pool_id' => $poolId)
-		);
-		if (empty($rows)) {
-			throw new RuntimeException('No free IP addresses available in the selected pool.');
-		}
-		$ip = $rows[0];
-		Capsule::table('mod_pvewhmcs_vms')->insert(array(
-			'id' => (int) $serviceId,
-			'vmid' => (int) $vmid,
-			'user_id' => (int) $userId,
-			'vtype' => $vtype,
-			'ipaddress' => $ip->ipaddress,
-			'subnetmask' => $ip->mask,
-			'gateway' => $ip->gateway,
-			'created' => date('Y-m-d H:i:s'),
-			'v6prefix' => $ipv6,
-			'provisioning_state' => 'allocating',
-			'provisioning_node' => $node,
-			'provisioning_mode' => $mode,
-			'provisioning_updated_at' => date('Y-m-d H:i:s'),
-		));
-		Capsule::table('tblhosting')->where('id', (int) $serviceId)->update(array('dedicatedip' => $ip->ipaddress));
+			$service = Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
+			if ($service === null) {
+				throw new RuntimeException("Service #{$serviceId} no longer exists.");
+			}
+			if ((int) ($service->server ?? 0) !== (int) $serverId) {
+				throw new RuntimeException("Service #{$serviceId} changed Proxmox servers while provisioning was prepared; retry with its current server.");
+			}
+			$linked = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->lock('for update')->first();
+			if ($linked !== null) {
+				return array('existing' => $linked);
+			}
+			if (trim((string) ($service->dedicatedip ?? '')) !== '') {
+				throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
+			}
 
-		return array('ip' => $ip);
-	});
+			// Revalidate this exact locked address. A terminated service reserves it
+			// only when it still has a guest row identified by the service ID; the
+			// guest's historical vms.ipaddress is never used for this decision.
+			$addressServices = Capsule::table('tblhosting')
+				->where('dedicatedip', '=', $ip->ipaddress)
+				->orderBy('id')
+				->lock('for update')
+				->get();
+			$addressServiceIds = array();
+			$busy = false;
+			foreach ($addressServices as $addressService) {
+				$addressServiceIds[] = (int) $addressService->id;
+				if (in_array($addressService->domainstatus, array('Active', 'Suspended', 'Completed', 'Pending'), true)) {
+					$busy = true;
+				}
+			}
+			$guestServiceIds = empty($addressServiceIds) ? array() : Capsule::table('mod_pvewhmcs_vms')
+				->whereIn('id', $addressServiceIds)
+				->orderBy('id')
+				->lock('for update')
+				->pluck('id')
+				->all();
+			$guestServiceIds = array_flip(array_map('intval', $guestServiceIds));
+			$reserved = false;
+			foreach ($addressServices as $addressService) {
+				if ($addressService->domainstatus === 'Terminated' && isset($guestServiceIds[(int) $addressService->id])) {
+					$reserved = true;
+				}
+			}
+			$unreadyMarker = Capsule::table('mod_pvewhmcs_vms')
+				->where('ipaddress', '=', $ip->ipaddress)
+				->whereRaw("COALESCE(provisioning_state, 'ready') <> 'ready'")
+				->lock('for update')
+				->exists();
+			if ($busy || $reserved || $unreadyMarker) {
+				return null;
+			}
+
+			Capsule::table('mod_pvewhmcs_vms')->insert(array(
+				'id' => (int) $serviceId,
+				'vmid' => (int) $vmid,
+				'user_id' => (int) $userId,
+				'vtype' => $vtype,
+				'ipaddress' => $ip->ipaddress,
+				'subnetmask' => $ip->mask,
+				'gateway' => $ip->gateway,
+				'created' => date('Y-m-d H:i:s'),
+				'v6prefix' => $ipv6,
+				'provisioning_state' => 'allocating',
+				'provisioning_node' => $node,
+				'provisioning_mode' => $mode,
+				'provisioning_updated_at' => date('Y-m-d H:i:s'),
+			));
+			Capsule::table('tblhosting')->where('id', (int) $serviceId)->update(array('dedicatedip' => $ip->ipaddress));
+
+			return array('ip' => $ip);
+		});
+		if ($result !== null) {
+			return $result;
+		}
+	}
+
+	throw new RuntimeException('No free IP addresses available in the selected pool.');
 }
 
 /**
