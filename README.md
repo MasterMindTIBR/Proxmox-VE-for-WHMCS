@@ -4,6 +4,7 @@
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! Cheers. ❤️
 
+    Upstream note (The Network Crew, not this fork):
     TNC Dev are looking for a co-developer to assist with finishing the project overhaul.
     If you have proven and public git-logged experience, or similar, please say g'day.
     
@@ -20,7 +21,7 @@
 - Choose PVE VMID start & integrate to your schema
 - 128GB+ RAM & 128+ CPU cores per Guest!
 
-https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ — MasterMind TI fork of [The-Network-Crew/Proxmox-VE-for-WHMCS](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/)
 
 **Client Area GUI - w/ Stats:**
 
@@ -52,9 +53,9 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 # 🎯 MODULE: System Requirements (PVE/WHMCS)
 
-- **(WHMCS)** v8.x.x stable (HTTPS)
+- **(WHMCS)** v8.x or v9.x stable (HTTPS)
 - **(NET)** WAN Access: WHMCS to PVE
-- **(VNC)** Special Requirements: PTR, etc.
+- **(VNC)** Console Relay (separate repo) + restricted `vnc@pve` user; no PTR/public IP
 - **(PHP)** v8.x.x (latest stable version)
 - **(PHP)** max_execution_time = 300
 - **(Proxmox)** 2 users (API & VNC)
@@ -206,8 +207,8 @@ asset loads.
 1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
 2. Create new User "vnc" > `Datacenter / Permissions / Users` - Group: "VNC", Realm: pve
 3. Create new Role -> `Datacenter / Permissions / Roles` - Name: "VNC", Privileges: VM.Console (only)
-4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
-5. WHMCS > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
+4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Path: `/vms`, Group: "VNC", Role: "VNC", Propagate: yes
+5. WHMCS > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set (minimum 15 characters, 20+ recommended)
 
 > [!CAUTION]
 > Do NOT set less restrictive permissions. `VM.Console` only is intentional:
@@ -247,7 +248,7 @@ Please make sure you create an IPv4 Pool with sufficient scope/size to be able t
 
 #### Private IPs for PVE Hosts
 
-Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. 
+PVE hosts may use private IPs. Only WHMCS and the Console Relay connect to Proxmox (TCP/8006); browsers never do. With **Secure** enabled, the hostname WHMCS uses must appear in the Proxmox certificate (see "TLS certificate verification"). Restrict TCP/8006 on the PVE hosts to the WHMCS and Console Relay servers: customers have no reason to reach it.
 
 #### Existing Guest Imports from PVE
 
@@ -343,12 +344,12 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 ### Updating to a newer release!
 
 > [!WARNING]  
-> There are 2x states that new Proxmox VE for WHMCS releases typically go through.
+> This is the MasterMind TI fork. The update check reads this fork's `version` file and links to
+> https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/releases. Do not install an upstream
+> (The-Network-Crew) release over this fork: it does not contain the fork's changes or migrations.
 > 
-> 1. Module shows Update Available, but GitHub repo does NOT have a published release.<br>
->    In this state, it is ready for testing - but we do not recommend deploying to prod.
-> 2. Module shows Update Available, and GitHub repo DOES have a published release.<br>
->    In this state, it is tested and considered ready for production usage.
+> 1. Module shows Update Available, but the fork has NOT published a release: ready for testing only.
+> 2. Module shows Update Available, and the fork HAS published a release: ready for production.
 
 1. Download the new version
 2. Upload it over the top (FTP)
@@ -356,16 +357,16 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 4. Verify all working OK
 5. **Watch the repo!**
 
-> **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
+> **Opening the module after a version change triggers the self-upgrade procedure for the SQL database.**
 > 
 > (**Beta Feature:** For now, verify yourself that updates were successful)
 
 ### SQL: Keeping your DB up-to-date
 
 > [!IMPORTANT]  
-> Since v1.3.x, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> Since v1.3.x, opening the module in WHMCS Admin after the module version changes runs any needed SQL Ops (`pvewhmcs_upgrade()`).
 > 
-> v1.2.x & below, consult the **_docs/UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> WHMCS skips that routine when the version did not change. Installs that ran a pre-release 1.3.6 build, and v1.2.x & below, consult **_docs/UPDATE-SQL.md** and run the listed statements.
 
 Then you're done with each update!
 
@@ -416,7 +417,7 @@ Hence, we ask that you are as verbose and thorough as possible when reporting Is
 
 **The more info & context you provide up-front, the quicker & easier it will be!**
 
-\* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
+\* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Config, as needed.
 
 > [!TIP]
 > **Please note that this is FOSS and Support is not guaranteed at all.**<br>
@@ -493,13 +494,13 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 # 🎉 FOSS: Open-source Contributions
 
-If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS >> cheers! _The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
+To contribute to this fork, open a Pull Request on GitHub >> MasterMindTIBR/Proxmox-VE-for-WHMCS. Changes that help every user belong upstream at The-Network-Crew/Proxmox-VE-for-WHMCS. _The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
 FOSS is only possible thanks to dedicated people around the world! :-)
 
-**See [CONTRIBUTORS.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
+**See [CONTRIBUTORS.md](CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
 
 # TNC & Co.
 
