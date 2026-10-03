@@ -58,7 +58,10 @@ function pvewhmcs_version(){
 }
 
 function pvewhmcs_verify_server_tls($secure) {
-	if ($secure === null || $secure === '') {
+	if ($secure === null) {
+		// WHMCS leaves serversecure NULL/absent on legacy servers: keep TLS
+		// verification on. Everything else follows FILTER_VALIDATE_BOOLEAN, so
+		// an explicitly empty/unchecked box ('') turns verification off.
 		return true;
 	}
 
@@ -999,29 +1002,29 @@ function pvewhmcs_output($vars) {
 		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
-			echo '<td>' . $vm->id . '</td>';
-			echo '<td>' . $vm->title . '</td>';
-			echo '<td>' . $vm->vmtype . '</td>';
-			echo '<td>' . $vm->ostype . '</td>';
+			echo '<td>' . (int) $vm->id . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->title, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->vmtype, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ostype, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->cpus . '</td>';
 			echo '<td>' . $vm->cores . '</td>';
 			echo '<td>' . $vm->memory . '</td>';
 			echo '<td>' . $vm->balloon . '</td>';
 			echo '<td>' . $vm->swap . '</td>';
 			echo '<td>' . $vm->disk . '</td>';
-			echo '<td>' . $vm->disktype . '</td>';
-			echo '<td>' . $vm->diskio . '</td>';
-			echo '<td>' . $vm->storage . '</td>';
-			echo '<td>' . $vm->netmode . '</td>';
-			echo '<td>' . $vm->bridge . $vm->vmbr . '</td>';
-			echo '<td>' . $vm->netmodel . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->disktype, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->diskio, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->storage, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmode, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->bridge . (string) $vm->vmbr, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmodel, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->vlanid . '</td>';
 			echo '<td>' . $vm->netrate . '</td>';
 			echo '<td>' . $vm->bw . '</td>';
-			echo '<td>' . $vm->ipv6 . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ipv6, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->unpriv . '</td>';
 			echo '<td>
-			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
+			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . (int) $vm->id . '&amp;vmtype=' . htmlspecialchars((string) $vm->vmtype, ENT_QUOTES, 'UTF-8') . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
 			<form method="post" style="display:inline" onsubmit="return confirm(\'Plan will be deleted, continue?\')">
 			<input type="hidden" name="pvewhmcs_action" value="removeplan"><input type="hidden" name="id" value="' . (int) $vm->id . '">' . pvewhmcs_csrf_field() . '
 			<button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
