@@ -1,5 +1,9 @@
 <?php /* vim: set ts=2 sw=2 tw=0 et :*/
 
+if (!defined('WHMCS')) {
+  die('This file cannot be accessed directly');
+}
+
 /**
  * Ipv4_SubnetIterator 
  * An object that implements a subnet iterator
@@ -22,23 +26,23 @@ class Ipv4_SubnetIterator implements Iterator
     $this->hi_dec = ip2long($subnet->getLastHostAddr());
   }
 
-  function rewind() {
+  public function rewind(): void {
     $this->position = 0;
   }
 
-  function current() {
+  public function current(): mixed {
     return long2ip($this->low_dec + $this->position);
   }
 
-  function key() {
+  public function key(): mixed {
     return $this->position;
   }
 
-  function next() {
+  public function next(): void {
     ++$this->position;
   }
 
-  function valid() {
+  public function valid(): bool {
     return (($this->low_dec + $this->position) <= $this->hi_dec);
   }
 }
