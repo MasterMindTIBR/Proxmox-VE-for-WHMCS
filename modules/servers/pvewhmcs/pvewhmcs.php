@@ -52,7 +52,10 @@ function pvewhmcs_MetaData() {
 }
 
 function pvewhmcs_verify_tls_setting($secure) {
-	if ($secure === null || $secure === '') {
+	if ($secure === null) {
+		// WHMCS leaves serversecure NULL/absent on legacy servers: keep TLS
+		// verification on. Everything else follows FILTER_VALIDATE_BOOLEAN, so
+		// an explicitly empty/unchecked box ('') turns verification off.
 		return true;
 	}
 
@@ -1420,11 +1423,12 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor.
-// Refuses CANCELADO guests. HA is restored only when this module stopped it
-// (ha_suspended=1); an HA state changed externally is reported, not overridden,
-// and nothing is changed. Otherwise the lifecycle tag is removed and onboot
-// restored when the plan has it enabled (config PUT first), then HA is set back
-// to `started` or the guest is started directly (task awaited).
+// The HA resource is read BEFORE any config/tag change. Exactly three outcomes
+// touch the guest: no HA resource (direct start path), `stopped` recorded by
+// this module (ha_suspended=1, restore `started`), or — after those checks —
+// no CANCELADO tag. Any other HA state (`started`, `disabled`, `ignored`, …),
+// or `stopped` without the module's own suspension, returns an error without
+// changing the guest.
 function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
@@ -1448,24 +1452,21 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	$suspendedByModule = (int) ($guest->ha_suspended ?? 0) === 1;
+	if ($haState !== null && !($haState === 'stopped' && $suspendedByModule)) {
+		$sid = pvewhmcs_guest_ha_sid($guest);
+		return "Error unsuspending: HA resource {$sid} is in state '{$haState}' and this module did not record suspending it; guest not changed. Resolve the HA state and retry.";
+	}
+	$haRestore = $haState === 'stopped';
+	// No HA resource (any more) is the only case needing a direct start; the
+	// restored `started` resource is started by the HA manager.
+	$directStart = $haState === null;
+
 	$config = (array) $proxmox->get($guestPath . '/config');
 	if (pvewhmcs_guest_has_tag($config['tags'] ?? '', 'CANCELADO')) {
 		return 'Error: guest is marked CANCELADO (cancelled service); unsuspend refused.';
 	}
-
-	$haState = null;
-	$haRestore = false;
-	if ((int) ($guest->ha_suspended ?? 0) === 1) {
-		$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
-		if ($haState !== null && $haState !== 'stopped' && $haState !== 'started') {
-			$sid = pvewhmcs_guest_ha_sid($guest);
-			return "Error unsuspending: HA resource {$sid} is in state '{$haState}', changed outside the module since suspension; guest not started. Resolve the HA state and retry.";
-		}
-		$haRestore = $haState === 'stopped';
-	}
-	// HA-managed and still/already `started`, HA restored to `started`, or no HA
-	// resource (any more): only the last case needs a direct start.
-	$directStart = $haState === null;
 
 	$planOnboot = !empty($params['configoption1'])
 		&& !empty(Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'])->value('onboot'));
@@ -2001,6 +2002,24 @@ function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params
 	}
 }
 
+/**
+ * POSTs a client/admin power action and waits for its task. Only the exact
+ * string "success" satisfies WHMCS; a missing UPID or a failed/timed-out task
+ * is reported as an error (a thrown PVE2_Exception propagates to the tracked
+ * action wrapper, which records and re-throws it).
+ */
+function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword) {
+	$logrequest = $guestPath . '/status/' . $command;
+	$response = $proxmox->post($logrequest, array());
+	pvewhmcs_power_debug_log($action, $logrequest, $response, $params, $serverpassword);
+	if (!pvewhmcs_is_upid($response)) {
+		return "Error: Proxmox did not return a task ID for the {$command} of Service #{$params['serviceid']}; success cannot be confirmed.";
+	}
+	pvewhmcs_wait_task($proxmox, (string) $response, 60);
+
+	return "success";
+}
+
 // PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT
 function pvewhmcs_vmStart_impl($params) {
 	$target = pvewhmcs_power_target($params);
@@ -2009,11 +2028,7 @@ function pvewhmcs_vmStart_impl($params) {
 	}
 	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	$logrequest = $guestPath . '/status/start';
-	$response = $proxmox->post($logrequest, array());
-	pvewhmcs_power_debug_log(__FUNCTION__, $logrequest, $response, $params, $serverpassword);
-
-	return "success";
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT (starts it when stopped)
@@ -2025,11 +2040,9 @@ function pvewhmcs_vmReboot_impl($params) {
 	list($proxmox, $guestPath, $serverpassword) = $target;
 
 	$guest_specific = $proxmox->get($guestPath . '/status/current');
-	$logrequest = $guestPath . (($guest_specific['status'] ?? null) == 'stopped' ? '/status/start' : '/status/reboot');
-	$response = $proxmox->post($logrequest, array());
-	pvewhmcs_power_debug_log(__FUNCTION__, $logrequest, $response, $params, $serverpassword);
+	$command = (($guest_specific['status'] ?? null) == 'stopped') ? 'start' : 'reboot';
 
-	return "success";
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, $command, __FUNCTION__, $params, $serverpassword);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
@@ -2040,11 +2053,7 @@ function pvewhmcs_vmShutdown_impl($params) {
 	}
 	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	$logrequest = $guestPath . '/status/shutdown';
-	$response = $proxmox->post($logrequest, array());
-	pvewhmcs_power_debug_log(__FUNCTION__, $logrequest, $response, $params, $serverpassword);
-
-	return "success";
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
@@ -2055,11 +2064,7 @@ function pvewhmcs_vmStop_impl($params) {
 	}
 	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	$logrequest = $guestPath . '/status/stop';
-	$response = $proxmox->post($logrequest, array());
-	pvewhmcs_power_debug_log(__FUNCTION__, $logrequest, $response, $params, $serverpassword);
-
-	return "success";
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword);
 }
 
 /**
