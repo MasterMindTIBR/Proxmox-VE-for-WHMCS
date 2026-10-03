@@ -1,6 +1,47 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [Unreleased]
+
+No schema change. Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
+
+### 🚀 Feature
+- Provisioning: Unsuspend turns start-at-boot back on when the service's plan has On-boot enabled (1.3.6 left it off until an administrator changed it).
+- Provisioning: CreateAccount validates the product custom fields before provisioning: `KVMTemplate` must be a numeric VMID, `TPL_Node_QEMU`/`TPL_Node_LXC` must name a node of the cluster, `ISO` must be a bare file name and `Template` a `storage:vztmpl/file` volume ID.
+- Addon: Plans, IPv4 pools, guest import and Module Config are validated server-side; invalid input shows an error and stores nothing.
+- Addon: IPv4 blocks from /22 to /30, or single addresses, are added in one transaction; duplicates are skipped and /31 is rejected.
+- Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
+
+### 🐛 Bug Fix
+- Provisioning (LXC): Suspend, Unsuspend and Cancel failed on every container because they used `POST …/config`, which LXC does not have. Start-at-boot and the lifecycle tag are now written with one synchronous `PUT …/config`, before any HA or power change.
+- noVNC (LXC): The console now opens for containers; `vncproxy` receives only `websocket=1` (`generate-password` exists only for QEMU).
+- noVNC: The console token is encrypted (v2, AES-256-GCM, key derived from the Console Relay Secret). The browser no longer receives the `vnc@pve` ticket, the Proxmox host or the port. After deploying, rotate the `vnc@pve` password and limit TCP/8006 to the WHMCS and relay servers.
+- Provisioning: Suspend, Unsuspend and Cancel wait up to 60 s for the stop/start task, report `Proxmox task {upid} failed: …` or `… did not finish within 60 seconds.`, and skip stop/start when the guest is already in that state.
+- Provisioning (HA): Unsuspend returns `Error unsuspending: HA resource {sid} is in state '{state}', changed outside the module since suspension; guest not started. Resolve the HA state and retry.` instead of reporting success with the guest stopped. An HA resource without an explicit state counts as `started`, and retrying Suspend keeps the record that the module stopped HA.
+- Provisioning (HA): Cancelling an HA-managed guest only sets its HA resource to `disabled`, and the HA stack stops it. The direct stop that HA turned into an HA stop request is no longer sent.
+- Provisioning: Suspend and Unsuspend refuse guests tagged `CANCELADO`.
+- Provisioning: A VMID still linked to a service is never allocated again, and every action refuses a VMID linked to more than one service (`Error: VMID {vmid} is also linked to Service #{id}. Resolve the duplicate link before acting on this guest.`). The fallback that matched a guest whose VMID equals the service ID was removed.
+- Provisioning: CreateAccount refuses a service that already has a guest (`Error: Service #{id} is already linked to {vtype} VMID {vmid}. Remove or relink that guest before creating again.`) before reserving an IP or calling Proxmox.
+- Provisioning: Guest names always pass Proxmox's `dns-name` check. Characters other than letters, digits, `-` and `.` (including `_` and spaces) become `-`, empty labels are removed and names are capped at 63 characters.
+- Client Area: Clients cannot use the power buttons or the console while the service is not Active (`Service is not active.`); admins still can.
+- Client Area: Console errors shown to clients no longer include internal hosts or Proxmox replies; admins still see the details.
+- Client Area: A missing guest or a Proxmox error renders an error in the page instead of stopping the whole WHMCS page.
+- Client Area: The 16 RRD graphs are fetched only for the Statistics view.
+- Logging: Server, customer and console passwords are masked in the WHMCS Module Log, and tracked-action traces no longer include function arguments.
+- API client: The HTTP status and body come from cURL; transport failures report `PVE2 API: {METHOD} {path} failed: cURL error {n}: {error}`; large requests no longer wait for `100-continue`; login tickets expire after 115 minutes; bracketed IPv6 hosts work.
+- Addon: Every admin form carries a CSRF token. A POST without it is ignored with `Invalid or missing security token: the request was ignored and nothing was changed. Reload the page and try again.`
+- Addon (Plans): Editing a plan keeps its VLAN ID, new LXC plans can be unprivileged, and deleting a plan used by a product is refused.
+- Addon (IPv4): Addresses held by Pending services count as in use; deleting a pool or address that a service still uses is refused.
+- Addon (Import): A VMID already linked on the same server is refused, and the service and its guest link are written in one transaction.
+- Addon: One unreachable Proxmox server no longer breaks the Nodes and Guests tabs.
+- Addon: The update banner and Support tab escape the fetched version and link to this fork instead of upstream.
+
+### 💅 Polish
+- Branding: MasterMind TI is credited as the fork maintainer in the addon metadata, `whmcs.json`, file headers, Support tab, README, CONTRIBUTORS and SECURITY. The Network Crew stays credited as upstream.
+- Support: "Open an Issue" and vulnerability reports go to this fork, which now has Issues and private vulnerability reporting enabled.
+- Cleanup: Removed the SPICE launcher, the PHP 4 password decrypter, unused API helpers and the empty login/logout hooks.
+- Docs: Production analysis and validation plan in `_docs/ANALISE-PRODUCAO.md`.
+
 ## [1.3.6] - 2026-10-02 - _"Networks and Safeguards"_
 
 ### 🚀 Feature
@@ -16,7 +57,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Admin GUI: Nodes tab shows per-node QEMU/LXC counts as `customer-linked (total)`, alongside the existing CPU/RAM stats.
 - Admin GUI: Plans, IPv4, Actions, Support, and Config tabs are now real navigable URLs (`&tab=...`) like Nodes/Guests/Logs already were, instead of client-side-only Bootstrap tab switches sharing one URL.
 - Client Area: Service info page, action buttons, and noVNC launcher now match the client's own WHMCS language automatically (English + Brazilian Portuguese included; add more via `modules/servers/pvewhmcs/lang/`).
-- noVNC: The Console Relay moved to its own repository, [junglivre/pvewhmcs-console-relay](https://github.com/junglivre/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
+- noVNC: The Console Relay moved to its own repository, [MasterMindTIBR/pvewhmcs-console-relay](https://github.com/MasterMindTIBR/pvewhmcs-console-relay), so it can be deployed via Plesk's Git integration independently of the WHMCS module.
 - Provisioning: "VM Name Pattern" config lets admins template the Proxmox guest name/hostname with tokens (`{vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}`) instead of the fixed `<order/service id>-<hostname>` layout. Settable per-product (Plan/Pool tab) and as a global default (addon Config tab); per-product wins when both are set, and leaving both blank keeps the legacy name.
 - Provisioning: Cancelled services retain the guest for recovery, stop it, tag it `CANCELADO`, and disable its HA resource only if the guest was already HA-managed (never creates one, which used to block deleting non-HA VMs/CTs on single-node installs); suspension flips an HA-managed guest's requested state to `stopped` and records that the module made the change, so unsuspension only restores `started` when it's safe to do so, otherwise it starts the guest directly.
 - Provisioning: Cancelled and suspended services now disable Proxmox start-at-boot. Unsuspension restores HA service state when it was the module that changed it, but leaves start-at-boot disabled until an administrator enables it.
@@ -220,7 +261,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Function Rename: Avoid same name as Virtualizor (#129)
 - netrate & IPv6: Declare 0 (netrate); add IPv6 DNS (#119)
 
-(\*): SQL Note: There's column changes in 2x module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+(\*): SQL Note: There's column changes in 2x module tables, see [UPDATE-SQL.md](_docs/UPDATE-SQL.md)
 
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
@@ -237,7 +278,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🐛 Bug Fix
 - LXC Net Rate, QEMU Disk I/O:  Apply values (#103)
 
-(\*): SQL Note: There's a modified column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+(\*): SQL Note: There's a modified column in a module table, see [UPDATE-SQL.md](_docs/UPDATE-SQL.md)
 
 ## [1.2.7] - 2025-01-02 - _"Terminate Balloons"_
 
@@ -248,7 +289,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Admin Area: Terminate module command not working (#85)
 - Client Area GUI: Swap graph not always accurate (#95)
 
-(\*): SQL Note: There's a new column in a module table, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+(\*): SQL Note: There's a new column in a module table, see [UPDATE-SQL.md](_docs/UPDATE-SQL.md)
 
 ## [1.2.6] - 2024-09-22 - _"Big Kahunas (TPLs)"_
 
@@ -316,7 +357,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Client, VNC: Fails early if VNC Secret is not set or adequate (#27)
 - On-boot Status: Enabled/Disabled now properly applied for CTs (#34)
 
-(\*): SQL Note: There are new columns in 2 of the module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
+(\*): SQL Note: There are new columns in 2 of the module tables, see [UPDATE-SQL.md](_docs/UPDATE-SQL.md)
 
 ## [1.2.1b] - 2023-06-19 - _"Working, including VNC!"_
 
