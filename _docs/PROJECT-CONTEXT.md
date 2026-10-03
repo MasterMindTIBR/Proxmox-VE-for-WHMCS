@@ -2,9 +2,9 @@
 
 ## Objetivo
 
-O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende, reativa e remove QEMU/LXC; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
+O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende e reativa QEMU/LXC e, no cancelamento, para e marca o guest como `CANCELADO` sem apagá-lo; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
 
-O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstream `7ff41ccecde7`. Correções e funcionalidades continuam se acumulando nessa mesma versão até uma decisão explícita de liberar; a branch `master` contém a linha publicada do fork e o remoto `origin` aponta para `MasterMindTIBR/Proxmox-VE-for-WHMCS`.
+O fork está na versão `1.3.6`, liberada e tagueada como `v1.3.6` ("Networks and Safeguards") em 2026-10-02, o primeiro release próprio do fork, derivada do commit upstream `7ff41ccecde7`. Mudanças novas entram em `## [Unreleased]` no `CHANGELOG.md` conforme a regra de versão do `AGENTS.md`. Todo push em `master` é deployado automaticamente em produção; o remoto `origin` aponta para `MasterMindTIBR/Proxmox-VE-for-WHMCS`.
 
 ## Mapa de execução
 
@@ -20,7 +20,7 @@ O fork está na versão `1.3.6`, ainda não liberada, derivada do commit upstrea
 
 `modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `MasterMindTIBR/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
 
-`github-webhook.local.php` guarda o segredo HMAC e, para repositório privado, um token GitHub com `Contents: Read-only`. O deploy preserva esse arquivo, o receiver e o lock; remove arquivos antigos do módulo que não existam no commit recebido.
+`github-webhook.local.php` guarda o segredo HMAC e, para repositório privado, um token GitHub com `Contents: Read-only`. O deploy nunca apaga esse arquivo nem o lock; o próprio `github-webhook.php` é atualizado a partir do repositório como os demais arquivos, mas mudanças nas regras de validação dele só valem depois de copiá-lo manualmente (o receiver instalado é quem aceita ou rejeita o push). Arquivos dos dois diretórios do módulo que não existam no commit recebido são removidos.
 
 Consulte `_docs/GITHUB-WEBHOOK-DEPLOY.md` antes de expor o endpoint no Plesk. O arquivo local não entra no Git.
 
@@ -88,7 +88,7 @@ O ponto pendente anterior (ticket no query string + cookie compartilhado por dom
 
 O commit `bastrian/Proxmox-VE-for-WHMCS@c2f92a6d4070773b48a73932a91a9272c9c02ca5` tem o título `Decode decrypted server password in addon API logins`. Ele não muda a regra de nome de interface.
 
-Ele tem como pai o commit atual do fork e corrige três caminhos administrativos que hoje:
+Ele tem como pai o commit atual do fork e corrigiu três caminhos administrativos que, antes da 1.3.6:
 
 - ignoram a porta configurada no servidor WHMCS e usam o padrão `8006`;
 - enviam ao Proxmox uma senha decifrada ainda codificada como entidade HTML quando ela contém caracteres como `&`;
