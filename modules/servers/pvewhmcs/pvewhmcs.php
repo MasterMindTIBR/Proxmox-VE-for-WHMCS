@@ -652,12 +652,19 @@ function pvewhmcs_run_tracked_action($action, $type, array $params, callable $ha
 	pvewhmcs_ensure_schema();
 	$service_id = (int) ($params['serviceid'] ?? 0);
 	$user_id = (int) ($params['clientsdetails']['userid'] ?? ($params['userid'] ?? 0));
+	// The acting admin (0 for cron/checkout) and the service's Proxmox server
+	// at the moment the action STARTED are recorded unchanged, so history stays
+	// attributable even if the service moves servers afterwards.
+	$auth_id = (int) ($_SESSION['adminid'] ?? 0);
+	$server_id = pvewhmcs_service_server_id($params);
 	$vmid_before = pvewhmcs_guest_vmid($service_id);
 
 	try {
 		$result = $handler();
 		$failed = $result !== 'success';
 		pvewhmcs_log_action(array(
+			'auth_id' => $auth_id,
+			'server_id' => $server_id,
 			'user_id' => $user_id,
 			'service' => $service_id,
 			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
@@ -670,6 +677,8 @@ function pvewhmcs_run_tracked_action($action, $type, array $params, callable $ha
 		return $result;
 	} catch (\Throwable $e) {
 		pvewhmcs_log_action(array(
+			'auth_id' => $auth_id,
+			'server_id' => $server_id,
 			'user_id' => $user_id,
 			'service' => $service_id,
 			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
