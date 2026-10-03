@@ -4,6 +4,7 @@
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! Cheers. ❤️
 
+    Upstream note (The Network Crew, not this fork):
     TNC Dev are looking for a co-developer to assist with finishing the project overhaul.
     If you have proven and public git-logged experience, or similar, please say g'day.
     
@@ -20,7 +21,7 @@
 - Choose PVE VMID start & integrate to your schema
 - 128GB+ RAM & 128+ CPU cores per Guest!
 
-https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+**Fork maintained by [MasterMind TI](https://mastermindti.com.br/):** https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ — based on [The-Network-Crew/Proxmox-VE-for-WHMCS](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/) by The Network Crew Pty Ltd (TNC) & Co.
 
 **Client Area GUI - w/ Stats:**
 
@@ -52,9 +53,9 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 # 🎯 MODULE: System Requirements (PVE/WHMCS)
 
-- **(WHMCS)** v8.x.x stable (HTTPS)
+- **(WHMCS)** v8.x or v9.x stable (HTTPS)
 - **(NET)** WAN Access: WHMCS to PVE
-- **(VNC)** Special Requirements: PTR, etc.
+- **(VNC)** Console Relay (separate repo) + restricted `vnc@pve` user; no PTR/public IP
 - **(PHP)** v8.x.x (latest stable version)
 - **(PHP)** max_execution_time = 300
 - **(Proxmox)** 2 users (API & VNC)
@@ -124,7 +125,7 @@ WHMCS does not expose a provisioning-module callback for custom fields in its na
 
 ### Action History & Failed Actions
 
-**Addons > Proxmox VE for WHMCS > Actions** lists every `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` call the module has run, newest first, with the linked WHMCS service, Proxmox VMID, and result. **Failed Actions** filters that same list to the calls that returned or threw an error, so you can triage without scrolling past every success. Existing installs pick this up automatically the next time WHMCS runs the module's upgrade routine.
+**Addons > Proxmox VE for WHMCS > Actions** renders one **Action History** + **Failed Actions** panel per enabled pvewhmcs server. Each panel lists that server's tracked `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` calls, newest first, with the linked WHMCS service, Proxmox VMID, result, and an **Admin** column showing who performed the action. Panels are paginated (25/50/100/200 rows per page, 50 by default) with server-side validated filters. Every record keeps the Proxmox server the service was on when the action ran, so moving a service to another server later doesn't reclassify its history; **Failed Actions** filters failures per server the same way. Existing installs pick this up automatically: the module repairs its own schema on the first callback after the update.
 
 ### HA, shared storage, and lifecycle
 
@@ -132,9 +133,13 @@ The module resolves the current node from `/cluster/resources` immediately befor
 
 For Ceph RBD and other real shared storage, live migration changes the compute node while disks remain available through the shared backend. With node-local disks, Proxmox must copy or move storage as part of migration; marking local storage as shared is unsafe. Ceph recovery/backfill/rebalancing is separate from VM migration but competes for CPU, disk, and network capacity, so defer planned migrations until `ceph -s` is healthy.
 
-Cancelling a WHMCS service keeps its VM/CT and `mod_pvewhmcs_vms` link for recovery: the module stops the guest, disables its start-at-boot setting, replaces any lifecycle tag with `CANCELADO`, and disables the guest's HA resource **only if one already existed**. A guest with no HA resource was never HA-managed, so the module never creates one -- doing so would leave an HA reference behind that blocks deleting that VM/CT later, even on a single-node install with no HA in use. It never deletes the guest as part of this callback. Suspending an HA-managed guest (existing resource in state `started`) flips it to `stopped` instead of calling `/status/stop` through HA's back, which also disables start-at-boot; the module records in `mod_pvewhmcs_vms.ha_suspended` that *it* made that change. Unsuspending only restores HA to `started` when `ha_suspended` is set **and** the resource is still `stopped` -- if an admin changed HA state in between, the module leaves it alone and reports it instead of forcing a transition; it also does not re-enable start-at-boot automatically. Guests that were never HA-managed are stopped/started directly, with no HA API calls at all. Suspension applies `SUSPENSO`, which unsuspension removes.
+Cancelling a WHMCS service keeps its VM/CT and `mod_pvewhmcs_vms` link for recovery. The module first writes the guest config in one synchronous update: start-at-boot off and any lifecycle tag replaced with `CANCELADO`. If the guest already has an HA resource, the module sets it to `disabled` and the HA stack stops the guest; it **never creates** an HA resource, because that would leave an HA reference that blocks deleting the VM/CT later, even on a single-node install. A guest without HA is stopped directly and the module waits for the stop task. The guest is never deleted. If the VMID no longer exists in the cluster, or now belongs to another service, only the stale link is removed.
 
-Tag color is a Proxmox datacenter-wide display setting, not a per-guest API property. In **Datacenter → Options → Tag Style**, retain existing settings and add `CANCELADO:#dc2626:#ffffff` and `SUSPENSO:#7e22ce:#ffffff` to the `color-map`. The module API account needs permission to update guest configuration and HA resources; if these tags are registered, it also needs the required `Sys.Modify` privilege.
+Suspending writes start-at-boot off and the `SUSPENSO` tag first. An HA resource in `started` is set to `stopped`, and `mod_pvewhmcs_vms.ha_suspended` records that the module made that change; any other guest is stopped directly (task awaited). Unsuspending removes the lifecycle tag and turns start-at-boot back on when the plan has On-boot enabled. HA goes back to `started` only when `ha_suspended` is set **and** the resource is still `stopped`; if an admin moved it to another state (for example `disabled` or `ignored`), Unsuspend returns an error and changes nothing. Without a module-made HA change, the guest is started directly (task awaited). Suspend and Unsuspend refuse guests tagged `CANCELADO`, and every action refuses a VMID linked to more than one WHMCS service.
+
+Tag color is a Proxmox datacenter-wide display setting, not a per-guest API property. In **Datacenter → Options → Tag Style**, retain existing settings and add `CANCELADO:#dc2626:#ffffff` and `SUSPENSO:#7e22ce:#ffffff` to the `color-map`.
+
+If the WHMCS server uses an account other than `root@pam`, the lifecycle actions need these Proxmox privileges: `VM.Audit` (read config and status), `VM.Config.Options` (start-at-boot and tags) and `VM.PowerMgmt` (start/stop) on the guests, plus `Sys.Audit` on `/` to read HA resources and `Sys.Console` on `/` to change them. Tags listed in the datacenter's registered tags also need `Sys.Modify` on `/`.
 
 #### Admin GUI: QEMU Plan :: Creation interface
 
@@ -170,8 +175,11 @@ process; that relay is the only thing that connects to Proxmox's
   provisioning (TCP/8006).
 - **No PTR/rDNS record needed.** The browser only ever resolves the WHMCS
   domain.
-- **No shared/same-registrable-domain requirement.** `PVEAuthCookie` never
-  reaches the browser — the relay presents it to Proxmox itself, server-side.
+- **No shared/same-registrable-domain requirement.** The console token in
+  the noVNC URL is encrypted (AES-256-GCM, key derived from the Console
+  Relay Secret): the browser cannot read the `vnc@pve` ticket, the Proxmox
+  host or the port. Only the relay decrypts it and presents the ticket to
+  Proxmox, server-side.
 - **No 2-part-TLD workaround needed.** There is no cookie-domain parsing
   involved anymore.
 
@@ -181,7 +189,8 @@ process; that relay is the only thing that connects to Proxmox's
 2. Create the restricted `vnc` PVE user below.
 3. Deploy the Console Relay — source and instructions live in its own
    repository, [MasterMindTIBR/pvewhmcs-console-relay](https://github.com/MasterMindTIBR/pvewhmcs-console-relay)
-   — and generate a shared secret with `openssl rand -hex 32`.
+   — and generate a shared secret with `openssl rand -hex 32`. The module's
+   encrypted (v2) console tokens need the relay at commit `4a5081f` or later.
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config:
    - **VNC Secret** = the `vnc` PVE user's password. This is a Proxmox
      credential, unrelated to the relay secret below; it's still required.
@@ -206,8 +215,8 @@ asset loads.
 1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
 2. Create new User "vnc" > `Datacenter / Permissions / Users` - Group: "VNC", Realm: pve
 3. Create new Role -> `Datacenter / Permissions / Roles` - Name: "VNC", Privileges: VM.Console (only)
-4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
-5. WHMCS > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
+4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Path: `/vms`, Group: "VNC", Role: "VNC", Propagate: yes
+5. WHMCS > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set (minimum 15 characters, 20+ recommended)
 
 > [!CAUTION]
 > Do NOT set less restrictive permissions. `VM.Console` only is intentional:
@@ -245,9 +254,17 @@ is no reliable, browser-portable way to force it into a new tab.
 
 Please make sure you create an IPv4 Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
+### IPv4: cancelled services keep their address (Reserved IPv4)
+
+When a service is terminated, the module keeps the guest and its IP: the address stays reserved — excluded from new allocations and from pool/address deletion — as long as `dedicatedip` still points to it and the retained guest link exists.
+
+**Addons > Proxmox VE for WHMCS > IPv4 > Reserved IPv4** lists these reservations (IP, pool, service, VMID, client).
+
+**Release reservation** (per row) frees the address for new services after an explicit confirmation; the retained CANCELADO guest can never return to the network with that IP. Nothing is released automatically.
+
 #### Private IPs for PVE Hosts
 
-Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. 
+PVE hosts may use private IPs. Only WHMCS and the Console Relay connect to Proxmox (TCP/8006); browsers never do. With **Secure** enabled, the hostname WHMCS uses must appear in the Proxmox certificate (see "TLS certificate verification"). Restrict TCP/8006 on the PVE hosts to the WHMCS and Console Relay servers: customers have no reason to reach it.
 
 #### Existing Guest Imports from PVE
 
@@ -277,8 +294,15 @@ These steps explain the unique requirements for QEMU & LXC guests.
 **Custom Fields:** Values need to go in Name & Select Options.<br>
 This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
-The guest name is generated as `<order-or-service-id>-<hostname>` from the
-WHMCS service hostname (`domain`), for example `1234-debian.example.com`.
+The guest name (QEMU `name`, LXC `hostname`) is `<order-or-service-id>-<hostname>`
+from the WHMCS service hostname (`domain`), for example `1234-debian.example.com`.
+A **VM Name Pattern**, set per product (Plan/Pool tab) or as the default in the
+addon Config tab, replaces that layout with tokens: `{vmid} {node} {serviceid}
+{orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}`. Proxmox only
+accepts a `dns-name`, so every character other than letters, digits, `-` and
+`.` (including `_` and spaces) becomes `-`, empty labels are removed, and the
+name is capped at 63 characters: `web_01.example..com` on order 55 becomes
+`55-web-01.example.com`.
 
 <img alt="Custom Fields for the Service/Product set the ISO/Template/etc." src="_images/zProductISOetc.png">
 
@@ -343,12 +367,12 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 ### Updating to a newer release!
 
 > [!WARNING]  
-> There are 2x states that new Proxmox VE for WHMCS releases typically go through.
+> This is the MasterMind TI fork. The update check reads this fork's `version` file and links to
+> https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/releases. Do not install an upstream
+> (The-Network-Crew) release over this fork: it does not contain the fork's changes or migrations.
 > 
-> 1. Module shows Update Available, but GitHub repo does NOT have a published release.<br>
->    In this state, it is ready for testing - but we do not recommend deploying to prod.
-> 2. Module shows Update Available, and GitHub repo DOES have a published release.<br>
->    In this state, it is tested and considered ready for production usage.
+> 1. Module shows Update Available, but the fork has NOT published a release: ready for testing only.
+> 2. Module shows Update Available, and the fork HAS published a release: ready for production.
 
 1. Download the new version
 2. Upload it over the top (FTP)
@@ -356,16 +380,16 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 4. Verify all working OK
 5. **Watch the repo!**
 
-> **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
+> **Opening the module after a version change triggers the self-upgrade procedure for the SQL database.**
 > 
 > (**Beta Feature:** For now, verify yourself that updates were successful)
 
 ### SQL: Keeping your DB up-to-date
 
 > [!IMPORTANT]  
-> Since v1.3.x, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> Since v1.3.x, opening the module in WHMCS Admin after the module version changes runs any needed SQL Ops (`pvewhmcs_upgrade()`). Since 1.3.7 the module guarantees its own schema on every callback (`pvewhmcs_ensure_schema()`), so updating the files is enough — `pvewhmcs_upgrade()` only triggers the repair.
 > 
-> v1.2.x & below, consult the **_docs/UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> WHMCS skips that routine when the version did not change. Installs that ran a pre-release 1.3.6 build, and v1.2.x & below, consult **_docs/UPDATE-SQL.md** and run the listed statements.
 
 Then you're done with each update!
 
@@ -416,14 +440,14 @@ Hence, we ask that you are as verbose and thorough as possible when reporting Is
 
 **The more info & context you provide up-front, the quicker & easier it will be!**
 
-\* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
+\* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Config, as needed.
 
 > [!TIP]
 > **Please note that this is FOSS and Support is not guaranteed at all.**<br>
 > 
 > **If you don't read, listen or actively try, no help will be provided.**
 > 
-> https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
+> https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/issues/new/choose
 
 <img alt="Admin GUI showing the Cluster History (PVE Task) log" src="_images/zClusterHistory.png">
 
@@ -493,15 +517,19 @@ If you cannot accept this, do not download nor use the code. Complaints, nasty r
 
 # 🎉 FOSS: Open-source Contributions
 
-If you'd like to contribute to the Module, please open a Pull on GitHub >> The-Network-Crew/Proxmox-VE-for-WHMCS >> cheers! _The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
+To contribute to this fork, open a Pull Request on GitHub >> MasterMindTIBR/Proxmox-VE-for-WHMCS. Changes that help every user belong upstream at The-Network-Crew/Proxmox-VE-for-WHMCS. _The original module was written in 2 months by @cybercoder for sale online in 2016, though didn't sell any copies so they kindly open-sourced it and removed the licensing requirement._
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
 FOSS is only possible thanks to dedicated people around the world! :-)
 
-**See [CONTRIBUTORS.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
+**See [CONTRIBUTORS.md](CONTRIBUTORS.md) for those who've made PVEWHMCS possible.**
 
-# TNC & Co.
+# MasterMind TI
+
+**MasterMind TI** :: https://mastermindti.com.br — maintains this fork: console relay, lifecycle safeguards (suspend/unsuspend/cancel tags, HA), pt-BR translation and the manual staging-first deploy process.
+
+# TNC & Co. (upstream)
 
 **The Network Crew Pty Ltd** :: https://tnc.works
 

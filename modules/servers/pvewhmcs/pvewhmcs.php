@@ -2,10 +2,12 @@
 
 /*
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
-	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+	https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ (MasterMind TI fork)
+	Upstream: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 	File: /modules/servers/pvewhmcs/pvewhmcs.php (PVE Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	Modified since 2026-09-25 by MasterMind TI (https://mastermindti.com.br).
 	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
     This program is free software: you can redistribute it and/or modify
@@ -21,6 +23,10 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+
+if (!defined('WHMCS')) {
+	die('This file cannot be accessed directly');
+}
 
 // DEP: Proxmox API Class - make sure we can access via PVE via API
 if (file_exists('../modules/addons/pvewhmcs/proxmox.php'))
@@ -46,7 +52,10 @@ function pvewhmcs_MetaData() {
 }
 
 function pvewhmcs_verify_tls_setting($secure) {
-	if ($secure === null || $secure === '') {
+	if ($secure === null) {
+		// WHMCS leaves serversecure NULL/absent on legacy servers: keep TLS
+		// verification on. Everything else follows FILTER_VALIDATE_BOOLEAN, so
+		// an explicitly empty/unchecked box ('') turns verification off.
 		return true;
 	}
 
@@ -81,38 +90,6 @@ function pvewhmcs_replace_qemu_bridge($network_config, $network) {
 	}
 
 	return implode(',', $parts);
-}
-
-function pvewhmcs_reserve_ip_address($pool_id, $service_id) {
-	return Capsule::connection()->transaction(function () use ($pool_id, $service_id) {
-		$result = Capsule::select(
-			'SELECT i.ipaddress, i.mask, p.gateway
-			 FROM mod_pvewhmcs_ip_addresses i
-			 INNER JOIN mod_pvewhmcs_ip_pools p ON p.id = i.pool_id
-			 WHERE i.pool_id = :pool_id
-			 AND NOT EXISTS (
-				SELECT 1
-				FROM tblhosting h
-				WHERE CONVERT(h.dedicatedip USING utf8mb4) = CONVERT(i.ipaddress USING utf8mb4)
-				AND h.domainstatus IN ("Active", "Suspended", "Completed", "Pending")
-			 )
-			 ORDER BY i.id
-			 LIMIT 1
-			 FOR UPDATE',
-			array('pool_id' => $pool_id)
-		);
-
-		if (empty($result)) {
-			throw new Exception('No free IP addresses available in the selected pool.');
-		}
-
-		$ip = $result[0];
-		Capsule::table('tblhosting')
-			->where('id', $service_id)
-			->update(array('dedicatedip' => $ip->ipaddress));
-
-		return $ip;
-	});
 }
 
 function pvewhmcs_with_vmid_lock($server_id, $callback) {
@@ -175,22 +152,271 @@ function pvewhmcs_guest_api_path($node, $guest) {
 }
 
 /**
- * Prevents a guest from starting automatically when its Proxmox node boots.
+ * True when a semicolon-separated Proxmox tag list contains $tag (case-insensitive).
  */
-function pvewhmcs_disable_guest_start_at_boot(PVE2_API $proxmox, $node, $guest) {
-	return $proxmox->post(pvewhmcs_guest_api_path($node, $guest) . '/config', array('onboot' => 0));
+function pvewhmcs_guest_has_tag($existingTags, $tag) {
+	foreach (explode(';', (string) $existingTags) as $existing) {
+		if (strcasecmp(trim($existing), $tag) === 0) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
+/**
+ * Writes the lifecycle tag, and optionally `onboot`, with ONE synchronous
+ * `PUT {guestPath}/config`. LXC has no POST on /config; PUT exists for QEMU and
+ * LXC and reports failures (e.g. a locked guest) in the HTTP response.
+ * $lifecycleTag null removes the module-managed tag; $onboot null leaves
+ * `onboot` untouched. Proxmox rejects a PUT without options, so nothing is sent
+ * when there is nothing to change.
+ */
+function pvewhmcs_update_guest_lifecycle_config(PVE2_API $proxmox, $guestPath, array $config, $lifecycleTag, $onboot = null) {
+	$changes = array();
+	if ($onboot !== null) {
+		$changes['onboot'] = (int) $onboot;
+	}
 
-function pvewhmcs_set_guest_lifecycle_tag(PVE2_API $proxmox, $node, $guest, $lifecycleTag, $config = null) {
-	$guestPath = pvewhmcs_guest_api_path($node, $guest);
-	$config = $config ?? $proxmox->get($guestPath . '/config');
-	$tags = pvewhmcs_lifecycle_tags($config['tags'] ?? '', $lifecycleTag);
+	$currentTags = trim((string) ($config['tags'] ?? ''));
+	$tags = pvewhmcs_lifecycle_tags($currentTags, $lifecycleTag);
+	if ($tags !== '') {
+		$changes['tags'] = $tags;
+	} elseif ($currentTags !== '') {
+		$changes['delete'] = 'tags';
+	}
 
-	return $proxmox->post(
-		$guestPath . '/config',
-		$tags === '' ? array('delete' => 'tags') : array('tags' => $tags)
-	);
+	if (empty($changes)) {
+		return null;
+	}
+
+	return $proxmox->put($guestPath . '/config', $changes);
+}
+
+/**
+ * Waits for an asynchronous Proxmox task (UPID) to finish. The node is the
+ * second `:` field of the UPID. Succeeds on exitstatus `OK` or `WARNINGS...`;
+ * any other exitstatus, or the timeout, throws RuntimeException.
+ */
+function pvewhmcs_wait_task(PVE2_API $proxmox, string $upid, int $timeoutSeconds) {
+	$upid = trim($upid);
+	$parts = explode(':', $upid);
+	if (($parts[0] ?? '') !== 'UPID' || ($parts[1] ?? '') === '') {
+		throw new RuntimeException("Proxmox did not return a task ID (UPID); got '{$upid}'.");
+	}
+
+	$statusPath = '/nodes/' . $parts[1] . '/tasks/' . $upid . '/status';
+	$deadline = time() + max(1, $timeoutSeconds);
+	while (true) {
+		$task = $proxmox->get($statusPath);
+		if (($task['status'] ?? null) === 'stopped') {
+			$exitStatus = (string) ($task['exitstatus'] ?? '');
+			if ($exitStatus === 'OK' || strpos($exitStatus, 'WARNINGS') === 0) {
+				return $exitStatus;
+			}
+
+			throw new RuntimeException("Proxmox task {$upid} failed: " . ($exitStatus === '' ? 'no exit status' : $exitStatus));
+		}
+
+		if (time() >= $deadline) {
+			throw new RuntimeException("Proxmox task {$upid} did not finish within {$timeoutSeconds} seconds.");
+		}
+		sleep(1);
+	}
+}
+
+function pvewhmcs_is_upid($response) {
+	if (!is_string($response)) {
+		return false;
+	}
+	$parts = explode(':', trim($response));
+
+	return ($parts[0] ?? '') === 'UPID' && ($parts[1] ?? '') !== '';
+}
+
+/**
+ * A marker is authoritative even when the PVE request's outcome is unknown.
+ * Never let a runtime path touch PVE for anything except a ready guest.
+ */
+function pvewhmcs_guest_provisioning_error($guest) {
+	$state = (string) ($guest->provisioning_state ?? 'ready');
+	if ($state === '' || $state === 'ready') {
+		return null;
+	}
+
+	$vmid = (int) ($guest->vmid ?? 0);
+	if ($state === 'pending') {
+		return "Error: provisioning for VMID {$vmid} is pending; retry CreateAccount to finish the recorded Proxmox task.";
+	}
+	if ($state === 'allocating') {
+		return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome; it is blocked pending administrative investigation.";
+	}
+	if ($state === 'failed') {
+		return "Error: provisioning for VMID {$vmid} failed and remains reserved; resolve the recorded allocation before operating the guest.";
+	}
+
+	return "Error: provisioning for VMID {$vmid} is in unsupported state '{$state}' and is blocked.";
+}
+
+function pvewhmcs_provisioning_set_pending($serviceId, $upid) {
+	Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array(
+		'provisioning_state' => 'pending',
+		'provisioning_upid' => trim((string) $upid),
+		'provisioning_error' => null,
+		'provisioning_updated_at' => date('Y-m-d H:i:s'),
+	));
+}
+
+function pvewhmcs_provisioning_set_ready($serviceId) {
+	Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array(
+		'provisioning_state' => 'ready',
+		'provisioning_error' => null,
+		'provisioning_updated_at' => date('Y-m-d H:i:s'),
+	));
+}
+
+function pvewhmcs_provisioning_set_failed($serviceId, $error) {
+	Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array(
+		'provisioning_state' => 'failed',
+		'provisioning_error' => substr((string) $error, 0, 65535),
+		'provisioning_updated_at' => date('Y-m-d H:i:s'),
+	));
+}
+
+/**
+ * Wait for a recorded UPID. A stopped task with an error is terminal and is
+ * retained as failed. Transport failures and deadlines leave it pending so a
+ * later callback can safely retry the same task.
+ */
+function pvewhmcs_wait_recorded_provisioning_task(PVE2_API $proxmox, $serviceId, $upid) {
+	try {
+		pvewhmcs_wait_task($proxmox, $upid, 150);
+	} catch (PVE2_Exception $e) {
+		throw $e;
+	} catch (RuntimeException $e) {
+		if (strpos($e->getMessage(), 'did not finish within') !== false) {
+			throw $e;
+		}
+		pvewhmcs_provisioning_set_failed($serviceId, $e->getMessage());
+		throw $e;
+	}
+}
+
+/**
+ * Under the server VMID lock, lock a candidate pool address before the target
+ * service and write the irreversible marker before a create/clone POST. The
+ * dedicated IP changes in this same transaction, so a process death cannot
+ * expose it for reuse.
+ */
+function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmid, $vtype, $node, $mode, $userId, $ipv6) {
+	// This is only an optimistic candidate list. Every item is revalidated once
+	// its address row is locked, before the marker or dedicated IP is changed.
+	$candidateIds = Capsule::table('mod_pvewhmcs_ip_addresses')
+		->where('pool_id', '=', $poolId)
+		->orderBy('id')
+		->pluck('id')
+		->all();
+	foreach ($candidateIds as $candidateId) {
+		$result = Capsule::connection()->transaction(function () use ($candidateId, $poolId, $serviceId, $serverId, $vmid, $vtype, $node, $mode, $userId, $ipv6) {
+			// Keep this first: release and deletion take the same lock order.
+			$ip = Capsule::table('mod_pvewhmcs_ip_addresses as i')
+				->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
+				->where('i.id', '=', (int) $candidateId)
+				->where('i.pool_id', '=', $poolId)
+				->select('i.id', 'i.pool_id', 'i.ipaddress', 'i.mask', 'p.gateway')
+				->lock('for update')
+				->first();
+			if ($ip === null) {
+				return null;
+			}
+
+			$service = Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
+			if ($service === null) {
+				throw new RuntimeException("Service #{$serviceId} no longer exists.");
+			}
+			if ((int) ($service->server ?? 0) !== (int) $serverId) {
+				throw new RuntimeException("Service #{$serviceId} changed Proxmox servers while provisioning was prepared; retry with its current server.");
+			}
+			$linked = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->lock('for update')->first();
+			if ($linked !== null) {
+				return array('existing' => $linked);
+			}
+			if (trim((string) ($service->dedicatedip ?? '')) !== '') {
+				throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
+			}
+
+			// Revalidate this exact locked address. A terminated service reserves it
+			// only when it still has a guest row identified by the service ID; the
+			// guest's historical vms.ipaddress is never used for this decision.
+			$addressServices = Capsule::table('tblhosting')
+				->where('dedicatedip', '=', $ip->ipaddress)
+				->orderBy('id')
+				->lock('for update')
+				->get();
+			$addressServiceIds = array();
+			$busy = false;
+			foreach ($addressServices as $addressService) {
+				$addressServiceIds[] = (int) $addressService->id;
+				if (in_array($addressService->domainstatus, array('Active', 'Suspended', 'Completed', 'Pending'), true)) {
+					$busy = true;
+				}
+			}
+			$guestServiceIds = empty($addressServiceIds) ? array() : Capsule::table('mod_pvewhmcs_vms')
+				->whereIn('id', $addressServiceIds)
+				->orderBy('id')
+				->lock('for update')
+				->pluck('id')
+				->all();
+			$guestServiceIds = array_flip(array_map('intval', $guestServiceIds));
+			$reserved = false;
+			foreach ($addressServices as $addressService) {
+				if ($addressService->domainstatus === 'Terminated' && isset($guestServiceIds[(int) $addressService->id])) {
+					$reserved = true;
+				}
+			}
+			$unreadyMarker = Capsule::table('mod_pvewhmcs_vms')
+				->where('ipaddress', '=', $ip->ipaddress)
+				->whereRaw("COALESCE(provisioning_state, 'ready') <> 'ready'")
+				->lock('for update')
+				->exists();
+			if ($busy || $reserved || $unreadyMarker) {
+				return null;
+			}
+
+			Capsule::table('mod_pvewhmcs_vms')->insert(array(
+				'id' => (int) $serviceId,
+				'vmid' => (int) $vmid,
+				'user_id' => (int) $userId,
+				'vtype' => $vtype,
+				'ipaddress' => $ip->ipaddress,
+				'subnetmask' => $ip->mask,
+				'gateway' => $ip->gateway,
+				'created' => date('Y-m-d H:i:s'),
+				'v6prefix' => $ipv6,
+				'provisioning_state' => 'allocating',
+				'provisioning_node' => $node,
+				'provisioning_mode' => $mode,
+				'provisioning_updated_at' => date('Y-m-d H:i:s'),
+			));
+			Capsule::table('tblhosting')->where('id', (int) $serviceId)->update(array('dedicatedip' => $ip->ipaddress));
+
+			return array('ip' => $ip);
+		});
+		if ($result !== null) {
+			return $result;
+		}
+	}
+
+	throw new RuntimeException('No free IP addresses available in the selected pool.');
+}
+
+/**
+ * Lifecycle power change: POST status/{start|stop} and wait for the task.
+ */
+function pvewhmcs_guest_power_and_wait(PVE2_API $proxmox, $guestPath, $command) {
+	$upid = $proxmox->post($guestPath . '/status/' . $command, array());
+
+	return pvewhmcs_wait_task($proxmox, (string) $upid, 60);
 }
 
 function pvewhmcs_guest_ha_sid($guest) {
@@ -213,28 +439,125 @@ function pvewhmcs_guest_ha_resource(PVE2_API $proxmox, $guest) {
 	return null;
 }
 
-function pvewhmcs_set_guest_ha_state_if_managed(PVE2_API $proxmox, $guest, $fromState, $toState) {
-	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
-	if ($resource === null || ($resource['state'] ?? null) !== $fromState) {
-		return false;
-	}
-
-	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => $toState));
-}
-
 /**
- * Disables HA only for a guest that was already HA-managed. Never creates a
- * new HA resource: a guest with no HA resource was never using HA, and
- * creating one would leave an HA reference behind that blocks VM/CT deletion
- * for a guest the admin never put under HA in the first place.
+ * Current HA state of the guest's resource, or null when it has none. A resource
+ * without an explicit state (or with the `enabled` alias) is `started`, as in
+ * the Proxmox HA config defaults.
  */
-function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
+function pvewhmcs_guest_ha_state(PVE2_API $proxmox, $guest) {
 	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
 	if ($resource === null) {
 		return null;
 	}
 
-	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => 'disabled'));
+	$state = (string) ($resource['state'] ?? 'started');
+
+	return ($state === '' || $state === 'enabled') ? 'started' : $state;
+}
+
+function pvewhmcs_set_guest_ha_state(PVE2_API $proxmox, $guest, $state) {
+	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => $state));
+}
+
+/**
+ * WHMCS server (tblservers.id) of the service: $params['serverid'], falling
+ * back to tblhosting.server for callers that do not receive it.
+ */
+function pvewhmcs_service_server_id(array $params) {
+	$serverId = (int) ($params['serverid'] ?? 0);
+	if ($serverId === 0 && !empty($params['serviceid'])) {
+		$serverId = (int) Capsule::table('tblhosting')->where('id', $params['serviceid'])->value('server');
+	}
+
+	return $serverId;
+}
+
+/**
+ * Another mod_pvewhmcs_vms row, on the same WHMCS server, linked to the same
+ * VMID (e.g. a cancelled service kept its row and Proxmox reused the VMID).
+ */
+function pvewhmcs_vmid_conflict($guest, array $params) {
+	$serverId = pvewhmcs_service_server_id($params);
+	$others = Capsule::table('mod_pvewhmcs_vms')
+		->where('vmid', $guest->vmid)
+		->where('id', '!=', $guest->id)
+		->get();
+	foreach ($others as $other) {
+		if ((int) Capsule::table('tblhosting')->where('id', $other->id)->value('server') === $serverId) {
+			return $other;
+		}
+	}
+
+	return null;
+}
+
+function pvewhmcs_vmid_conflict_error($guest, array $params) {
+	$other = pvewhmcs_vmid_conflict($guest, $params);
+	if ($other === null) {
+		return null;
+	}
+
+	return "Error: VMID {$guest->vmid} is also linked to Service #{$other->id}. Resolve the duplicate link before acting on this guest.";
+}
+
+/**
+ * Strings WHMCS must mask in the module log: server password, service
+ * password, the customer's Password custom field, VNC secret and relay secret
+ * (plus the JSON-escaped form, since logModuleCall JSON-encodes arrays).
+ */
+function pvewhmcs_log_secrets(array $params, array $extraSecrets = array()) {
+	$config = Capsule::table('mod_pvewhmcs')->where('id', '1')->first();
+	$candidates = array_merge(array(
+		$params['serverpassword'] ?? null,
+		$params['password'] ?? null,
+		$params['customfields']['Password'] ?? null,
+		$config->vnc_secret ?? null,
+		$config->console_relay_secret ?? null,
+	), $extraSecrets);
+
+	$secrets = array();
+	foreach ($candidates as $secret) {
+		if (!is_string($secret) || $secret === '') {
+			continue;
+		}
+		$secrets[] = $secret;
+		$escaped = substr((string) json_encode($secret), 1, -1);
+		if ($escaped !== '' && $escaped !== $secret) {
+			$secrets[] = $escaped;
+		}
+	}
+
+	return array_values(array_unique($secrets));
+}
+
+function pvewhmcs_log_module_call($action, $request, $response, array $params, $processed = '', array $extraSecrets = array()) {
+	logModuleCall('pvewhmcs', $action, $request, $response, $processed, pvewhmcs_log_secrets($params, $extraSecrets));
+}
+
+function pvewhmcs_debug_enabled() {
+	return Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1;
+}
+
+/**
+ * Exception trace for mod_pvewhmcs_logs.raw without call arguments (they can
+ * carry passwords): class, message, file:line, then `file:line function` frames.
+ */
+function pvewhmcs_compact_trace(\Throwable $e) {
+	$lines = array(get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+	foreach ($e->getTrace() as $index => $frame) {
+		$where = isset($frame['file']) ? $frame['file'] . ':' . ($frame['line'] ?? '?') : '[internal]';
+		$function = (isset($frame['class']) ? $frame['class'] . ($frame['type'] ?? '::') : '') . ($frame['function'] ?? '');
+		$lines[] = '#' . $index . ' ' . $where . ' ' . $function;
+	}
+
+	return implode("\n", $lines);
+}
+
+/**
+ * F10: a client (no admin session) may only drive an Active service.
+ */
+function pvewhmcs_client_service_inactive(array $params) {
+	return empty($_SESSION['adminid']) && ($params['status'] ?? '') !== 'Active';
 }
 
 /**
@@ -259,14 +582,14 @@ function pvewhmcs_disable_guest_ha(PVE2_API $proxmox, $guest) {
  * {vmid}/{node} are resolved by the caller (inside the VMID allocation lock) and must be
  * passed in explicitly; calling this before then will render them as empty strings.
  *
- * Proxmox names/hostnames must not contain whitespace or path separators, and QEMU names
- * are limited to 63 characters.
+ * QEMU `name` and LXC `hostname` use the Proxmox `dns-name` format: labels of
+ * [A-Za-z0-9-] that neither start nor end with `-`, joined by single dots. Every
+ * token and the final string go through pvewhmcs_dns_name_sanitize(), and the
+ * result is capped at 63 characters.
  */
 function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = null, ?string $planTitle = null) {
 	$identifier = (int) ($params['orderid'] ?? ($params['serviceid'] ?? 0));
-	$hostname = trim((string) ($params['domain'] ?? ''));
-	$hostname = preg_replace('/[^A-Za-z0-9._-]+/', '-', $hostname);
-	$hostname = trim($hostname, '.-');
+	$hostname = pvewhmcs_dns_name_sanitize($params['domain'] ?? '');
 
 	$pattern = trim((string) ($params['configoption3'] ?? ''));
 
@@ -276,65 +599,86 @@ function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = n
 
 	if ($pattern === '') {
 		$name = ($identifier ?: 'vm') . ($hostname !== '' ? '-' . $hostname : '');
-		return substr($name, 0, 63);
+	} else {
+		$clientName = pvewhmcs_dns_name_sanitize(
+			($params['clientsdetails']['firstname'] ?? '') . ' ' . ($params['clientsdetails']['lastname'] ?? '')
+		);
+
+		$tokens = array(
+			'{vmid}' => $vmid !== null ? (string) $vmid : '',
+			'{node}' => $node !== null ? pvewhmcs_dns_name_sanitize($node) : '',
+			'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
+			'{orderid}' => (string) (int) ($params['orderid'] ?? 0),
+			'{clientid}' => (string) (int) ($params['clientsdetails']['userid'] ?? $params['userid'] ?? 0),
+			'{clientname}' => $clientName,
+			'{hostname}' => $hostname,
+			'{pid}' => (string) (int) ($params['pid'] ?? 0),
+			'{plan}' => $planTitle !== null ? pvewhmcs_dns_name_sanitize($planTitle) : '',
+			'{date}' => date('Y-m-d'),
+		);
+
+		$name = strtr($pattern, $tokens);
 	}
 
-	$clientName = trim(
-		($params['clientsdetails']['firstname'] ?? '') . ' ' . ($params['clientsdetails']['lastname'] ?? '')
-	);
-	$clientName = preg_replace('/[^A-Za-z0-9._-]+/', '-', $clientName);
-	$clientName = trim($clientName, '.-');
-
-	$tokens = array(
-		'{vmid}' => $vmid !== null ? (string) $vmid : '',
-		'{node}' => $node !== null ? preg_replace('/[^A-Za-z0-9._-]+/', '-', $node) : '',
-		'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
-		'{orderid}' => (string) (int) ($params['orderid'] ?? 0),
-		'{clientid}' => (string) (int) ($params['clientsdetails']['userid'] ?? $params['userid'] ?? 0),
-		'{clientname}' => $clientName,
-		'{hostname}' => $hostname,
-		'{pid}' => (string) (int) ($params['pid'] ?? 0),
-		'{plan}' => $planTitle !== null ? preg_replace('/[^A-Za-z0-9._-]+/', '-', $planTitle) : '',
-		'{date}' => date('Y-m-d'),
-	);
-
-	$name = strtr($pattern, $tokens);
-	$name = preg_replace('/[^A-Za-z0-9._-]+/', '-', $name);
-	$name = trim($name, '.-');
-
+	$name = pvewhmcs_dns_name_sanitize(substr(pvewhmcs_dns_name_sanitize($name), 0, 63));
 	if ($name === '') {
-		$name = $identifier ?: 'vm';
+		$name = (string) ($identifier ?: 'vm');
 	}
 
-	return substr($name, 0, 63);
+	return $name;
+}
+
+/**
+ * Reduces a string to a valid Proxmox `dns-name`: only [A-Za-z0-9.-], single
+ * dots, no label starting or ending with `-`, no leading/trailing `.`/`-`.
+ * May return '' (callers supply a fallback).
+ */
+function pvewhmcs_dns_name_sanitize($value) {
+	$value = preg_replace('/[^A-Za-z0-9.-]+/', '-', trim((string) $value));
+	// Any run of '.'/'-' that contains a dot becomes one dot, so labels never
+	// begin/end with '-' and no empty label remains.
+	$value = preg_replace('/[.-]*\.[.-]*/', '.', $value);
+
+	return trim($value, '.-');
 }
 
 /**
  * Records every lifecycle/power action in mod_pvewhmcs_logs, whether the
  * handler throws or returns one of this module's "success"/"Error ..." strings.
- * Failures are always re-thrown so WHMCS's own error handling is unaffected.
+ * Anything other than the exact string "success" (the WHMCS contract) is a
+ * failure. Failures are always re-thrown so WHMCS's own error handling is unaffected.
  */
 function pvewhmcs_run_tracked_action($action, $type, array $params, callable $handler) {
+	pvewhmcs_ensure_schema();
 	$service_id = (int) ($params['serviceid'] ?? 0);
 	$user_id = (int) ($params['clientsdetails']['userid'] ?? ($params['userid'] ?? 0));
+	// The acting admin (0 for cron/checkout) and the service's Proxmox server
+	// at the moment the action STARTED are recorded unchanged, so history stays
+	// attributable even if the service moves servers afterwards.
+	$auth_id = (int) ($_SESSION['adminid'] ?? 0);
+	$server_id = pvewhmcs_service_server_id($params);
 	$vmid_before = pvewhmcs_guest_vmid($service_id);
 
 	try {
 		$result = $handler();
-		$failed = is_string($result) && stripos($result, 'error') !== false;
+		$failed = $result !== 'success';
 		pvewhmcs_log_action(array(
+			'auth_id' => $auth_id,
+			'server_id' => $server_id,
 			'user_id' => $user_id,
 			'service' => $service_id,
 			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
 			'level' => $failed ? 'error' : 'info',
 			'type' => $type,
 			'action' => $action,
-			'response' => is_string($result) ? $result : 'success',
+			'response' => is_string($result) ? $result : 'Unexpected handler result: ' . json_encode($result),
 		));
 
 		return $result;
 	} catch (\Throwable $e) {
 		pvewhmcs_log_action(array(
+			'auth_id' => $auth_id,
+			'server_id' => $server_id,
 			'user_id' => $user_id,
 			'service' => $service_id,
 			'target_id' => pvewhmcs_guest_vmid($service_id) ?: $vmid_before,
@@ -342,7 +686,7 @@ function pvewhmcs_run_tracked_action($action, $type, array $params, callable $ha
 			'type' => $type,
 			'action' => $action,
 			'response' => $e->getMessage(),
-			'raw' => $e->getTraceAsString(),
+			'raw' => pvewhmcs_compact_trace($e),
 		));
 
 		throw $e;
@@ -452,6 +796,7 @@ function pvewhmcs_cluster_usage_stats_html(array $stats) {
  * Falls back to server IP if hostname is empty.
  */
 function pvewhmcs_AdminLink(array $params) {
+	pvewhmcs_ensure_schema();
     $host = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
     $port = pvewhmcs_connection_port($params['serverport'] ?? '');
     if (!$host) {
@@ -459,7 +804,7 @@ function pvewhmcs_AdminLink(array $params) {
         return '<a href="addonmodules.php?module=pvewhmcs">Module Config</a>';
     }
 
-    $url = 'https://' . $host . ':' . $port;
+    $url = 'https://' . pvewhmcs_url_host($host) . ':' . $port;
     $stats = '<span style="color:#777;font-size:13px;">Unavailable</span>';
     try {
         $proxmox = new PVE2_API(
@@ -470,6 +815,10 @@ function pvewhmcs_AdminLink(array $params) {
             $port,
             pvewhmcs_verify_tls($params)
         );
+        // Rule 10: an unreachable PVE must not stall the Servers page.
+        if (method_exists($proxmox, 'set_timeouts')) {
+            $proxmox->set_timeouts(2, 4);
+        }
         if ($proxmox->login()) {
             $stats = pvewhmcs_cluster_usage_stats_html(
                 pvewhmcs_cluster_usage_stats(
@@ -496,6 +845,7 @@ function pvewhmcs_AdminLink(array $params) {
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
+	pvewhmcs_ensure_schema();
 	// Retrieve PVE for WHMCS Cluster
 	$server=Capsule::table('tblservers')->where('type', '=', 'pvewhmcs')->get()[0] ;
 
@@ -530,7 +880,7 @@ function pvewhmcs_ConfigOptions() {
 			"Type" => "text",
 			"Size" => "60",
 			"Description" => "Optional. Leave blank to use the Module Config tab's global default; leave both "
-				. "blank to keep the legacy '<order/service id>-<hostname>' name. "
+				. "blank to keep the legacy '&lt;order/service id&gt;-&lt;hostname&gt;' name. "
 				. "Tokens: {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
 				. "Example: vm{vmid}-{clientname}-{hostname}"
 		),
@@ -540,466 +890,348 @@ function pvewhmcs_ConfigOptions() {
 	return $configarray;
 }
 
-// PVE API FUNCTION: Create the Service on the Hypervisor
-function pvewhmcs_CreateAccount_impl($params) {
-	// Make sure "WHMCS Admin > Products/Services > Proxmox-based Service -> Plan + Pool" are set. Else, fail early. (Issue #36)
-	if (!isset($params['configoption1'], $params['configoption2'])) {
-		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
-	}
-	if (empty($params['configoption1'])) {
-		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
-	}
-	if (empty($params['configoption2'])) {
-		throw new Exception("PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.");
-	}
+/**
+ * Server-side format checks for the product custom fields that CreateAccount
+ * puts into Proxmox paths/volume IDs, matching what the README documents:
+ *   KVMTemplate  numeric VMID of the template (clone path)
+ *   ISO          bare file name; the module composes local:iso/<file>,media=cdrom
+ *   Template     LXC volume ID <storage>:vztmpl/<file>
+ * TPL_Node_QEMU/TPL_Node_LXC are checked against the cluster node list once logged in.
+ * Returns an error string, or null when the fields used by this plan are valid.
+ */
+function pvewhmcs_create_custom_field_error(array $params, $plan) {
+	$fields = (array) ($params['customfields'] ?? array());
 
-	// Only bridged QEMU plans and all LXC plans require a Proxmox network name.
-	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
-	$network = ($plan->vmtype === 'lxc' || $plan->netmode === 'bridge') ? pvewhmcs_plan_network_name($plan) : null;
-
-	// PVE Host - Connection Info
-	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
-
-	// Prepare the service config array. The guest name/hostname is built once the real
-	// Proxmox VMID (and, for the template-clone path, the target node) are known -- see
-	// pvewhmcs_guest_name() and its call sites inside the VMID allocation locks below.
-	$vm_settings = array();
-
-	// Reserve a pool entry and record it in one transaction. The row lock prevents
-	// concurrent provisioning requests from assigning the same address.
-	$ip = pvewhmcs_reserve_ip_address($params['configoption2'], $params['serviceid']);
-	// Get the starting VMID from the config options
-	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
-
-	////////////////////
-	// CREATE IF QEMU //
-	////////////////////
-	if (!empty($params['customfields']['KVMTemplate'])) {
-		// QEMU TEMPLATE - CREATION LOGIC
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-		if ($proxmox->login()) {
-			// Get template node: prefer TPL_Node_QEMU custom field, fallback to first node
-			$nodes = $proxmox->get_node_list();
-			if (!empty($params['customfields']['TPL_Node_QEMU'])) {
-				$template_node = $params['customfields']['TPL_Node_QEMU'];
-			} else {
-				// AUTO-DISCOVERY: Find where the template lives
-				$template_node = pvewhmcs_find_node_by_vmid($proxmox, $params['customfields']['KVMTemplate']);
-			}
-
-			// DEBUG: Log Node Selection logic
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					'Node Selection Debug',
-					array(
-						'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
-						'ALL_Custom_Fields' => $params['customfields'],
-						'ALL_Config_Options' => $params['configoptions'],
-						'Available_Nodes' => $nodes,
-						'Selected_Template_Node' => $template_node
-					),
-					'Checking if custom field is empty or fallback triggered'
-				);
-			}
-			unset($nodes);
-			// Hold a database advisory lock until Proxmox accepts the clone and owns the VMID.
-			list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $params, $plan, &$vm_settings) {
-				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
-				$vm_settings['newid'] = $vmid;
-				$vm_settings['name'] = pvewhmcs_guest_name($params, $vmid, $template_node, $plan->title);
-				$vm_settings['full'] = true;
-				$vm_settings['target'] = $template_node;
-				$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
-
-				return array($vmid, $response);
-			});
-			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
-
-			// DEBUG - Log the request parameters before it's fired
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					$logrequest,
-					json_decode($response)
-				);
-			}
-
-			// Extract UPID from the response (Proxmox returns colon-delimited string)
-			if (strpos($response, 'UPID:') === 0) {
-				$upid = trim($response); // Extract the entire UPID including "UPID:"
-
-				// Poll for task completion
-				$max_retries = 10;  // Total retries (avoid infinite loop)
-				$retry_interval = 15;  // Delay in seconds between retries
-				$completed = false;  // Starting - not complete until done
-
-				for ($i = 0; $i < $max_retries; $i++) {
-					// Check task status
-					$task_status = $proxmox->get('/nodes/' . $template_node . '/tasks/' . $upid . '/status');
-
-					if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
-						// Task is completed, now check exit status
-						if (isset($task_status['exitstatus']) && $task_status['exitstatus'] === 'OK') {
-							$completed = true;
-							break;
-						} else {
-							// Task stopped, but failed with an exit status
-							throw new Exception("Proxmox Error: Task failed with exit status: " . $task_status['exitstatus']);
-						}
-					} elseif ($task_status['status'] === 'running') {
-						// Task is still running, wait and retry
-						sleep($retry_interval);
-					} else {
-						// Unexpected task status
-						throw new Exception("Proxmox Error: Unexpected task status: " . json_encode($task_status));
-					}
-				}
-
-				if (!$completed) {
-					throw new Exception("Proxmox Error: Task did not complete in time. Adjust ~/modules/servers/pvewhmcs/pvewhmcs.php >> max_retries option (2 locations).");
-				}
-
-				// Task is completed, now update the database with VM details.
-				Capsule::table('mod_pvewhmcs_vms')->insert(
-					[
-						'id' => $params['serviceid'],
-						'vmid' => $vmid,
-						'user_id' => $params['clientsdetails']['userid'],
-						'vtype' => 'qemu',
-						'ipaddress' => $ip->ipaddress,
-						'subnetmask' => $ip->mask,
-						'gateway' => $ip->gateway,
-						'created' => date("Y-m-d H:i:s"),
-						'v6prefix' => $plan->ipv6,
-					]
-				);
-
-				// Update WHMCS Service with Dedicated IP
-				Capsule::table('tblhosting')
-					->where('id', $params['serviceid'])
-					->update(['dedicatedip' => $ip->ipaddress]);
-
-				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
-				$cloned_tweaks['memory'] = $plan->memory;
-				$cloned_tweaks['ostype'] = $plan->ostype;
-				$cloned_tweaks['sockets'] = $plan->cpus;
-				$cloned_tweaks['cores'] = $plan->cores;
-				$cloned_tweaks['cpu'] = $plan->cpuemu;
-				$cloned_tweaks['kvm'] = $plan->kvm;
-				$cloned_tweaks['onboot'] = $plan->onboot;
-
-				// Clones inherit NIC definitions from the template. Replace only the bridge
-				// so the plan selects the target network without changing the template MAC.
-				if ($plan->netmode === 'bridge') {
-					$cloned_config = $proxmox->get('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config');
-					$cloned_tweaks['net0'] = pvewhmcs_replace_qemu_bridge($cloned_config['net0'] ?? $plan->netmodel, $network);
-
-					if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-						$cloned_tweaks['net1'] = pvewhmcs_replace_qemu_bridge($cloned_config['net1'] ?? $plan->netmodel, $network);
-					}
-				}
-
-				// Cloud-Init IP Configuration for Cloned VMs
-				$cloned_tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
-				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
-				if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-					switch ($plan->ipv6) {
-						case 'auto':
-							// Pass in auto, triggering SLAAC
-							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
-							break;
-						case 'dhcp':
-							// DHCP for IPv6 option
-							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
-							break;
-						case 'prefix':
-							// Future development
-							break;
-						default:
-							break;
-					}
-				}
-
-				// Optionally set cloud-init password if provided
-				if (!empty($params['password'])) {
-					$cloned_tweaks['cipassword'] = $params['password'];
-				}
-
-				if (!empty($params['customfields']['Password'])) {
-					$cloned_tweaks['cipassword'] = $params['customfields']['Password'];
-				}
-
-				// Apply VM configuration on the node where the VM was cloned
-				$proxmox->post(
-					'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config',
-					$cloned_tweaks
-				);
-
-				// Start the VM only if onboot is enabled
-				if (!empty($plan->onboot)) {
-					$proxmox->post(
-						'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start',
-						array()
-					);
-				}
-
-				return true;
-			} else {
-				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
-			}
-		} else {
-			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
+	if (!empty($fields['KVMTemplate'])) {
+		if (!preg_match('/^\d+$/', (string) $fields['KVMTemplate'])) {
+			return "Error: Custom field KVMTemplate must be the template's numeric Proxmox VMID.";
 		}
-		/////////////////////////////////////////////////
-		// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES //
-		/////////////////////////////////////////////////
-	} else {
-		// No longer inheriting WHMCS Service ID, so //
-		// $vm_settings['vmid'] = $params["serviceid"];
-		if ($plan->vmtype == 'lxc') {
-			// hostname set later, once the VMID/node are known -- see the allocation lock below.
-			///////////////////////////
-			// LXC: Preparation Work //
-			///////////////////////////
-			$vm_settings['ostemplate'] = $params['customfields']['Template'];
-			$vm_settings['swap'] = $plan->swap;
-			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
-			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['nameserver'] = '208.67.222.222 64.6.64.6';
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
-			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-				// Standard prep for the 2nd int.
-				$vm_settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
-				switch ($plan->ipv6) {
-					case 'auto':
-						// Pass in auto, triggering SLAAC
-						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-						$vm_settings['net1'] .= ',ip6=auto';
-						break;
-					case 'dhcp':
-						// DHCP for IPv6 option
-						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-						$vm_settings['net1'] .= ',ip6=dhcp';
-						break;
-					case 'prefix':
-						// Future development
-						break;
-					default:
-						break;
-				}
-				if (!empty($plan->vlanid)) {
-					$vm_settings['net1'] .= ',tag=' . $plan->vlanid;
-				}
+
+		return null;
+	}
+
+	if ($plan->vmtype == 'lxc') {
+		if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]*:vztmpl\/[^\/\\\\,=\s]+$/', (string) ($fields['Template'] ?? ''))) {
+			return 'Error: Custom field Template must be a Proxmox volume ID such as local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz.';
+		}
+	} elseif (isset($fields['ISO'])) {
+		$iso = (string) $fields['ISO'];
+		if (!preg_match('/^[^\/\\\\,=:\s.][^\/\\\\,=:\s]*$/', $iso)) {
+			return 'Error: Custom field ISO must be only the ISO file name (for example debian-13.5.0-amd64-DVD-1.iso); the module attaches it from local:iso/.';
+		}
+	}
+
+	return null;
+}
+
+function pvewhmcs_locked_provisioning_guest($serviceId, $serverId) {
+	return Capsule::connection()->transaction(function () use ($serviceId, $serverId) {
+		$service = Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
+		if ($service === null) {
+			throw new RuntimeException("Service #{$serviceId} no longer exists.");
+		}
+		if ((int) ($service->server ?? 0) !== (int) $serverId) {
+			throw new RuntimeException("Service #{$serviceId} changed Proxmox servers; retry with its current server.");
+		}
+
+		return Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->lock('for update')->first();
+	});
+}
+
+function pvewhmcs_existing_provisioning_create_result($guest) {
+	if ($guest === null) {
+		return null;
+	}
+	$state = (string) ($guest->provisioning_state ?? 'ready');
+	if ($state === 'ready' || $state === '') {
+		return "Error: Service #{$guest->id} is already linked to {$guest->vtype} VMID {$guest->vmid}. Remove or relink that guest before creating again.";
+	}
+
+	return pvewhmcs_guest_provisioning_error($guest);
+}
+
+function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $guestType) {
+	$settings = array();
+	if ($guestType === 'lxc') {
+		$settings['ostemplate'] = $params['customfields']['Template'];
+		$settings['swap'] = $plan->swap;
+		$settings['rootfs'] = $plan->storage . ':' . $plan->disk;
+		$settings['bwlimit'] = $plan->diskio;
+		$settings['nameserver'] = '208.67.222.222 64.6.64.6';
+		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
+		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+			$settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
+			if ($plan->ipv6 === 'auto') {
+				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+				$settings['net1'] .= ',ip6=auto';
+			} elseif ($plan->ipv6 === 'dhcp') {
+				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+				$settings['net1'] .= ',ip6=dhcp';
 			}
 			if (!empty($plan->vlanid)) {
-				$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
+				$settings['net1'] .= ',tag=' . $plan->vlanid;
 			}
-			$vm_settings['onboot'] = $plan->onboot;
-			$vm_settings['unprivileged'] = $plan->unpriv;
-			$vm_settings['password'] = $params['customfields']['Password'];
-		} else {
-			////////////////////////////
-			// QEMU: Preparation Work //
-			////////////////////////////
-			// name set later, once the VMID/node are known -- see the allocation lock below.
-			$vm_settings['scsihw'] = 'virtio-scsi-single';
-			$vm_settings['sockets'] = $plan->cpus;
-			$vm_settings['cores'] = $plan->cores;
-			$vm_settings['cpu'] = $plan->cpuemu;
-			$vm_settings['nameserver'] = '208.67.222.222 64.6.64.6';
-			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
-			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-				switch ($plan->ipv6) {
-					case 'auto':
-						// Pass in auto, triggering SLAAC
-						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-						$vm_settings['ipconfig1'] = 'ip6=auto';
-						break;
-					case 'dhcp':
-						// DHCP for IPv6 option
-						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-						$vm_settings['ipconfig1'] = 'ip6=dhcp';
-						break;
-					case 'prefix':
-						// Future development
-						break;
-					default:
-						break;
-				}
+		}
+		if (!empty($plan->vlanid)) {
+			$settings['net0'] .= ',tag=' . $plan->vlanid;
+		}
+		$settings['onboot'] = $plan->onboot;
+		$settings['unprivileged'] = $plan->unpriv;
+		$settings['password'] = $params['customfields']['Password'];
+	} else {
+		$settings['scsihw'] = 'virtio-scsi-single';
+		$settings['sockets'] = $plan->cpus;
+		$settings['cores'] = $plan->cores;
+		$settings['cpu'] = $plan->cpuemu;
+		$settings['nameserver'] = '208.67.222.222 64.6.64.6';
+		$settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+			if ($plan->ipv6 === 'auto') {
+				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+				$settings['ipconfig1'] = 'ip6=auto';
+			} elseif ($plan->ipv6 === 'dhcp') {
+				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+				$settings['ipconfig1'] = 'ip6=dhcp';
 			}
-			$vm_settings['kvm'] = $plan->kvm;
-			$vm_settings['onboot'] = $plan->onboot;
-
-			$vm_settings[$plan->disktype . '0'] = $plan->storage . ':' . $plan->disk . ',format=' . $plan->diskformat;
-			if (!empty($plan->diskcache)) {
-				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
+		}
+		$settings['kvm'] = $plan->kvm;
+		$settings['onboot'] = $plan->onboot;
+		$settings[$plan->disktype . '0'] = $plan->storage . ':' . $plan->disk . ',format=' . $plan->diskformat;
+		if (!empty($plan->diskcache)) {
+			$settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
+		}
+		$settings['bwlimit'] = $plan->diskio;
+		if (isset($params['customfields']['ISO'])) {
+			$settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
+		}
+		if ($plan->netmode != 'none') {
+			$settings['net0'] = $plan->netmodel;
+			if ($plan->netmode == 'bridge') {
+				$settings['net0'] .= ',bridge=' . $network;
 			}
-			$vm_settings['bwlimit'] = $plan->diskio;
-
-			// ISO: Attach file to the guest
-			if (isset($params['customfields']['ISO'])) {
-				$vm_settings['ide2'] = 'local:iso/' . $params['customfields']['ISO'] . ',media=cdrom';
+			$settings['net0'] .= ',firewall=' . $plan->firewall;
+			if (!empty($plan->netrate)) {
+				$settings['net0'] .= ',rate=' . $plan->netrate;
 			}
-
-			// NET: Config specifics for guest networking
-			if ($plan->netmode != 'none') {
-				$vm_settings['net0'] = $plan->netmodel;
+			if (!empty($plan->vlanid)) {
+				$settings['net0'] .= ',tag=' . $plan->vlanid;
+			}
+			if (isset($settings['ipconfig1'])) {
+				$settings['net1'] = $plan->netmodel;
 				if ($plan->netmode == 'bridge') {
-					$vm_settings['net0'] .= ',bridge=' . $network;
+					$settings['net1'] .= ',bridge=' . $network;
 				}
-				$vm_settings['net0'] .= ',firewall=' . $plan->firewall;
+				$settings['net1'] .= ',firewall=' . $plan->firewall;
 				if (!empty($plan->netrate)) {
-					$vm_settings['net0'] .= ',rate=' . $plan->netrate;
+					$settings['net1'] .= ',rate=' . $plan->netrate;
 				}
 				if (!empty($plan->vlanid)) {
-					$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
-				}
-				// IPv6: Same configs for second interface
-				if (isset($vm_settings['ipconfig1'])) {
-					$vm_settings['net1'] = $plan->netmodel;
-					if ($plan->netmode == 'bridge') {
-						$vm_settings['net1'] .= ',bridge=' . $network;
-					}
-					$vm_settings['net1'] .= ',firewall=' . $plan->firewall;
-					if (!empty($plan->netrate)) {
-						$vm_settings['net1'] .= ',rate=' . $plan->netrate;
-					}
-					if (!empty($plan->vlanid)) {
-						$vm_settings['net1'] .= ',tag=' . $plan->vlanid;
-					}
+					$settings['net1'] .= ',tag=' . $plan->vlanid;
 				}
 			}
 		}
-
-		$vm_settings['cpuunits'] = $plan->cpuunits;
-		$vm_settings['cpulimit'] = $plan->cpulimit;
-		$vm_settings['memory'] = $plan->memory;
-
-		////////////////////////////////////////////////////
-		// CREATION: Attempt to Create Guest via PVE2 API //
-		////////////////////////////////////////////////////
-		try {
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-
-			if ($proxmox->login()) {
-				// Get template node: prefer TPL_Node_LXC custom field for LXC, fallback to first node
-				$nodes = $proxmox->get_node_list();
-				if ($plan->vmtype != 'kvm' && !empty($params['customfields']['TPL_Node_LXC'])) {
-					$template_node = $params['customfields']['TPL_Node_LXC'];
-				} else {
-					$template_node = $nodes[0];
-				}
-				unset($nodes);
-
-				if ($plan->vmtype == 'kvm') {
-					$guest_type = 'qemu';
-				} else {
-					$guest_type = 'lxc';
-				}
-
-				// Hold a database advisory lock until Proxmox accepts the create request.
-				list($vmid, $response) = pvewhmcs_with_vmid_lock($params['serverid'] ?? 0, function () use ($proxmox, $template_node, $vmid, $guest_type, $params, $plan, &$vm_settings) {
-					$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
-					$vm_settings['vmid'] = $vmid;
-					$vm_settings[$guest_type === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $template_node, $plan->title);
-					$response = $proxmox->post('/nodes/' . $template_node . '/' . $guest_type, $vm_settings);
-
-					return array($vmid, $response);
-				});
-				$logrequest = '/nodes/' . $template_node . '/' . $guest_type . $vm_settings;
-
-				// DEBUG - Log the request parameters after it's fired
-				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-					logModuleCall(
-						'pvewhmcs',
-						__FUNCTION__,
-						$logrequest,
-						json_decode($response)
-					);
-				}
-
-				// Extract UPID from the response (Proxmox returns colon-delimited string)
-				if (strpos($response, 'UPID:') === 0) {
-					$upid = trim($response); // Extract the entire UPID including "UPID:"
-
-					// Poll for task completion
-					$max_retries = 10;  // Total retries (avoid infinite loop)
-					$retry_interval = 15;  // Number of seconds between retries
-					$completed = false;
-
-					for ($i = 0; $i < $max_retries; $i++) {
-						// Check task status
-						$task_status = $proxmox->get('/nodes/' . $template_node . '/tasks/' . $upid . '/status');
-
-						if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
-							// Task is completed, now check exit status
-							if (isset($task_status['exitstatus']) && $task_status['exitstatus'] === 'OK') {
-								$completed = true;
-								break;
-							} else {
-								// Task stopped, but failed with an exit status
-								throw new Exception("Proxmox Error: Task failed with exit status: " . $task_status['exitstatus']);
-							}
-						} elseif ($task_status['status'] === 'running') {
-							// Task is still running, wait and retry
-							sleep($retry_interval);
-						} else {
-							// Unexpected task status
-							throw new Exception("Proxmox Error: Unexpected task status: " . json_encode($task_status));
-						}
-					}
-
-					if (!$completed) {
-						throw new Exception("Proxmox Error: Task did not complete in time. Adjust ~/modules/servers/pvewhmcs/pvewhmcs.php >> max_retries option (2 locations).");
-					}
-
-					// Task is completed, now update the database with VM details.
-					Capsule::table('mod_pvewhmcs_vms')->insert(
-						[
-							'id' => $params['serviceid'],
-							'vmid' => $vmid,
-							'user_id' => $params['clientsdetails']['userid'],
-							'vtype' => $guest_type,
-							'ipaddress' => $ip->ipaddress,
-							'subnetmask' => $ip->mask,
-							'gateway' => $ip->gateway,
-							'created' => date("Y-m-d H:i:s"),
-							'v6prefix' => $plan->ipv6,
-						]
-					);
-
-					// Update WHMCS Service with Dedicated IP
-					Capsule::table('tblhosting')
-						->where('id', $params['serviceid'])
-						->update(['dedicatedip' => $ip->ipaddress]);
-					return true;
-				} else {
-					throw new Exception("Proxmox Error: Failed to initiate creation. Response: " . json_encode($response));
-				}
-			} else {
-				throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
-			}
-		} catch (PVE2_Exception $e) {
-			// Record the error in WHMCS's module log.
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					$params,
-					$e->getMessage() . $e->getTraceAsString()
-				);
-			}
-			return $e->getMessage();
-		}
-		unset($vm_settings);
 	}
+	$settings['cpuunits'] = $plan->cpuunits;
+	$settings['cpulimit'] = $plan->cpulimit;
+	$settings['memory'] = $plan->memory;
+
+	return $settings;
+}
+
+function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $plan, $ip, $network, $node, $vmid) {
+	$tweaks = array(
+		'memory' => $plan->memory, 'ostype' => $plan->ostype,
+		'sockets' => $plan->cpus, 'cores' => $plan->cores, 'cpu' => $plan->cpuemu,
+		'kvm' => $plan->kvm, 'onboot' => $plan->onboot,
+		'nameserver' => '208.67.222.222 64.6.64.6',
+		'ipconfig0' => 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway,
+	);
+	$guestPath = '/nodes/' . $node . '/qemu/' . $vmid;
+	if ($plan->netmode === 'bridge') {
+		$config = $proxmox->get($guestPath . '/config');
+		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
+		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+			$tweaks['net1'] = pvewhmcs_replace_qemu_bridge($config['net1'] ?? $plan->netmodel, $network);
+		}
+	}
+	if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+		if ($plan->ipv6 === 'auto') {
+			$tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+			$tweaks['ipconfig1'] = 'ip6=auto';
+		} elseif ($plan->ipv6 === 'dhcp') {
+			$tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+			$tweaks['ipconfig1'] = 'ip6=dhcp';
+		}
+	}
+	if (!empty($params['password'])) {
+		$tweaks['cipassword'] = $params['password'];
+	}
+	if (!empty($params['customfields']['Password'])) {
+		$tweaks['cipassword'] = $params['customfields']['Password'];
+	}
+
+	$response = $proxmox->put($guestPath . '/config', $tweaks);
+	if (pvewhmcs_is_upid($response)) {
+		pvewhmcs_provisioning_set_pending($params['serviceid'], $response);
+		pvewhmcs_wait_recorded_provisioning_task($proxmox, $params['serviceid'], $response);
+	}
+	if (!empty($plan->onboot)) {
+		$status = $proxmox->get($guestPath . '/status/current');
+		if (($status['status'] ?? null) !== 'running') {
+			$response = $proxmox->post($guestPath . '/status/start', array());
+			if (!pvewhmcs_is_upid($response)) {
+				throw new RuntimeException('Proxmox did not return a task ID for the clone start; provisioning remains pending.');
+			}
+			pvewhmcs_provisioning_set_pending($params['serviceid'], $response);
+			pvewhmcs_wait_recorded_provisioning_task($proxmox, $params['serviceid'], $response);
+		}
+	}
+}
+
+function pvewhmcs_resume_pending_clone(PVE2_API $proxmox, array $params, $guest) {
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
+	if ($plan === null || $plan->vmtype !== 'kvm') {
+		throw new RuntimeException('The pending clone cannot be finalized because its selected QEMU plan is unavailable.');
+	}
+	$node = trim((string) ($guest->provisioning_node ?? ''));
+	if ($node === '') {
+		throw new RuntimeException("The pending clone for VMID {$guest->vmid} has no recorded Proxmox node.");
+	}
+	$network = $plan->netmode === 'bridge' ? pvewhmcs_plan_network_name($plan) : null;
+	$ip = (object) array(
+		'ipaddress' => $guest->ipaddress,
+		'mask' => $guest->subnetmask,
+		'gateway' => $guest->gateway,
+	);
+
+	// Reapplying this PUT is idempotent. It is necessary after a process dies
+	// between the clone task and configuration, and is also safe if the saved
+	// UPID was already the configuration or start task.
+	pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $node, (int) $guest->vmid);
+}
+
+// Recoverable provisioning state machine.
+function pvewhmcs_CreateAccount_recoverable_impl($params) {
+	if (empty($params['configoption1']) || empty($params['configoption2'])) {
+		throw new Exception('PVEWHMCS Error: Missing Config. Service/Product WHMCS Config not saved (Plan/Pool not assigned to WHMCS Service type). Check Support/Health tab in Module Config for info. Quick and easy fix.');
+	}
+	$serviceId = (int) $params['serviceid'];
+	$serverId = pvewhmcs_service_server_id($params);
+	$proxmox = pvewhmcs_params_api($params);
+
+	return pvewhmcs_with_vmid_lock($serverId, function () use ($params, $serviceId, $serverId, $proxmox) {
+		$existing = pvewhmcs_locked_provisioning_guest($serviceId, $serverId);
+		if ($existing !== null) {
+			$state = (string) ($existing->provisioning_state ?? 'ready');
+			if ($state !== 'pending' || !pvewhmcs_is_upid($existing->provisioning_upid ?? null)) {
+				return pvewhmcs_existing_provisioning_create_result($existing);
+			}
+			if (!$proxmox->login()) {
+				return "Error: provisioning for VMID {$existing->vmid} is pending, but PVE login failed; retry CreateAccount to resume the recorded task.";
+			}
+			try {
+				pvewhmcs_wait_recorded_provisioning_task($proxmox, $serviceId, $existing->provisioning_upid);
+				if (($existing->provisioning_mode ?? null) === 'clone') {
+					pvewhmcs_resume_pending_clone($proxmox, $params, $existing);
+				}
+				pvewhmcs_provisioning_set_ready($serviceId);
+				return 'success';
+			} catch (PVE2_Exception $e) {
+				return "Error: provisioning for VMID {$existing->vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
+			} catch (RuntimeException $e) {
+				return pvewhmcs_guest_provisioning_error(Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceId)->first());
+			}
+		}
+
+		$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'])->first();
+		if ($plan === null) {
+			return 'Error: the selected PVE plan no longer exists.';
+		}
+		if (!in_array($plan->vmtype, array('kvm', 'lxc'), true)) {
+			return 'Error: the selected PVE plan has an unsupported guest type.';
+		}
+		$network = ($plan->vmtype === 'lxc' || $plan->netmode === 'bridge') ? pvewhmcs_plan_network_name($plan) : null;
+		$customFieldError = pvewhmcs_create_custom_field_error($params, $plan);
+		if ($customFieldError !== null) {
+			return $customFieldError;
+		}
+		if (!$proxmox->login()) {
+			return 'Proxmox Error: PVE API login failed. Please check your credentials.';
+		}
+
+		$isClone = !empty($params['customfields']['KVMTemplate']);
+		$nodes = $proxmox->get_node_list();
+		if (!is_array($nodes) || empty($nodes)) {
+			return 'Proxmox Error: the cluster returned no nodes.';
+		}
+		if ($isClone) {
+			$templateNode = !empty($params['customfields']['TPL_Node_QEMU'])
+				? $params['customfields']['TPL_Node_QEMU']
+				: pvewhmcs_find_node_by_vmid($proxmox, $params['customfields']['KVMTemplate']);
+			if (!in_array($templateNode, $nodes, true)) {
+				return 'Error: Custom field TPL_Node_QEMU does not name a node of this Proxmox cluster.';
+			}
+			$templateConfig = $proxmox->get('/nodes/' . $templateNode . '/qemu/' . $params['customfields']['KVMTemplate'] . '/config');
+			if ((int) ($templateConfig['template'] ?? 0) !== 1) {
+				return 'Error: Custom field KVMTemplate must identify a QEMU template (template=1), not a normal VM.';
+			}
+			$guestType = 'qemu';
+			$mode = 'clone';
+		} else {
+			$templateNode = ($plan->vmtype === 'lxc' && !empty($params['customfields']['TPL_Node_LXC']))
+				? $params['customfields']['TPL_Node_LXC'] : $nodes[0];
+			if (!in_array($templateNode, $nodes, true)) {
+				return 'Error: Custom field TPL_Node_LXC does not name a node of this Proxmox cluster.';
+			}
+			$guestType = $plan->vmtype === 'kvm' ? 'qemu' : 'lxc';
+			$mode = 'create';
+		}
+
+		$vmid = pvewhmcs_find_next_available_vmid($proxmox, $templateNode, Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid'));
+		$marker = pvewhmcs_write_provisioning_marker($params['configoption2'], $serviceId, $serverId, $vmid, $guestType, $templateNode, $mode, $params['clientsdetails']['userid'] ?? $params['userid'] ?? 0, $plan->ipv6);
+		if (isset($marker['existing'])) {
+			return pvewhmcs_existing_provisioning_create_result($marker['existing']);
+		}
+		$ip = $marker['ip'];
+		$settings = $isClone
+			? array('newid' => $vmid, 'name' => pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title), 'full' => true, 'target' => $templateNode)
+			: pvewhmcs_create_direct_settings($params, $plan, $ip, $network, $guestType);
+		if (!$isClone) {
+			$settings['vmid'] = $vmid;
+			$settings[$guestType === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title);
+		}
+		$path = $isClone
+			? '/nodes/' . $templateNode . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone'
+			: '/nodes/' . $templateNode . '/' . $guestType;
+		try {
+			$response = $proxmox->post($path, $settings);
+		} catch (\Throwable $e) {
+			return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome after the Proxmox request; no retry will create another guest. {$e->getMessage()}";
+		}
+		if (pvewhmcs_debug_enabled()) {
+			pvewhmcs_log_module_call(__FUNCTION__, $path . ' ' . json_encode(array_diff_key($settings, array('password' => true, 'cipassword' => true))), $response, $params);
+		}
+		if (!pvewhmcs_is_upid($response)) {
+			return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome because Proxmox did not return a task ID; it remains reserved for investigation.";
+		}
+		pvewhmcs_provisioning_set_pending($serviceId, $response);
+		try {
+			pvewhmcs_wait_recorded_provisioning_task($proxmox, $serviceId, $response);
+			if ($isClone) {
+				pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $templateNode, $vmid);
+			}
+			pvewhmcs_provisioning_set_ready($serviceId);
+			return 'success';
+		} catch (PVE2_Exception $e) {
+			return "Error: provisioning for VMID {$vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
+		} catch (RuntimeException $e) {
+			return pvewhmcs_guest_provisioning_error(Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceId)->first());
+		}
+	});
+}
+
+function pvewhmcs_CreateAccount_impl($params) {
+	return pvewhmcs_CreateAccount_recoverable_impl($params);
 }
 
 /**
@@ -1008,6 +1240,9 @@ function pvewhmcs_CreateAccount_impl($params) {
  * This function first tries to use Proxmox's /cluster/nextid endpoint directly,
  * which is the most reliable method. If the returned VMID is below the configured
  * start_vmid, it will probe for an available VMID starting from start_vmid.
+ * A VMID still referenced by a mod_pvewhmcs_vms row (e.g. a cancelled service
+ * whose guest an admin deleted) is never handed out again, even when Proxmox
+ * reports it free.
  *
  * @param PVE2_API $proxmox    Proxmox API client (logged in)
  * @param string   $node       Ignored (VMIDs are cluster-wide)
@@ -1017,6 +1252,7 @@ function pvewhmcs_CreateAccount_impl($params) {
  */
 function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 	$start_vmid = (int) $start_vmid;
+	$probe_from = $start_vmid;
 
 	// First, try to get the cluster's next available VMID directly
 	try {
@@ -1024,20 +1260,27 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 		$data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
 		$cluster_next = (int) $data;
 
-		// If cluster's next VMID is >= our start, use it directly
+		// If cluster's next VMID is >= our start and not linked to a service, use it directly
 		if ($cluster_next >= $start_vmid) {
-			return $cluster_next;
+			if (!pvewhmcs_vmid_is_linked($cluster_next)) {
+				return $cluster_next;
+			}
+			$probe_from = $cluster_next + 1;
 		}
 	} catch (\Throwable $e) {
 		// If /cluster/nextid fails entirely, fall through to the probe method
 	}
 
-	// If cluster's next VMID is below our start_vmid, or the call failed,
-	// we need to probe starting from start_vmid
+	// If cluster's next VMID is below our start_vmid, is linked to a service,
+	// or the call failed, probe upwards
 	$max_attempts = 1000;
-	$vmid = $start_vmid;
+	$vmid = $probe_from;
 
 	for ($i = 0; $i < $max_attempts; $i++, $vmid++) {
+		if (pvewhmcs_vmid_is_linked($vmid)) {
+			continue;
+		}
+
 		try {
 			// Ask Proxmox if this specific VMID is available. The API client
 			// accepts GET parameters in the action path, not as a second
@@ -1068,11 +1311,16 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 		}
 	}
 
-	throw new Exception("Unable to find a free VMID starting at {$start_vmid} after {$max_attempts} attempts");
+	throw new Exception("Unable to find a free VMID starting at {$probe_from} after {$max_attempts} attempts");
+}
+
+function pvewhmcs_vmid_is_linked($vmid) {
+	return Capsule::table('mod_pvewhmcs_vms')->where('vmid', (int) $vmid)->first() !== null;
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
+	pvewhmcs_ensure_schema();
 	$success = false;
 	$errorMsg = '';
 
@@ -1089,12 +1337,16 @@ function pvewhmcs_TestConnection(array $params) {
 			$errorMsg = $proxmox->get_last_error();
 		}
 	} catch (Throwable $e) {
-		logModuleCall(
-			'pvewhmcs',
+		pvewhmcs_log_module_call(
 			__FUNCTION__,
-			$params,
+			array(
+				'host' => $params['serverhostname'] ?? ($params['serverip'] ?? ''),
+				'port' => $params['serverport'] ?? '',
+				'username' => $params['serverusername'] ?? '',
+			),
 			$e->getMessage(),
-			$e->getTraceAsString()
+			$params,
+			pvewhmcs_compact_trace($e)
 		);
 		$errorMsg = $e->getMessage();
 	}
@@ -1105,343 +1357,204 @@ function pvewhmcs_TestConnection(array $params) {
 	);
 }
 
-// PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
-function pvewhmcs_SuspendAccount_impl(array $params) {
+/**
+ * PVE2_API for callbacks that receive the WHMCS server credentials in $params.
+ */
+function pvewhmcs_params_api(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
-	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if (!$proxmox->login()) {
-		return "Error suspending account. Couldn't login to PVE.";
-	}
 
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	return new PVE2_API($serverip, $params['serverusername'] ?? '', 'pam', $params['serverpassword'] ?? '', $serverport, pvewhmcs_verify_tls($params));
+}
+
+// PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor.
+// Refuses CANCELADO guests. Writes onboot=0 + SUSPENSO first (one config PUT,
+// before any HA/power change can hold the guest's config lock); then an HA
+// resource in `started` is set to `stopped` and recorded in ha_suspended (kept
+// at 1 when a previous partial suspend already did it); finally the guest is
+// stopped (task awaited).
+function pvewhmcs_SuspendAccount_impl(array $params) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
 		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 	}
-	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
+	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return $conflict;
+	}
+
+	$proxmox = pvewhmcs_params_api($params);
+	if (!$proxmox->login()) {
+		return "Error suspending account. Couldn't login to PVE.";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
 		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	// Only transition HA state for a guest that was already HA-managed (existing
-	// resource with state 'started'). `ha_suspended` records whether the module
-	// itself made that change, so UnsuspendAccount knows whether to act on HA.
-	$haManagedBySuspend = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'started', 'stopped');
-	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haManagedBySuspend ? 1 : 0]);
-	$response = array(
-		'ha' => $haManagedBySuspend ? 'stopped' : 'not managed by HA or unchanged',
-		'onboot' => pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest),
-		'stop' => $proxmox->post($guestPath . '/status/stop', array()),
-		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'SUSPENSO'),
-	);
+	$config = (array) $proxmox->get($guestPath . '/config');
+	if (pvewhmcs_guest_has_tag($config['tags'] ?? '', 'CANCELADO')) {
+		return 'Error: guest is marked CANCELADO (cancelled service); suspend refused.';
+	}
 
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall('pvewhmcs', __FUNCTION__, $guestPath, json_encode($response));
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
+
+	// Only transition HA for a guest that is already HA-managed. `ha_suspended`
+	// records that the module itself stopped HA, so UnsuspendAccount knows to
+	// restore it. A retry after a partial suspend finds HA already `stopped`
+	// with ha_suspended=1 and must not forget that.
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	if ($haState === 'started') {
+		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'stopped');
+		$haSuspended = 1;
+	} elseif ($haState === 'stopped' && (int) ($guest->ha_suspended ?? 0) === 1) {
+		$haSuspended = 1;
+	} else {
+		$haSuspended = 0;
+	}
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haSuspended]);
+
+	$status = $proxmox->get($guestPath . '/status/current');
+	$stopTask = null;
+	if (($status['status'] ?? null) !== 'stopped') {
+		$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+	}
+
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('ha_state' => $haState, 'ha_suspended' => $haSuspended, 'stop' => $stopTask), $params);
 	}
 
 	return "success";
 }
 
-// PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
+// PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor.
+// The HA resource is read BEFORE any config/tag change. Exactly three outcomes
+// touch the guest: no HA resource (direct start path), `stopped` recorded by
+// this module (ha_suspended=1, restore `started`), or — after those checks —
+// no CANCELADO tag. Any other HA state (`started`, `disabled`, `ignored`, …),
+// or `stopped` without the module's own suspension, returns an error without
+// changing the guest.
 function pvewhmcs_UnsuspendAccount_impl(array $params) {
-	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
-	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if (!$proxmox->login()) {
-		return "Error unsuspending account. Couldn't login to PVE.";
-	}
-
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
 		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 	}
-	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
+	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return $conflict;
+	}
+
+	$proxmox = pvewhmcs_params_api($params);
+	if (!$proxmox->login()) {
+		return "Error unsuspending account. Couldn't login to PVE.";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
 		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	// Only act on HA if THIS module changed it during the matching suspend
-	// (see `ha_suspended` above). If the guest was never HA-managed, or an
-	// admin touched HA externally since, leave HA alone and start it directly.
-	$haManagedBySuspend = (bool) ($guest->ha_suspended ?? 0);
-	if ($haManagedBySuspend) {
-		$haRestored = pvewhmcs_set_guest_ha_state_if_managed($proxmox, $guest, 'stopped', 'started');
-		$startResult = $haRestored
-			? 'requested through HA'
-			: 'HA resource state changed outside the module since suspension; guest left untouched, check HA manually';
-	} else {
-		$startResult = $proxmox->post($guestPath . '/status/start', array());
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	$suspendedByModule = (int) ($guest->ha_suspended ?? 0) === 1;
+	if ($haState !== null && !($haState === 'stopped' && $suspendedByModule)) {
+		$sid = pvewhmcs_guest_ha_sid($guest);
+		return "Error unsuspending: HA resource {$sid} is in state '{$haState}' and this module did not record suspending it; guest not changed. Resolve the HA state and retry.";
+	}
+	$haRestore = $haState === 'stopped';
+	// No HA resource (any more) is the only case needing a direct start; the
+	// restored `started` resource is started by the HA manager.
+	$directStart = $haState === null;
+
+	$config = (array) $proxmox->get($guestPath . '/config');
+	if (pvewhmcs_guest_has_tag($config['tags'] ?? '', 'CANCELADO')) {
+		return 'Error: guest is marked CANCELADO (cancelled service); unsuspend refused.';
+	}
+
+	$planOnboot = !empty($params['configoption1'])
+		&& !empty(Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'])->value('onboot'));
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
+
+	if ($haRestore) {
+		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'started');
+	}
+	$startTask = null;
+	if ($directStart) {
+		$status = $proxmox->get($guestPath . '/status/current');
+		if (($status['status'] ?? null) !== 'running') {
+			$startTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'start');
+		}
 	}
 	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => 0]);
-	$response = array(
-		'start' => $startResult,
-		'tag' => pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, null),
-	);
 
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall('pvewhmcs', __FUNCTION__, $guestPath, json_encode($response));
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('ha_state' => $haState, 'direct_start' => $directStart, 'start' => $startTask, 'onboot_restored' => $planOnboot), $params);
 	}
 
 	return "success";
 }
 
 // PVE API FUNCTION, ADMIN: Cancel a Service on the hypervisor.
-// The guest is retained for recovery: stop it, mark it CANCELADO, and make
-// its HA resource disabled. The service-to-VM mapping is retained as well.
+// The guest is retained for recovery: onboot=0 + CANCELADO first (one config
+// PUT), then the HA resource is set to `disabled` only if one already exists
+// (never create one; the CRM then stops the guest, so no direct stop is sent
+// for HA guests); other guests are stopped directly (task awaited).
+// The service-to-VM mapping is retained, except when the VMID is gone from the
+// cluster or now belongs to another service (stale row removed).
 function pvewhmcs_TerminateAccount_impl(array $params) {
-	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
-
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls($params));
-	if (!$proxmox->login()) {
-		return "Error cancelling account. Couldn't login to PVE.";
-	}
-
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
 		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 	}
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
+	}
+	$proxmox = pvewhmcs_params_api($params);
+	if (!$proxmox->login()) {
+		return "Error cancelling account. Couldn't login to PVE.";
+	}
 
-	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
 		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 		return "success";
 	}
 
-	$vmid_owner = Capsule::table('mod_pvewhmcs_vms')
-		->where('vmid', '=', $guest->vmid)
-		->where('id', '!=', $params['serviceid'])
-		->first();
+	$vmid_owner = pvewhmcs_vmid_conflict($guest, $params);
 	if ($vmid_owner !== null) {
 		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 		return "Error: VMID {$guest->vmid} is now assigned to Service #{$vmid_owner->id}. Stale record for Service #{$params['serviceid']} cleaned up. VM was NOT changed.";
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	$status = $proxmox->get($guestPath . '/status/current');
-	if (($status['status'] ?? null) !== 'stopped') {
-		$proxmox->post($guestPath . '/status/stop', array());
+	$config = (array) $proxmox->get($guestPath . '/config');
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
+
+	// A direct stop of an HA guest becomes an HA stop request that rewrites the
+	// resource state to `stopped`, so HA guests are only set to `disabled`.
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	$stopTask = null;
+	if ($haState !== null) {
+		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'disabled');
+	} else {
+		$status = $proxmox->get($guestPath . '/status/current');
+		if (($status['status'] ?? null) !== 'stopped') {
+			$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+		}
 	}
-	pvewhmcs_disable_guest_start_at_boot($proxmox, $guest_node, $guest);
-	pvewhmcs_set_guest_lifecycle_tag($proxmox, $guest_node, $guest, 'CANCELADO');
-	pvewhmcs_disable_guest_ha($proxmox, $guest);
 	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => 0]);
 
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('ha_state' => $haState, 'stop' => $stopTask), $params);
+	}
+
 	return "success";
-}
-
-// GENERAL CLASS: WHMCS Decrypter
-class pvewhmcs_hash_encryption {
-	/**
-	 * Hashed value of the user provided encryption key
-	 * @var string
-	 **/
-	var $hash_key;
-	
-	/**
-	 * String length of hashed values using the current algorithm
-         * @var int
-	 **/
-	var $hash_length;
-	
-	/**
-	 * Switch base64 enconding on / off
-         * @var bool    true = use base64, false = binary output / input
-	 **/
-	var $base64;
-	
-	/**
-	 * Secret value added to randomize output and protect the user provided key
-         * @var string  Change this value to add more randomness to your encryption
-	 **/
-	var $salt = 'Change this to any secret value you like. "d41d8cd98f00b204e9800998ecf8427e" might be a good example.';
-
-	/**
-	 * Constructor method
-	 *
-	 * Used to set key for encryption and decryption.
-     * @param       string  $key    Your secret key used for encryption and decryption
-     * @param       bool   $base64 Enable base64 en- / decoding
-	 * @return mixed
-	 */
-	function pvewhmcs_hash_encryption($key, $base64 = true) {
-
-		global $cc_encryption_hash;
-
-		// Toggle base64 usage on / off
-		$this->base64 = $base64;
-
-		// Instead of using the key directly we compress it using a hash function
-		$this->hash_key = $this->_hash($key);
-
-		// Remember length of hashvalues for later use
-		$this->hash_length = strlen($this->hash_key);
-	}
-
-	/**
-	 * Method used for encryption
-         * @param       string  $string Message to be encrypted
-         * @return string       Encrypted message
-	 */
-	function encrypt($string) {
-		$iv = $this->_generate_iv();
-
-		// Clear output
-		$out = '';
-
-		// First block of output is ($this->hash_hey XOR IV)
-		for($c=0;$c < $this->hash_length;$c++) {
-			$out .= chr(ord($iv[$c]) ^ ord($this->hash_key[$c]));
-		}
-
-		// Use IV as first key
-		$key = $iv;
-		$c = 0;
-
-		// Go through input string
-		while($c < strlen($string)) {
-			// If we have used all characters of the current key we switch to a new one
-			if(($c != 0) and ($c % $this->hash_length == 0)) {
-				// New key is the hash of current key and last block of plaintext
-				$key = $this->_hash($key . substr($string,$c - $this->hash_length,$this->hash_length));
-			}
-			// Generate output by xor-ing input and key character for character
-			$out .= chr(ord($key[$c % $this->hash_length]) ^ ord($string[$c]));
-			$c++;
-		}
-		// Apply base64 encoding if necessary
-		if($this->base64) $out = base64_encode($out);
-		return $out;
-	}
-
-	/**
-	 * Method used for decryption
-         * @param       string  $string Message to be decrypted
-         * @return string       Decrypted message
-	 */
-	function decrypt($string) {
-		// Apply base64 decoding if necessary
-		if($this->base64) $string = base64_decode($string);
-
-		// Extract encrypted IV from input
-		$tmp_iv = substr($string,0,$this->hash_length);
-
-		// Extract encrypted message from input
-		$string = substr($string,$this->hash_length,strlen($string) - $this->hash_length);
-		$iv = $out = '';
-
-		// Regenerate IV by xor-ing encrypted IV from block 1 and $this->hashed_key
-		// Mathematics: (IV XOR KeY) XOR Key = IV
-		for($c=0;$c < $this->hash_length;$c++)
-		{
-			$iv .= chr(ord($tmp_iv[$c]) ^ ord($this->hash_key[$c]));
-		}
-		// Use IV as key for decrypting the first block cyphertext
-		$key = $iv;
-		$c = 0;
-
-		// Loop through the whole input string
-		while($c < strlen($string)) {
-			// If we have used all characters of the current key we switch to a new one
-			if(($c != 0) and ($c % $this->hash_length == 0)) {
-				// New key is the hash of current key and last block of plaintext
-				$key = $this->_hash($key . substr($out,$c - $this->hash_length,$this->hash_length));
-			}
-			// Generate output by xor-ing input and key character for character
-			$out .= chr(ord($key[$c % $this->hash_length]) ^ ord($string[$c]));
-			$c++;
-		}
-		return $out;
-	}
-
-	/**
-	 * Hashfunction used for encryption
-	 *
-	 * This class hashes any given string using the best available hash algorithm.
-	 * Currently support for md5 and sha1 is provided. In theory even crc32 could be used
-	 * but I don't recommend this.
-	 *
-         * @access      private
-         * @param       string  $string Message to hashed
-         * @return string       Hash value of input message
-	 */
-	function _hash($string) {
-		// Use sha1() if possible, php versions >= 4.3.0 and 5
-		if(function_exists('sha1')) {
-			$hash = sha1($string);
-		} else {
-			// Fall back to md5(), php versions 3, 4, 5
-			$hash = md5($string);
-		}
-		$out ='';
-		// Convert hexadecimal hash value to binary string
-		for($c=0;$c<strlen($hash);$c+=2) {
-			$out .= $this->_hex2chr($hash[$c] . $hash[$c+1]);
-		}
-		return $out;
-	}
-
-	/**
-	 * Generate a random string to initialize encryption
-	 *
-	 * This method will return a random binary string IV ( = initialization vector).
-	 * The randomness of this string is one of the crucial points of this algorithm as it
-	 * is the basis of encryption. The encrypted IV will be added to the encrypted message
-	 * to make decryption possible. The transmitted IV will be encoded using the user provided key.
-	 *
-         * @todo        Add more random sources.
-         * @access      private
-         * @see function        pvewhmcs_hash_encryption
-         * @return string       Binary pseudo random string
-	 **/
-	function _generate_iv() {
-		// Initialize pseudo random generator
-		srand ((double)microtime()*1000000);
-
-		// Collect random data.
-		// Add as many "pseudo" random sources as you can find.
-		// Possible sources: Memory usage, diskusage, file and directory content...
-		$iv  = $this->salt;
-		$iv .= rand(0,getrandmax());
-		// Changed to serialize as the second parameter to print_r is not available in php prior to version 4.4
-		$iv .= serialize($GLOBALS);
-		return $this->_hash($iv);
-	}
-
-	/**
-	 * Convert hexadecimal value to a binary string
-	 *
-	 * This method converts any given hexadecimal number between 00 and ff to the corresponding ASCII char
-	 *
-         * @access      private
-         * @param       string  Hexadecimal number between 00 and ff
-         * @return      string  Character representation of input value
-	 **/
-	function _hex2chr($num) {
-		return chr(hexdec($num));
-	}
-}
-
-// GENERAL FUNCTION: Server PW from WHMCS DB
-function pvewhmcs_get_whmcs_server_password($enc_pass){
-	global $cc_encryption_hash;
-	// Include WHMCS database configuration file
-	include_once(dirname(dirname(dirname(dirname(__FILE__)))) . '/configuration.php');
-	$key1 = md5 (md5 ($cc_encryption_hash));
-	$key2 = md5 ($cc_encryption_hash);
-	$key = $key1 . $key2;
-	$hasher = new pvewhmcs_hash_encryption($key);
-	return $hasher->decrypt($enc_pass);
 }
 
 // MODULE BUTTONS: Admin Interface button regos
@@ -1569,18 +1682,17 @@ function pvewhmcs_fetch_rrd_stat($proxmox, $node, $vtype, $vmid, $timeframe, $ds
 		// Check if we got a valid response with image data
 		if (isset($vm_rrd['image']) && !empty($vm_rrd['image'])) {
 			// Decode and re-encode the image data for template use
-			$image = utf8_decode($vm_rrd['image']);
-			return base64_encode($image);
+			return base64_encode(pvewhmcs_rrd_image_bytes($vm_rrd['image']));
 		}
 	} catch (Exception $e) {
 		// RRD data unavailable - this is normal for new VMs or during migration.
 		// Log if debug mode is on, but don't crash the Client Area.
-		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-			logModuleCall(
-				'pvewhmcs',
+		if (pvewhmcs_debug_enabled()) {
+			pvewhmcs_log_module_call(
 				'pvewhmcs_fetch_rrd_stat',
 				'RRD fetch failed for ' . $vtype . '/' . $vmid . ' (' . $ds . ', ' . $timeframe . ')',
-				$e->getMessage()
+				$e->getMessage(),
+				array()
 			);
 		}
 	}
@@ -1589,132 +1701,128 @@ function pvewhmcs_fetch_rrd_stat($proxmox, $node, $vtype, $vmid, $timeframe, $ds
 	return null;
 }
 
-// OUTPUT: Module output to the Client Area
-function pvewhmcs_ClientArea($params) {
-	// Retrieve virtual machine info from table mod_pvewhmcs_vms
-	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-	
-	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+/**
+ * PVE2_API for the client-area and power paths, which read the service's WHMCS
+ * server row (tblhosting.server) instead of $params credentials.
+ * Returns array($proxmox, $decryptedServerPassword).
+ */
+function pvewhmcs_service_server_api(array $params) {
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']);
+	$pveserver = $pveservice ? Capsule::table('tblservers')->where('id', '=', $pveservice->server)->first() : null;
+	if ($pveserver === null) {
+		throw new Exception("PVEWHMCS Error: No Proxmox server is assigned to Service #{$params['serviceid']}.");
+	}
 
-	// Get IP and User for Hypervisor
 	$serverip = pvewhmcs_connection_host($pveserver->hostname ?? '', $pveserver->ipaddress ?? '');
-	$serverusername = $pveserver->username;
-	// Password access is different in Client Area, so retrieve and decrypt
-	$api_data = array(
-		'password2' => $pveserver->password,
-	);
-	$serverpassword = localAPI('DecryptPassword', $api_data);
+	// Password access is different in Client Area, so retrieve and decrypt. The
+	// stored value is HTML-entity encoded like every WHMCS admin input (same
+	// decoding as the addon's Nodes/Guests/Logs tabs).
+	$decrypted = localAPI('DecryptPassword', array('password2' => $pveserver->password));
+	$serverpassword = html_entity_decode((string) ($decrypted['password'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	$serverport = pvewhmcs_connection_port($pveserver->port ?? '');
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
-	if ($proxmox->login()) {
-		//$proxmox->setCookie();
-		// Where node lives ? 
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			throw new Exception(
-			"PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
-			);
-		}
+	return array(
+		new PVE2_API($serverip, $pveserver->username, "pam", $serverpassword, $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null)),
+		$serverpassword,
+	);
+}
 
-		# Get and set VM variables
-		$vm_config = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/config');
-		$cluster_resources = $proxmox->get('/cluster/resources');
-		$vm_status = null;
-		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
-		$cluster_encoded = json_encode($cluster_resources);
-		$vmspecs_encoded = json_encode($vm_config);
-		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-			logModuleCall(
-				'pvewhmcs',
-				__FUNCTION__,
-				'CLUSTER INFO: ' . $cluster_encoded,
-				'GUEST CONFIG (Service #' . $params['serviceid'] . ' / PVE ID #' . $guest->vmid . ' / Client #' . $params['clientsdetails']['userid'] . '): ' . $vmspecs_encoded
-			);
-		}
+function pvewhmcs_client_area_error($message, array $params) {
+	return array(
+		'templatefile' => 'clientarea',
+		'vars' => array(
+			'params' => $params,
+			'pvewhmcs_error' => $message,
+			'lang' => pvewhmcs_load_client_lang($params),
+		),
+	);
+}
 
-		# Loop through data, find ID
-		$vm_status = null;
-		foreach ($cluster_resources as $vm) {
-			// Using vmid directly, from Module Table against API Response (ignoring Service ID now)
-			if ($vm['vmid'] == $guest->vmid && $vm['type'] == $guest->vtype) {
-				$vm_status = $vm;
-				break;
-			}
+// OUTPUT: Module output to the Client Area
+function pvewhmcs_ClientArea($params) {
+	pvewhmcs_ensure_schema();
+	$lang = pvewhmcs_load_client_lang($params);
+	$unavailable = $lang['hypervisor_unavailable'] ?? 'Error: Unable to gather data from Hypervisor. Please contact Tech Support!';
 
-			// If the vmid is not found, check against serviceid (<v1.2.9 case)
-			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
-				$vm_status = $vm;
-				break;
-			}
-		}
-
-		# Retrieve & set usage data appropriately
-		if ($vm_status !== null) {
-			$vm_status['uptime'] = time2format($vm_status['uptime']);
-			$vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
-
-			$vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
-			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
-
-			if ($guest->vtype == 'lxc') {
-				// Check on swap before setting graph value
-				$ct_specific = $proxmox->get('/nodes/' . $guest_node . '/lxc/' . $guest->vmid . '/status/current');
-				if ($ct_specific['maxswap'] != 0) {
-					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
-				}
-			} else {
-				// Fall back to 0% usage to satisfy chart requirement
-				$vm_status['swapusepercent'] = 0;
-			}
-		} else {
-	    		// Handle the VM not found in the cluster resources (Optional)
-			echo "VM/CT not found in Cluster Resources.";
-		}
-
-		// ----------------------------------------------------------------
-		// Fetch RRD statistics graphs from Proxmox.
-		// Uses pvewhmcs_fetch_rrd_stat() for graceful error handling.
-		// RRD data may be unavailable for new VMs or during PVE migration.
-		// ----------------------------------------------------------------
-
-		// CPU usage statistics (day/week/month/year)
-		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
-		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
-		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
-		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
-
-		// Memory usage statistics (day/week/month/year)
-		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
-		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
-		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
-		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
-
-		// Network I/O statistics (day/week/month/year)
-		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
-		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
-		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
-		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
-
-		// Disk I/O statistics (day/week/month/year)
-		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
-
-		$vm_config['vtype'] = $guest->vtype ;
-		$vm_config['ipv4'] = $guest->ipaddress ;
-		$vm_config['netmask4'] = $guest->subnetmask ;
-		$vm_config['gateway4'] = $guest->gateway ;
-		$vm_config['created'] = $guest->created ;
-		$vm_config['v6prefix'] = $guest->v6prefix ;
+	// Retrieve virtual machine info from table mod_pvewhmcs_vms
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest === null) {
+		return pvewhmcs_client_area_error($unavailable, $params);
 	}
-	else {
-		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>';
-		exit;
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return pvewhmcs_client_area_error($provisioningError, $params);
 	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return pvewhmcs_client_area_error($conflict, $params);
+	}
+
+	list($proxmox, $serverpassword) = pvewhmcs_service_server_api($params);
+	if (!$proxmox->login()) {
+		return pvewhmcs_client_area_error($unavailable, $params);
+	}
+
+	// One /cluster/resources read gives both the node and the live status.
+	$cluster_resources = $proxmox->get('/cluster/resources');
+	$vm_status = pvewhmcs_find_guest_resource($proxmox, $guest, $cluster_resources);
+	if ($vm_status === null) {
+		// e.g. a cancelled service whose retained guest an admin has since deleted.
+		return pvewhmcs_client_area_error($unavailable, $params);
+	}
+	$guest_node = $vm_status['node'];
+
+	# Get and set VM variables
+	$vm_config = $proxmox->get(pvewhmcs_guest_api_path($guest_node, $guest) . '/config');
+	// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(
+			__FUNCTION__,
+			'CLUSTER INFO: ' . json_encode($cluster_resources),
+			'GUEST CONFIG (Service #' . $params['serviceid'] . ' / PVE ID #' . $guest->vmid . ' / Client #' . ($params['clientsdetails']['userid'] ?? '') . '): ' . json_encode($vm_config),
+			$params,
+			'',
+			array($serverpassword)
+		);
+	}
+
+	# Retrieve & set usage data appropriately
+	$vm_status['uptime'] = time2format($vm_status['uptime']);
+	$vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
+
+	$vm_status['diskusepercent'] = !empty($vm_status['maxdisk']) ? intval(($vm_status['disk'] ?? 0) * 100 / $vm_status['maxdisk']) : 0;
+	$vm_status['memusepercent'] = !empty($vm_status['maxmem']) ? intval(($vm_status['mem'] ?? 0) * 100 / $vm_status['maxmem']) : 0;
+
+	if ($guest->vtype == 'lxc') {
+		// Check on swap before setting graph value
+		$ct_specific = $proxmox->get('/nodes/' . $guest_node . '/lxc/' . $guest->vmid . '/status/current');
+		$vm_status['swapusepercent'] = !empty($ct_specific['maxswap']) ? intval(($ct_specific['swap'] ?? 0) * 100 / $ct_specific['maxswap']) : 0;
+	} else {
+		// Fall back to 0% usage to satisfy chart requirement
+		$vm_status['swapusepercent'] = 0;
+	}
+
+	// ----------------------------------------------------------------
+	// RRD statistics graphs (16 sequential requests) are rendered only by
+	// the Statistics view (custom function vmStat), so fetch them only there.
+	// pvewhmcs_fetch_rrd_stat() tolerates missing RRD data.
+	// ----------------------------------------------------------------
+	$vm_statistics = array();
+	$show_statistics = (($_REQUEST['a'] ?? '') === 'vmStat');
+	if ($show_statistics) {
+		$rrd_sources = array('cpu' => 'cpu', 'mem' => 'mem', 'netinout' => 'netin,netout', 'diskrw' => 'diskread,diskwrite');
+		foreach ($rrd_sources as $key => $ds) {
+			foreach (array('year', 'month', 'week', 'day') as $timeframe) {
+				$vm_statistics[$key][$timeframe] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, $timeframe, $ds);
+			}
+		}
+	}
+
+	$vm_config['vtype'] = $guest->vtype ;
+	$vm_config['ipv4'] = $guest->ipaddress ;
+	$vm_config['netmask4'] = $guest->subnetmask ;
+	$vm_config['gateway4'] = $guest->gateway ;
+	$vm_config['created'] = $guest->created ;
+	$vm_config['v6prefix'] = $guest->v6prefix ;
 
 	return array(
 		'templatefile' => 'clientarea',
@@ -1723,8 +1831,8 @@ function pvewhmcs_ClientArea($params) {
 			'vm_config' => $vm_config,
 			'vm_status' => $vm_status,
 			'vm_statistics' => $vm_statistics,
-			'vm_vncproxy' => $vm_vncproxy,
-			'lang' => pvewhmcs_load_client_lang($params),
+			'vm_show_statistics' => $show_statistics,
+			'lang' => $lang,
 		),
 	);
 }
@@ -1736,10 +1844,23 @@ function pvewhmcs_vmStat($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_prepare_noVNC($params) {
+	pvewhmcs_ensure_schema();
 	global $CONFIG;
 
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	}
+
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest === null) {
+		throw new Exception("Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})");
+	}
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		throw new Exception($provisioningError);
+	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		throw new Exception($conflict);
 	}
 
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
@@ -1749,11 +1870,7 @@ function pvewhmcs_prepare_noVNC($params) {
 		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
 	}
 
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-	if ($guest === null) {
-		throw new Exception("Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})");
-	}
-	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest, $params['serviceid']);
+	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest);
 	if (empty($guest_node)) {
 		throw new Exception('Failed to prepare noVNC. Unable to determine node.');
 	}
@@ -1764,9 +1881,11 @@ function pvewhmcs_prepare_noVNC($params) {
 		throw new Exception('Failed to prepare noVNC. Please contact Technical Support.');
 	}
 
+	// `websocket=1` is the only extra parameter valid for both QEMU and LXC; with
+	// it Proxmox generates and returns the one-time VNC password.
 	$vm_vncproxy = $proxmox->post(
 		'/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy',
-		array('websocket' => '1', 'generate-password' => '1')
+		array('websocket' => 1)
 	);
 	if (empty($vm_vncproxy['ticket']) || empty($vm_vncproxy['port']) || empty($vm_vncproxy['password'])) {
 		throw new Exception('Failed to prepare noVNC. Proxmox did not return a complete VNC proxy session.');
@@ -1803,12 +1922,29 @@ function pvewhmcs_prepare_noVNC($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	pvewhmcs_ensure_schema();
 	$lang = pvewhmcs_load_client_lang($params);
+
+	if (pvewhmcs_client_service_inactive($params)) {
+		return $lang['service_not_active'] ?? 'Service is not active.';
+	}
 
 	try {
 		$prepared = pvewhmcs_prepare_noVNC($params);
 	} catch (\Throwable $e) {
-		return ($lang['novnc_prepare_failed'] ?? 'Failed to prepare noVNC.') . ' ' . $e->getMessage();
+		// Details (hosts, Proxmox replies, config hints) go to the module log only.
+		pvewhmcs_log_module_call(
+			__FUNCTION__,
+			array('serviceid' => $params['serviceid'] ?? null),
+			$e->getMessage(),
+			$params,
+			pvewhmcs_compact_trace($e)
+		);
+		if (!empty($_SESSION['adminid'])) {
+			return ($lang['novnc_prepare_failed'] ?? 'Failed to prepare noVNC.') . ' ' . $e->getMessage();
+		}
+
+		return $lang['novnc_unavailable'] ?? 'The console is unavailable right now. Please try again in a few minutes or contact support.';
 	}
 
 	$escaped_url = htmlspecialchars($prepared['url'], ENT_QUOTES, 'UTF-8');
@@ -1832,258 +1968,112 @@ function pvewhmcs_noVNC($params) {
 	</script>';
 }
 
-// VNC: Console access to VM/CT via SPICE
-function pvewhmcs_SPICE($params) {
-	global $CONFIG;
-	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
-		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+/**
+ * Shared prelude of the client/admin power buttons: client status gate (F10),
+ * guest row, duplicate-VMID guard, login with the service's WHMCS server
+ * credentials and node lookup. Returns array($proxmox, $guestPath, $serverPassword)
+ * or an error string for WHMCS.
+ */
+function pvewhmcs_power_target(array $params) {
+	if (pvewhmcs_client_service_inactive($params)) {
+		$lang = pvewhmcs_load_client_lang($params);
+
+		return $lang['service_not_active'] ?? 'Service is not active.';
 	}
-	
-	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
-	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
-	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport, pvewhmcs_verify_tls($params));
-	if (!$proxmox_server->login()) {
-		return 'Failed to prepare SPICE. Unable to connect to server.';
-	}
-	
-	// Early prep work - find guest and node using server credentials
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
 		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 	}
-	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest, $params['serviceid']);
-	if (empty($guest_node)) {
-		return 'Failed to prepare SPICE. Unable to determine node.';
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
 	}
-	
-	// Now use VNC credentials for the actual SPICE proxy request (restricted permissions)
-	$vncusername = 'vnc';
-	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport, pvewhmcs_verify_tls($params));
-	if ($proxmox->login()) {
-		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return $conflict;
+	}
 
-		// Get both tickets prepared
-		$pveticket = $proxmox->getTicket();
-		$vncticket = $vm_vncproxy['ticket'];
-		// $path should only contain the actual path without any query parameters
-		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
-		// Get WHMCS base URL (including subdirectory)
-		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
-		// Construct the SPICE Router URL with the path already prepared now
-		$url = $whmcs_base . '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
-		// Build and deliver the SPICE Router hyperlink for access
-		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>';
-		return $vncreply;
-	} else {
-		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
-		return $vncreply;
+	list($proxmox, $serverpassword) = pvewhmcs_service_server_api($params);
+	if (!$proxmox->login()) {
+		return "Error performing action. Couldn't login to PVE.";
 	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
+	if (empty($guest_node)) {
+		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+	}
+
+	return array($proxmox, pvewhmcs_guest_api_path($guest_node, $guest), $serverpassword);
+}
+
+function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params, $serverpassword) {
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call($action, $logrequest, json_encode($response), $params, '', array($serverpassword));
+	}
+}
+
+/**
+ * POSTs a client/admin power action and waits for its task. Only the exact
+ * string "success" satisfies WHMCS; a missing UPID or a failed/timed-out task
+ * is reported as an error (a thrown PVE2_Exception propagates to the tracked
+ * action wrapper, which records and re-throws it).
+ */
+function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword) {
+	$logrequest = $guestPath . '/status/' . $command;
+	$response = $proxmox->post($logrequest, array());
+	pvewhmcs_power_debug_log($action, $logrequest, $response, $params, $serverpassword);
+	if (!pvewhmcs_is_upid($response)) {
+		return "Error: Proxmox did not return a task ID for the {$command} of Service #{$params['serviceid']}; success cannot be confirmed.";
+	}
+	pvewhmcs_wait_task($proxmox, (string) $response, 60);
+
+	return "success";
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT
 function pvewhmcs_vmStart_impl($params) {
-	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	$serverip = pvewhmcs_connection_host($pveserver->hostname ?? '', $pveserver->ipaddress ?? '');
-	$serverusername = $pveserver->username;
+	$target = pvewhmcs_power_target($params);
+	if (is_string($target)) {
+		return $target;
+	}
+	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	$api_data = array(
-		'password2' => $pveserver->password,
-	);
-	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = pvewhmcs_connection_port($pveserver->port ?? '');
-
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
-	}
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword);
 }
 
-// PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
+// PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT (starts it when stopped)
 function pvewhmcs_vmReboot_impl($params) {
-	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	$serverip = pvewhmcs_connection_host($pveserver->hostname ?? '', $pveserver->ipaddress ?? '');
-	$serverusername = $pveserver->username;
-
-	$api_data = array(
-		'password2' => $pveserver->password,
-	);
-	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = pvewhmcs_connection_port($pveserver->port ?? '');
-
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// Check status before doing anything
-		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
-		if ($guest_specific['status'] == 'stopped') {
-			// START if Stopped
-			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-			$response = $proxmox->post($logrequest, $pve_cmdparam);
-		} else {
-			// REBOOT if Started
-			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
-			$response = $proxmox->post($logrequest, $pve_cmdparam);
-		}
+	$target = pvewhmcs_power_target($params);
+	if (is_string($target)) {
+		return $target;
 	}
+	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	$guest_specific = $proxmox->get($guestPath . '/status/current');
+	$command = (($guest_specific['status'] ?? null) == 'stopped') ? 'start' : 'reboot';
+
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, $command, __FUNCTION__, $params, $serverpassword);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
 function pvewhmcs_vmShutdown_impl($params) {
-	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	
-	$serverip = pvewhmcs_connection_host($pveserver->hostname ?? '', $pveserver->ipaddress ?? '');
-	$serverusername = $pveserver->username;
-
-	$api_data = array(
-		'password2' => $pveserver->password,
-	);
-	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = pvewhmcs_connection_port($pveserver->port ?? '');
-
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// $pve_cmdparam['timeout'] = '60';
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	$target = pvewhmcs_power_target($params);
+	if (is_string($target)) {
+		return $target;
 	}
+	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
 function pvewhmcs_vmStop_impl($params) {
-	// Gather access credentials for PVE, as these are no longer passed for Client Area
-	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
-	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
-	$serverip = pvewhmcs_connection_host($pveserver->hostname ?? '', $pveserver->ipaddress ?? '');
-	$serverusername = $pveserver->username;
-
-	$api_data = array(
-		'password2' => $pveserver->password,
-	);
-	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = pvewhmcs_connection_port($pveserver->port ?? '');
-
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport, pvewhmcs_verify_tls_setting($pveserver->secure ?? null));
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// $pve_cmdparam['timeout'] = '60';
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	$target = pvewhmcs_power_target($params);
+	if (is_string($target)) {
+		return $target;
 	}
+	list($proxmox, $guestPath, $serverpassword) = $target;
 
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword);
 }
 
 /**
@@ -2106,38 +2096,43 @@ function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
 }
 
 /**
+ * The /cluster/resources entry of a VM/CT, matched by VMID and guest type only.
+ * Pass $cluster_resources to reuse a result already fetched.
+ *
+ * @param PVE2_API   $proxmox
+ * @param object     $guest   Row from mod_pvewhmcs_vms (expects ->vmid, ->vtype)
+ * @param array|null $cluster_resources
+ * @return array|null
+ */
+function pvewhmcs_find_guest_resource(PVE2_API $proxmox, $guest, $cluster_resources = null) {
+	if ($cluster_resources === null) {
+		$cluster_resources = $proxmox->get('/cluster/resources');
+	}
+	if (!is_array($cluster_resources)) {
+		return null;
+	}
+
+	foreach ($cluster_resources as $res) {
+		if (!isset($res['type'], $res['vmid'], $res['node'])) {
+			continue;
+		}
+		if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
+			return $res;
+		}
+	}
+
+	return null;
+}
+
+/**
  * Locate the Proxmox node that hosts a given VM/CT.
  *
- * @param PVE2_API $proxmox
- * @param object   $guest   Row from mod_pvewhmcs_vms (expects ->vmid, ->vtype)
- * @param int      $serviceId WHMCS service ID (compatibility)
  * @return string|null
  */
-function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
-{
-    // Where does the Guest live?
-    $cluster_resources = $proxmox->get('/cluster/resources');
+function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest) {
+	$resource = pvewhmcs_find_guest_resource($proxmox, $guest);
 
-    if (is_array($cluster_resources)) {
-        foreach ($cluster_resources as $res) {
-			// Ensure required keys exist before accessing
-            if (!isset($res['type'], $res['vmid'], $res['node'])) {
-                continue;
-            }
-
-            // Match the vmid + Guest type (most reliable)
-            if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
-                return $res['node'];
-            }
-
-            // Legacy (<1.2.9): vmid == serviceid
-            if ($res['vmid'] == $serviceId && $res['type'] === $guest->vtype) {
-                return $res['node'];
-            }
-        }
-    }
-
-    return null;
+	return $resource['node'] ?? null;
 }
 
 // CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
@@ -2152,16 +2147,8 @@ function mask2cidr($mask){
 	return 32-log(($long ^ $base)+1,2);
 }
 
-function bytes2format($bytes, $precision = 2, $_1024 = true) {
-	$units = array( 'B', 'KB', 'MB', 'GB', 'TB' );
-	$bytes = max( $bytes, 0 );
-	$pow = floor( ($bytes ? log( $bytes ) : 0) / log( ($_1024 ? 1024 : 1000) ) );
-	$pow = min( $pow, count( $units ) - 1 );
-	$bytes /= pow( ($_1024 ? 1024 : 1000), $pow );
-	return round( $bytes, $precision ) . ' ' . $units[$pow];
-}
-
 function time2format($s) {
+	$str = '';
 	$d = intval( $s / 86400 );
 	if ($d < '10') {
 		$d = '0' . $d;

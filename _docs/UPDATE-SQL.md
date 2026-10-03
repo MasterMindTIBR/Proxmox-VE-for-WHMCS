@@ -1,5 +1,50 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.3.6 to v1.3.7
+
+No manual SQL needed. `pvewhmcs_ensure_schema()` runs at the first callback after the update and repairs/creates everything under a MySQL advisory lock: the `provisioning_*` columns + index on `mod_pvewhmcs_vms`, `server_id` plus `server_timestamp`/`level_timestamp` indexes on `mod_pvewhmcs_logs`, `plans.vmbr` VARCHAR(64) with legacy backfill, and `schema_version='1.3.7'` in `mod_pvewhmcs`. Updating the files is enough.
+
+The section below (1.3.6 pre-release) stays as historical remediation only.
+
+## v1.3.6 pre-release installs (registered 1.3.6 between 2026-09-25 and 2026-10-02)
+
+> [!IMPORTANT]
+> WHMCS runs `pvewhmcs_upgrade()` only when the registered addon version changes. An install that registered a pre-release 1.3.6 build never runs migrations added later to the same 1.3.6 block. Check what is missing, then run only those statements.
+
+```
+SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND (
+  (TABLE_NAME = 'mod_pvewhmcs' AND COLUMN_NAME IN ('console_relay_secret','console_relay_host','console_relay_port','name_pattern'))
+  OR (TABLE_NAME = 'mod_pvewhmcs_vms' AND COLUMN_NAME = 'ha_suspended')
+  OR (TABLE_NAME = 'mod_pvewhmcs_plans' AND COLUMN_NAME = 'vmbr'));
+SHOW TABLES LIKE 'mod_pvewhmcs_logs';
+```
+
+```
+ALTER TABLE mod_pvewhmcs_plans MODIFY COLUMN `vmbr` varchar(64) DEFAULT NULL;
+ALTER TABLE mod_pvewhmcs ADD COLUMN `console_relay_secret` varchar(255) DEFAULT NULL AFTER `debug_mode`;
+ALTER TABLE mod_pvewhmcs ADD COLUMN `console_relay_host` varchar(255) DEFAULT NULL AFTER `console_relay_secret`;
+ALTER TABLE mod_pvewhmcs ADD COLUMN `console_relay_port` int(5) unsigned DEFAULT NULL AFTER `console_relay_host`;
+ALTER TABLE mod_pvewhmcs ADD COLUMN `name_pattern` varchar(255) DEFAULT NULL AFTER `console_relay_port`;
+ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `ha_suspended` tinyint(1) unsigned NOT NULL DEFAULT '0' AFTER `v6prefix`;
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `auth_id` int(11) NOT NULL DEFAULT '0',
+  `user_id` int(11) NOT NULL DEFAULT '0',
+  `service` int(11) NOT NULL DEFAULT '0',
+  `timestamp` datetime NOT NULL,
+  `node_id` int(11) NOT NULL DEFAULT '0',
+  `target_id` int(11) NOT NULL DEFAULT '0',
+  `level` varchar(10) NOT NULL,
+  `type` text NOT NULL,
+  `action` text NOT NULL,
+  `request` text NOT NULL,
+  `response` text NOT NULL,
+  `raw` text NOT NULL,
+  PRIMARY KEY (`id`)
+);
+```
+
 ## v1.2.14 & onwards...
 
 > [!NOTE]  

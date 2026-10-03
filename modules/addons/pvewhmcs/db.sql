@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `console_relay_host` varchar(255) DEFAULT NULL,
   `console_relay_port` int(5) unsigned DEFAULT NULL,
   `name_pattern` varchar(255) DEFAULT NULL,
+  `schema_version` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 );
 INSERT IGNORE INTO `mod_pvewhmcs` (`id`, `config`, `vnc_secret`, `debug_mode`) VALUES	(1, NULL, NULL, 0);
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `auth_id` int(11) NOT NULL DEFAULT '0',
   `user_id` int(11) NOT NULL DEFAULT '0',
+  `server_id` int(11) NOT NULL DEFAULT '0',
   `service` int(11) NOT NULL DEFAULT '0',
   `timestamp` datetime NOT NULL,
   `node_id` int(11) NOT NULL DEFAULT '0',
@@ -48,7 +50,9 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_logs` (
   `request` text NOT NULL,
   `response` text NOT NULL,
   `raw` text NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `server_timestamp` (`server_id`,`timestamp`),
+  KEY `level_timestamp` (`level`,`timestamp`)
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_nodes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -134,5 +138,12 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `created` datetime DEFAULT NULL,
   `v6prefix` varchar(128) DEFAULT NULL,
   `ha_suspended` tinyint(1) unsigned NOT NULL DEFAULT '0',
-  PRIMARY KEY (`id`)
+  `provisioning_state` varchar(16) NOT NULL DEFAULT 'ready',
+  `provisioning_upid` varchar(255) DEFAULT NULL,
+  `provisioning_node` varchar(255) DEFAULT NULL,
+  `provisioning_mode` varchar(16) DEFAULT NULL,
+  `provisioning_error` text DEFAULT NULL,
+  `provisioning_updated_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `provisioning_state` (`provisioning_state`)
 );

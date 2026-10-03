@@ -7,7 +7,7 @@ Ele baixa o ZIP do commit recebido, extrai e sincroniza somente:
 - `modules/addons/pvewhmcs/`
 - `modules/servers/pvewhmcs/`
 
-O ZIP completo existe apenas no diretório temporário do PHP. README, imagens, documentação, metadados Git e qualquer outro arquivo do repositório não são copiados para o WHMCS.
+O ZIP completo existe apenas no diretório temporário do PHP. README, imagens e documentação da raiz, metadados Git e qualquer arquivo fora desses dois diretórios não são copiados para o WHMCS. Arquivos dentro deles (por exemplo `modules/servers/pvewhmcs/console-relay/README.md` e o noVNC vendorizado) são copiados.
 
 ## Pré-requisitos no Plesk
 
@@ -78,9 +78,10 @@ O webhook usa o SHA recebido no evento, e não o nome da branch, para baixar um 
 ## Operação e recuperação
 
 - Cada resposta bem-sucedida informa o SHA e as quantidades de arquivos sincronizados.
-- Uma entrega concorrente retorna `409`; use **Redeliver** no GitHub após a atualização ativa finalizar.
+- Uma entrega concorrente retorna `409` e o GitHub não a reenvia sozinho. Confira em **Recent Deliveries** e, se o `409` era do push mais recente, use **Redeliver** depois que a atualização ativa terminar. Não reenvie entregas antigas: o receiver implanta exatamente o SHA da entrega, então reenviar uma entrega antiga volta produção para aquele commit.
 - Erros são enviados ao log de erro PHP/Plesk com o prefixo `PVEWHMCS GitHub webhook`.
-- O deploy preserva `github-webhook.php`, `github-webhook.local.php` e `github-webhook.lock`. Arquivos antigos do módulo que não existam no commit novo são removidos.
+- `github-webhook.php` é atualizado a partir do repositório como qualquer outro arquivo do módulo; `github-webhook.local.php` e `github-webhook.lock` não estão no repositório e nunca são apagados. Como quem valida o push é o receiver **já instalado**, uma mudança nas próprias regras de validação (por exemplo `PVEWHMCS_WEBHOOK_REPOSITORY` depois de mover o repositório) só vale depois de copiar o arquivo novo manualmente; até lá o receiver antigo rejeita os pushes com `400 Unexpected repository payload`.
+- Em `modules/servers/pvewhmcs/` nada é preservado: qualquer arquivo local que não exista no commit é removido. Nos dois diretórios, arquivos antigos do módulo que não existam no commit novo são removidos.
 - Faça backup de `modules/addons/pvewhmcs/` e `modules/servers/pvewhmcs/` antes do primeiro uso. O deploy substitui código, mas não altera as tabelas do banco nem executa a migração do módulo automaticamente.
 
-Depois de um push, abra o addon no WHMCS. O processo de upgrade normal do WHMCS executa `pvewhmcs_upgrade()` quando reconhecer a nova versão.
+Depois de um push, abra o addon no WHMCS. O WHMCS só executa `pvewhmcs_upgrade()` quando `pvewhmcs_version()` difere da versão registrada em `tbladdonmodules`. Uma migração acrescentada a um bloco de versão já registrado não roda sozinha: aplique o SQL equivalente de `_docs/UPDATE-SQL.md`.

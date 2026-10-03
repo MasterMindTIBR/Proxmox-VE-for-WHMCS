@@ -61,3 +61,7 @@ $_PVEWHMCS_LANG['novnc_opening'] = 'Opening the noVNC console...';
 $_PVEWHMCS_LANG['novnc_manual_prefix'] = "If it doesn't open automatically,";
 $_PVEWHMCS_LANG['novnc_manual_link'] = 'click here to open the console';
 $_PVEWHMCS_LANG['novnc_prepare_failed'] = 'Failed to prepare noVNC.';
+$_PVEWHMCS_LANG['novnc_unavailable'] = 'The console is unavailable right now. Please try again in a few minutes or contact support.';
+
+$_PVEWHMCS_LANG['service_not_active'] = 'Service is not active.';
+$_PVEWHMCS_LANG['hypervisor_unavailable'] = 'Error: Unable to gather data from Hypervisor. Please contact Tech Support!';

@@ -1,5 +1,9 @@
 <?php /* vim: set ts=2 sw=2 tw=0 et :*/
 
+if (!defined('WHMCS')) {
+  die('This file cannot be accessed directly');
+}
+
 class Ipv4_Address
 {
   private $ip_long;

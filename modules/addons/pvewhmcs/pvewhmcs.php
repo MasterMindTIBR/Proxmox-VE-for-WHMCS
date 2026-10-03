@@ -2,10 +2,12 @@
 
 /*  
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
-	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+	https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ (MasterMind TI fork)
+	Upstream: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 	File: /modules/addons/pvewhmcs/pvewhmcs.php (GUI Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	Modified since 2026-09-25 by MasterMind TI (https://mastermindti.com.br).
 	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
 	This program is free software: you can redistribute it and/or modify
@@ -25,8 +27,15 @@
 // Pull in the WHMCS database handler Capsule for SQL
 use Illuminate\Database\Capsule\Manager as Capsule;
 
+if (!defined('WHMCS')) {
+	die('This file cannot be accessed directly');
+}
+
 // Define where the module operates in the Admin GUI
 define( 'pvewhmcs_BASEURL', 'addonmodules.php?module=pvewhmcs' );
+
+// This fork's repository: releases, docs and the update checker point here.
+define('PVEWHMCS_REPO_URL', 'https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS');
 
 // DEP: Require the PHP API Class to interact with Proxmox VE
 require_once('proxmox.php');
@@ -35,9 +44,9 @@ require_once('proxmox.php');
 function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
-		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
+		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs. Fork maintained by MasterMind TI.".is_pvewhmcs_outdated(),
 		"version" => pvewhmcs_version(),
-		"author" => "The Network Crew Pty Ltd",
+		"author" => "MasterMind TI (fork of The Network Crew Pty Ltd)",
 		'language' => 'English'
 	);
 	return $configarray;
@@ -45,11 +54,14 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.6";
+	return "1.3.7";
 }
 
 function pvewhmcs_verify_server_tls($secure) {
-	if ($secure === null || $secure === '') {
+	if ($secure === null) {
+		// WHMCS leaves serversecure NULL/absent on legacy servers: keep TLS
+		// verification on. Everything else follows FILTER_VALIDATE_BOOLEAN, so
+		// an explicitly empty/unchecked box ('') turns verification off.
 		return true;
 	}
 
@@ -121,9 +133,62 @@ function pvewhmcs_guest_hosting_map($server_id) {
 	return $map;
 }
 
-function pvewhmcs_render_action_log_table($entries, array $labels) {
+function pvewhmcs_action_log_admin_labels(array $auth_ids) {
+	$auth_ids = array_values(array_unique(array_filter(array_map('intval', $auth_ids))));
+	$labels = array();
+	if (empty($auth_ids)) {
+		return $labels;
+	}
+
+	foreach (Capsule::table('tbladmins')->whereIn('id', $auth_ids)->get(array('id', 'username')) as $admin) {
+		$labels[(int) $admin->id] = $admin->username;
+	}
+
+	return $labels;
+}
+
+/**
+ * One page of the module action log for one server, plus its total row count.
+ * `$level` null lists every level; page and size are clamped server-side so a
+ * tampered query cannot ask for unbounded rows.
+ */
+function pvewhmcs_action_log_page($serverId, $level, $page, $perPage) {
+	$query = Capsule::table('mod_pvewhmcs_logs')->where('server_id', (int) $serverId);
+	if ($level !== null) {
+		$query->where('level', $level);
+	}
+	$total = (clone $query)->count();
+	$pages = max(1, (int) ceil($total / $perPage));
+	$page = min(max(1, (int) $page), $pages);
+	$entries = $query->orderBy('id', 'desc')->forPage($page, $perPage)->get();
+
+	return array($entries, $total, $page, $pages);
+}
+
+/**
+ * Prev/next pagination links for one action-log panel. The page parameter is
+ * keyed per server and panel, so panels paginate independently.
+ */
+function pvewhmcs_action_log_pager($serverId, $pageParam, $page, $pages, $perPage, $total) {
+	if ($pages <= 1) {
+		return;
+	}
+
+	$link = static function ($targetPage) use ($serverId, $pageParam, $perPage) {
+		return htmlspecialchars(pvewhmcs_BASEURL . '&tab=actions&per_page=' . (int) $perPage . '&' . $pageParam . '=' . (int) $targetPage, ENT_QUOTES, 'UTF-8');
+	};
+
+	echo '<div style="margin:8px 0 20px;">'
+		. 'Page ' . (int) $page . ' of ' . (int) $pages . ' (' . (int) $total . ' entries on Server #' . (int) $serverId . ') — '
+		. ($page > 1 ? '<a href="' . $link(1) . '">First</a> · <a href="' . $link($page - 1) . '">Previous</a>' : 'First · Previous')
+		. ' · '
+		. ($page < $pages ? '<a href="' . $link($page + 1) . '">Next</a> · <a href="' . $link($pages) . '">Last</a>' : 'Next · Last')
+		. '</div>';
+}
+
+function pvewhmcs_render_action_log_table($entries, array $labels, array $admins = array()) {
 	$html = '<table class="pve-table"><thead><tr>'
-		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Result</th><th>Details</th>'
+		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Admin</th><th>Result</th><th>Details</th>'
 		. '</tr></thead><tbody>';
 
 	foreach ($entries as $entry) {
@@ -131,6 +196,8 @@ function pvewhmcs_render_action_log_table($entries, array $labels) {
 		$service_label = $service_id > 0
 			? ($labels[$service_id] ?? ('Service #' . $service_id))
 			: '—';
+		$auth_id = (int) ($entry->auth_id ?? 0);
+		$admin_label = $auth_id > 0 ? ($admins[$auth_id] ?? ('Admin #' . $auth_id)) : '—';
 		$target_id = (int) $entry->target_id;
 		$is_error = $entry->level === 'error';
 
@@ -139,6 +206,7 @@ function pvewhmcs_render_action_log_table($entries, array $labels) {
 		$html .= '<td><code>' . htmlspecialchars((string) $entry->action) . '</code></td>';
 		$html .= '<td>' . htmlspecialchars($service_label) . '</td>';
 		$html .= '<td>' . ($target_id > 0 ? (string) $target_id : '—') . '</td>';
+		$html .= '<td>' . htmlspecialchars($admin_label) . '</td>';
 		$html .= '<td>' . ($is_error ? '❌' : '✅') . ' ' . htmlspecialchars(ucfirst((string) $entry->level)) . '</td>';
 		$html .= '<td>' . htmlspecialchars((string) $entry->response) . '</td>';
 		$html .= '</tr>';
@@ -188,33 +256,16 @@ function pvewhmcs_valid_csrf() {
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
-// This consists of importing the SQL structure, and then crudely returning yay or nay (needs improving)
+// Imports db.sql (every statement is CREATE TABLE IF NOT EXISTS / INSERT IGNORE,
+// so re-activating is safe) and reports the first failing statement.
 function pvewhmcs_activate() {
-	// Pull in the SQL structure (includes VNC/etc tweaks)
-	$sql = file_get_contents(__DIR__ . '/db.sql');
-	if (!$sql) {
-		return array('status'=>'error','description'=>'The db.sql file was not found.');
+	try {
+		pvewhmcs_ensure_schema();
+	} catch (\Throwable $e) {
+		return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly: ' . $e->getMessage());
 	}
 
-	// SQL file is good, let's proceed with pulling it in
-	$err=false;
-	$i=0;
-	$query_array=explode(';',$sql) ;
-	$query_count=count($query_array) ;
-
-	// Iterate through the SQL commands to finalise init.
-	foreach ( $query_array as $query) {
-		if ($i<$query_count-1)
-			if (!Capsule::statement($query . ';'))
-		$err=true;
-		$i++ ;
-	}
-
-	// Return success or error.
-	if (!$err)
-		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully!');
-
-	return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly.');
+	return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully!');
 }
 
 // WHMCS MODULE: DEACTIVATION
@@ -227,6 +278,10 @@ function pvewhmcs_deactivate() {
 function pvewhmcs_upgrade($vars) {
 	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
+	if (version_compare($currentlyInstalledVersion, '1.3.7', 'lt')) {
+		pvewhmcs_ensure_schema();
+		return;
+	}
 
 	// SQL Operations for v1.2.9/10 version
 	if (version_compare($currentlyInstalledVersion, '1.2.10', 'lt')) {
@@ -355,22 +410,52 @@ SQL
 	}
 }
 
-// UPDATE CHECKER: live vs repo
-function is_pvewhmcs_outdated(){
-	if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
-		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest'>Download the new version!</a></span>";
+// UPDATE CHECKER: HTML notice when this fork published a newer version, else ''.
+function is_pvewhmcs_outdated() {
+	$latest = get_pvewhmcs_latest_version();
+	if ($latest === null || !version_compare($latest, pvewhmcs_version(), '>')) {
+		return '';
 	}
+
+	return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='" . PVEWHMCS_REPO_URL . "/releases/latest' target='_blank'>Download v" . htmlspecialchars($latest, ENT_QUOTES, 'UTF-8') . "!</a></b></span>";
 }
 
-// UPDATE CHECKER: return latest ver
-function get_pvewhmcs_latest_version(){
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-	$result = curl_exec($ch);
-	curl_close ($ch);
+// UPDATE CHECKER: version published in this fork's `version` file, or null when
+// unknown. Fetched at most once per request with short timeouts and cached
+// (WHMCS TransientData: 12 h, failures 1 h), so a slow GitHub never stalls the
+// admin area. Only a plain version number is accepted.
+function get_pvewhmcs_latest_version() {
+	static $latest = false;
+	if ($latest !== false) {
+		return $latest;
+	}
 
-	return str_replace("\n", "", $result);
+	$cacheKey = 'pvewhmcs_latest_version';
+	$cache = class_exists('\WHMCS\TransientData') ? \WHMCS\TransientData::getInstance() : null;
+	if ($cache !== null) {
+		$cached = $cache->retrieve($cacheKey);
+		if (is_string($cached) && $cached !== '') {
+			return $latest = ($cached === 'unknown' ? null : $cached);
+		}
+	}
+
+	$ch = curl_init('https://raw.githubusercontent.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/master/version');
+	curl_setopt_array($ch, array(
+		CURLOPT_RETURNTRANSFER => true,
+		CURLOPT_CONNECTTIMEOUT => 3,
+		CURLOPT_TIMEOUT => 5,
+	));
+	$body = curl_exec($ch);
+	$status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+	curl_close($ch);
+
+	$version = trim((string) $body);
+	$latest = ($status === 200 && preg_match('/^\d+(\.\d+){1,3}$/', $version)) ? $version : null;
+	if ($cache !== null) {
+		$cache->store($cacheKey, $latest ?? 'unknown', $latest === null ? 3600 : 43200);
+	}
+
+	return $latest;
 }
 
 /**
@@ -397,8 +482,7 @@ function pvewhmcs_addon_fetch_rrd($proxmox, $path, $timeframe, $ds) {
 		$rrd_data = $proxmox->get($path . $rrd_params);
 		
 		if (isset($rrd_data['image']) && !empty($rrd_data['image'])) {
-			$image = utf8_decode($rrd_data['image']);
-			return base64_encode($image);
+			return base64_encode(pvewhmcs_rrd_image_bytes($rrd_data['image']));
 		}
 	} catch (Exception $e) {
 		// RRD data unavailable - log if debug mode on
@@ -417,12 +501,13 @@ function pvewhmcs_addon_fetch_rrd($proxmox, $path, $timeframe, $ds) {
 
 // ADMIN MODULE GUI: output (HTML etc)
 function pvewhmcs_output($vars) {
+	pvewhmcs_ensure_schema();
 	$modulelink = $vars['modulelink'];
 
 	// Check for update and report if available
 	if (!empty(is_pvewhmcs_outdated())) {
 		$_SESSION['pvewhmcs']['infomsg']['title']='Proxmox VE for WHMCS: New version available!' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest</a>' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='<a href="' . PVEWHMCS_REPO_URL . '/releases/latest" target="_blank">' . PVEWHMCS_REPO_URL . '/releases/latest</a>' ;
 	}
 		
 	// Print Messages to GUI before anything else
@@ -438,9 +523,17 @@ function pvewhmcs_output($vars) {
 		unset($_SESSION['pvewhmcs']);
 	}
 
-	// Set the active tab based on the GET parameter, default to 'vmplans'
+	// CSRF: every state-changing request of this module is a POST carrying
+	// pvewhmcs_csrf_field(). A POST without a valid token is dropped here,
+	// before any handler below can act on it.
+	if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && !pvewhmcs_valid_csrf()) {
+		echo '<div class="alert alert-danger">Invalid or missing security token: the request was ignored and nothing was changed. Reload the page and try again.</div>';
+		$_POST = array();
+	}
+
+	// Set the active tab based on the GET parameter, default to 'nodes'
 	if (!isset($_GET['tab'])) {
-    	$_GET['tab'] = 'nodes';
+		$_GET['tab'] = 'nodes';
 	}
 
 	// Start the HTML output for the Admin GUI
@@ -502,34 +595,37 @@ function pvewhmcs_output($vars) {
 	</style>
 	<div class="tab-content admin-tabs">';
 
-	// Handle form submissions for saving or updating plans
+	// Handle form submissions for plans and Module Config (CSRF already checked)
 	if (isset($_POST['plan_save_qemu']))
 	{
-		save_qemu_plan() ;
+		pvewhmcs_save_plan('kvm') ;
 	}
 
 	if (isset($_POST['plan_update_qemu']))
 	{
-		update_qemu_plan() ;
+		pvewhmcs_update_plan('kvm', (int) ($_GET['id'] ?? 0)) ;
 	}
 
 	if (isset($_POST['plan_save_lxc']))
 	{
-		save_lxc_plan() ;
+		pvewhmcs_save_plan('lxc') ;
 	}
 
 	if (isset($_POST['plan_update_lxc']))
 	{
-		update_lxc_plan() ;
+		pvewhmcs_update_plan('lxc', (int) ($_GET['id'] ?? 0)) ;
+	}
+
+	if (isset($_POST['save_config']))
+	{
+		save_config() ;
 	}
 
 	// NODES / GUESTS tab in ADMIN GUI
-	// Only fetch live Proxmox data when this specific tab is requested (real
-	// navigation, not the JS-only tab switch used by the cheap tabs below).
-	// Rendering this unconditionally on every page load - regardless of
-	// which tab the admin actually wants - was the main cause of slow/timing
-	// out page loads: it forced a fresh login + /cluster/resources fetch +
-	// per-node RRD graphs on every single admin page view.
+	// Every tab is real navigation (`&tab=...`) and only the requested tab's
+	// body runs. Nodes, Guests and Logs call Proxmox (login + /cluster/resources
+	// or /cluster/tasks, plus per-node RRD graphs on Nodes), so they must stay
+	// behind their `$_GET['tab']` gate.
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 
 	if ($_GET['tab'] === 'nodes') {
@@ -545,6 +641,11 @@ function pvewhmcs_output($vars) {
 		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
 	} else {
 		foreach ($servers as $pve) {
+			// One unreachable/misconfigured server must not take the whole tab
+			// down: buffer this server's output and swap it for an error box
+			// if anything below throws (finally also runs on `continue`).
+			ob_start();
+			try {
 			// Decrypt server password (same approach as ClientArea)
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
@@ -558,7 +659,7 @@ function pvewhmcs_output($vars) {
 			// Login + get cluster/resources
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport, $verify_ssl);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="' . PVEWHMCS_REPO_URL . '" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
 			}
 
@@ -722,6 +823,12 @@ function pvewhmcs_output($vars) {
 
 			echo '</div>'; // panel-body
 			echo '</div>'; // panel
+			} catch (\Throwable $e) {
+				ob_clean();
+				echo '<div class="alert alert-danger">' . htmlspecialchars(!empty($pve->name) ? $pve->name : ('Server #' . $pve->id)) . ': ' . htmlspecialchars($e->getMessage()) . '</div>';
+			} finally {
+				ob_end_flush();
+			}
 		}
 	}
 	}
@@ -752,6 +859,9 @@ function pvewhmcs_output($vars) {
 		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>.</div>';
 	} else {
 		foreach ($servers as $pve) {
+			// Same per-server isolation as the Nodes tab.
+			ob_start();
+			try {
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
 			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -763,7 +873,7 @@ function pvewhmcs_output($vars) {
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport, $verify_ssl);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="' . PVEWHMCS_REPO_URL . '" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
 			}
 
@@ -863,6 +973,12 @@ function pvewhmcs_output($vars) {
 
 			echo '</div>'; // panel-body
 			echo '</div>'; // panel
+			} catch (\Throwable $e) {
+				ob_clean();
+				echo '<div class="alert alert-danger">' . htmlspecialchars(!empty($pve->name) ? $pve->name : ('Server #' . $pve->id)) . ': ' . htmlspecialchars($e->getMessage()) . '</div>';
+			} finally {
+				ob_end_flush();
+			}
 		}
 	}
 	}
@@ -885,32 +1001,29 @@ function pvewhmcs_output($vars) {
 	</div>
 	';
 
-	// Handle actions based on the 'action' GET parameter
-	if ($_GET['action']=='import_guest') {
+	// Handle actions based on the 'action' GET parameter. POST handlers run
+	// only after the CSRF gate at the top of pvewhmcs_output().
+	$plan_action = $_GET['action'] ?? '';
+	if ($plan_action == 'import_guest') {
 		import_guest() ;
 	}
 	
-	if ($_GET['action']=='add_qemu_plan') {
+	if ($plan_action == 'add_qemu_plan') {
 		qemu_plan_add() ;
 	}
 
-	if ($_GET['action']=='editplan') {
-		if ($_GET['vmtype']=='kvm')
-			qemu_plan_edit($_GET['id']) ;
+	if ($plan_action == 'editplan') {
+		if (($_GET['vmtype'] ?? '') == 'kvm')
+			qemu_plan_edit((int) ($_GET['id'] ?? 0)) ;
 		else
-			lxc_plan_edit($_GET['id']) ;
+			lxc_plan_edit((int) ($_GET['id'] ?? 0)) ;
 	}
 
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeplan') {
-		if (pvewhmcs_valid_csrf()) {
-			remove_plan((int) $_POST['id']);
-		} else {
-			echo '<div class="alert alert-danger">Invalid CSRF token. Plan was not deleted.</div>';
-		}
+	if (($_POST['pvewhmcs_action'] ?? '') === 'removeplan') {
+		remove_plan((int) $_POST['id']);
 	}
 
-
-	if ($_GET['action']=='add_lxc_plan') {
+	if ($plan_action == 'add_lxc_plan') {
 		lxc_plan_add() ;
 	}
 
@@ -945,29 +1058,29 @@ function pvewhmcs_output($vars) {
 		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
-			echo '<td>' . $vm->id . '</td>';
-			echo '<td>' . $vm->title . '</td>';
-			echo '<td>' . $vm->vmtype . '</td>';
-			echo '<td>' . $vm->ostype . '</td>';
+			echo '<td>' . (int) $vm->id . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->title, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->vmtype, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ostype, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->cpus . '</td>';
 			echo '<td>' . $vm->cores . '</td>';
 			echo '<td>' . $vm->memory . '</td>';
 			echo '<td>' . $vm->balloon . '</td>';
 			echo '<td>' . $vm->swap . '</td>';
 			echo '<td>' . $vm->disk . '</td>';
-			echo '<td>' . $vm->disktype . '</td>';
-			echo '<td>' . $vm->diskio . '</td>';
-			echo '<td>' . $vm->storage . '</td>';
-			echo '<td>' . $vm->netmode . '</td>';
-			echo '<td>' . $vm->bridge . $vm->vmbr . '</td>';
-			echo '<td>' . $vm->netmodel . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->disktype, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->diskio, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->storage, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmode, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->bridge . (string) $vm->vmbr, ENT_QUOTES, 'UTF-8') . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmodel, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->vlanid . '</td>';
 			echo '<td>' . $vm->netrate . '</td>';
 			echo '<td>' . $vm->bw . '</td>';
-			echo '<td>' . $vm->ipv6 . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ipv6, ENT_QUOTES, 'UTF-8') . '</td>';
 			echo '<td>' . $vm->unpriv . '</td>';
 			echo '<td>
-			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
+			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . (int) $vm->id . '&amp;vmtype=' . htmlspecialchars((string) $vm->vmtype, ENT_QUOTES, 'UTF-8') . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
 			<form method="post" style="display:inline" onsubmit="return confirm(\'Plan will be deleted, continue?\')">
 			<input type="hidden" name="pvewhmcs_action" value="removeplan"><input type="hidden" name="id" value="' . (int) $vm->id . '">' . pvewhmcs_csrf_field() . '
 			<button type="submit" style="border:0;background:transparent;padding:0"><img height="16" width="16" border="0" alt="Delete" src="images/delete.gif"></button>
@@ -992,42 +1105,41 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=newip">
 	<i class="fa fa-plus"></i>&nbsp; Add: IPv4 to Pool
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=reserved_ips">
+	<i class="fa fa-lock"></i>&nbsp; Reserved IPv4
+	</a>
 	</div>
 	';
-	if (!isset($_GET['action']) || $_GET['action']=='list_ip_pools') {
+	$ip_action = $_GET['action'] ?? '';
+	if ($ip_action === '' || $ip_action == 'list_ip_pools') {
 		list_ip_pools() ;
 	}
-	if ($_GET['action']=='new_ip_pool') {
+	if ($ip_action == 'new_ip_pool') {
 		add_ip_pool() ;
 	}
-	if ($_GET['action']=='newip') {
+	if ($ip_action == 'newip') {
 		add_ip_2_pool() ;
 	}
 	if (isset($_POST['newIPpool'])) {
 		save_ip_pool() ;
 	}
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeippool') {
-		if (pvewhmcs_valid_csrf()) {
-			removeIpPool((int) $_POST['id']);
-		} else {
-			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 pool was not deleted.</div>';
-		}
+	// POST handlers below run only after the CSRF gate in pvewhmcs_output().
+	if (($_POST['pvewhmcs_action'] ?? '') === 'removeippool') {
+		removeIpPool((int) $_POST['id']);
 	}
-	if ($_GET['action']=='list_ips') {
+	if (($_POST['pvewhmcs_action'] ?? '') === 'release_ipv4_reservation') {
+		pvewhmcs_release_ipv4_reservation($_POST);
+	}
+	if ($ip_action == 'list_ips') {
 		list_ips();
 	}
-	if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['single_delete_id']) && $_POST['single_delete_id'] !== '') {
-		if (pvewhmcs_valid_csrf()) {
-			removeip((int) $_POST['single_delete_id'], (int) $_POST['pool_id']);
-		} else {
-			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 address was not deleted.</div>';
-		}
-	} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['pvewhmcs_action'] ?? '') === 'removeip_bulk') {
-		if (pvewhmcs_valid_csrf()) {
-			removeip_bulk((array) ($_POST['ids'] ?? []), (int) $_POST['pool_id']);
-		} else {
-			echo '<div class="alert alert-danger">Invalid CSRF token. IPv4 addresses were not deleted.</div>';
-		}
+	if ($ip_action == 'reserved_ips') {
+		list_reserved_ips();
+	}
+	if (isset($_POST['single_delete_id']) && $_POST['single_delete_id'] !== '') {
+		removeip((int) $_POST['single_delete_id'], (int) $_POST['pool_id']);
+	} elseif (($_POST['pvewhmcs_action'] ?? '') === 'removeip_bulk') {
+		removeip_bulk((array) ($_POST['ids'] ?? []), (int) $_POST['pool_id']);
 	}
 	}
 	echo '</div>';
@@ -1036,24 +1148,59 @@ function pvewhmcs_output($vars) {
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
 	if ($_GET['tab'] === 'actions') {
 
-	$action_history = Capsule::table('mod_pvewhmcs_logs')->orderBy('id', 'desc')->limit(200)->get();
-	$failed_actions = Capsule::table('mod_pvewhmcs_logs')->where('level', 'error')->orderBy('id', 'desc')->limit(200)->get();
-	$action_log_labels = pvewhmcs_action_log_service_labels(
-		array_merge($action_history->pluck('service')->all(), $failed_actions->pluck('service')->all())
-	);
-
-	echo '<h2>Module: Action History</h2>';
-	if ($action_history->isEmpty()) {
-		echo '<div class="alert alert-info">No module actions have been recorded yet.</div>';
-	} else {
-		echo pvewhmcs_render_action_log_table($action_history, $action_log_labels);
+	// Every enabled pvewhmcs server gets its own isolated panels: rows are
+	// filtered by the immutable server_id recorded with the action, so a
+	// service later moved to another server keeps its history where it ran.
+	$perPageChoices = array(25, 50, 100, 200);
+	$perPage = (int) ($_GET['per_page'] ?? 50);
+	if (!in_array($perPage, $perPageChoices, true)) {
+		$perPage = 50;
 	}
 
-	echo '<h2 style="margin-top:25px;">Module: Failed Actions</h2>';
-	if ($failed_actions->isEmpty()) {
-		echo '<div class="alert alert-info">No failed actions recorded.</div>';
-	} else {
-		echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels);
+	$servers = Capsule::table('tblservers')
+		->where('type', 'pvewhmcs')
+		->where('disabled', 0)
+		->orderBy('id')
+		->get(array('id', 'name', 'hostname', 'ipaddress'));
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-info">No enabled WHMCS server of module type pvewhmcs was found.</div>';
+	}
+
+	foreach ($servers as $server) {
+		$serverLabel = trim((string) $server->name) !== ''
+			? (string) $server->name
+			: pvewhmcs_connection_host($server->hostname ?? '', $server->ipaddress ?? '');
+		if ($serverLabel === '') {
+			$serverLabel = 'Server #' . (int) $server->id;
+		}
+		$serverId = (int) $server->id;
+		$historyPage = max(1, (int) ($_GET['page_' . $serverId] ?? 1));
+		$failedPage = max(1, (int) ($_GET['fpage_' . $serverId] ?? 1));
+
+		echo '<h2>Module: Action History — ' . htmlspecialchars($serverLabel) . '</h2>';
+		list($action_history, $history_total, $history_page, $history_pages) = pvewhmcs_action_log_page($serverId, null, $historyPage, $perPage);
+		list($failed_actions, $failed_total, $failed_page, $failed_pages) = pvewhmcs_action_log_page($serverId, 'error', $failedPage, $perPage);
+		$action_log_labels = pvewhmcs_action_log_service_labels(
+			array_merge($action_history->pluck('service')->all(), $failed_actions->pluck('service')->all())
+		);
+		$action_admin_labels = pvewhmcs_action_log_admin_labels(
+			array_merge($action_history->pluck('auth_id')->all(), $failed_actions->pluck('auth_id')->all())
+		);
+
+		if ($action_history->isEmpty()) {
+			echo '<div class="alert alert-info">No module actions have been recorded for this server yet.</div>';
+		} else {
+			echo pvewhmcs_render_action_log_table($action_history, $action_log_labels, $action_admin_labels);
+		}
+		pvewhmcs_action_log_pager($serverId, 'page_' . $serverId, $history_page, $history_pages, $perPage, $history_total);
+
+		echo '<h2 style="margin-top:25px;">Module: Failed Actions — ' . htmlspecialchars($serverLabel) . '</h2>';
+		if ($failed_actions->isEmpty()) {
+			echo '<div class="alert alert-info">No failed actions recorded for this server.</div>';
+		} else {
+			echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels, $action_admin_labels);
+		}
+		pvewhmcs_action_log_pager($serverId, 'fpage_' . $serverId, $failed_page, $failed_pages, $perPage, $failed_total);
 	}
 
 	}
@@ -1068,7 +1215,7 @@ function pvewhmcs_output($vars) {
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> System Environment</h3>
 			<table style="width:100%;font-size:14px;">
 				<tr><td style="padding:6px 0;color:#666;width:150px;"><strong>Module Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . pvewhmcs_version() . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;"><strong>Latest Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . get_pvewhmcs_latest_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>Latest Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars(get_pvewhmcs_latest_version() !== null ? 'v' . get_pvewhmcs_latest_version() : 'unknown (GitHub unreachable)', ENT_QUOTES, 'UTF-8') . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>Web Server</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_SOFTWARE']) . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>PHP Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . phpversion() . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>Server Name</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_NAME']) . '</code></td></tr>
@@ -1078,8 +1225,9 @@ function pvewhmcs_output($vars) {
 		<div style="background:#faf8fc;border:1px solid #e0d4e8;border-radius:8px;padding:25px;margin-bottom:20px;">
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9829;</span> Open Source</h3>
 			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">PVEWHMCS is open-source and free to use &amp; improve on!</p>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">This fork is maintained by <a href="https://mastermindti.com.br/" target="_blank" style="color:#5c3d7a;">MasterMind TI</a>. It is based on <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank" style="color:#5c3d7a;">Proxmox VE for WHMCS</a> by The Network Crew Pty Ltd (TNC) &amp; Co.</p>
 			<p style="margin:0;">
-				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;">&#10132; GitHub Repository</a>
+				<a href="' . PVEWHMCS_REPO_URL . '/" target="_blank" style="color:#5c3d7a;">&#10132; GitHub Repository</a>
 			</p>
 		</div>
 		
@@ -1095,15 +1243,15 @@ function pvewhmcs_output($vars) {
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> Technical Support</h3>
 			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Our README contains a wealth of information. Please review it before raising issues.</p>
 			<p style="margin:0 0 15px 0;">
-				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;">&#10132; View Documentation</a>
+				<a href="' . PVEWHMCS_REPO_URL . '#readme" target="_blank" style="color:#5c3d7a;">&#10132; View Documentation</a>
 			</p>
 			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Only raise a GitHub Issue &mdash; including logs &mdash; if you have properly tried to resolve it first.</p>
 			<p style="margin:0 0 15px 0;">
-				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose" target="_blank" style="color:#5c3d7a;">&#10132; Open an Issue</a>
+				<a href="' . PVEWHMCS_REPO_URL . '/issues/new/choose" target="_blank" style="color:#5c3d7a;">&#10132; Open an Issue</a>
 			</p>
 			<p style="margin:0;padding:12px;background:#fff8f0;border-radius:6px;font-size:13px;color:#856404;border:1px solid #ffc107;">&#9888; Help is not guaranteed (FOSS). We will need your assistance to troubleshoot.</p>
 		</div>
-		<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
+		<a href="' . PVEWHMCS_REPO_URL . '" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>';
 	}
 	echo '</div>';
@@ -1116,7 +1264,7 @@ function pvewhmcs_output($vars) {
 	<div style="max-width:800px;">
 	<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
 	<h3 style="margin:0 0 20px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> Module Configuration</h3>
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table style="width:100%;border-collapse:collapse;">
 	<tr>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;width:150px;vertical-align:top;">
@@ -1124,7 +1272,7 @@ function pvewhmcs_output($vars) {
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
 			<input type="password" autocomplete="new-password" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="" placeholder="' . (strlen((string) $config->vnc_secret) > 0 ? '••••••••••••••••' : 'Not set') . '">
-			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). Leave blank to keep the current value. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user (minimum 15 characters). Required for VNC proxying &mdash; different from the Console Relay Secret below (this one is a Proxmox credential; the relay secret is unrelated). Leave blank to keep the current value. <a href="' . PVEWHMCS_REPO_URL . '#readme" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
 	<tr>
@@ -1159,7 +1307,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VMID Start</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="' . $config->start_vmid . '">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="' . htmlspecialchars((string) $config->start_vmid, ENT_QUOTES, 'UTF-8') . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For Guests. Increments until a vacant VMID found. Default is <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">100</code></p>
 		</td>
 	</tr>
@@ -1191,7 +1339,7 @@ function pvewhmcs_output($vars) {
 	</div>
 	</form>
 	</div>
-	<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
+	<a href="' . PVEWHMCS_REPO_URL . '" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>
 	';
 	}
@@ -1202,125 +1350,153 @@ function pvewhmcs_output($vars) {
 
 	if ($_GET['tab'] === 'logs') {
 
-	try {
-	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
-	    if (!isset($proxmox)) {
-	        $pve = Capsule::table('tblservers')
-	            ->where('type', 'pvewhmcs')
-	            ->where('disabled', 0)
-	            ->orderBy('id', 'asc')
-	            ->first();
+	// Every enabled pvewhmcs server gets its own panel; one unreachable or
+	// misconfigured server cannot blank the whole tab (same pattern as Nodes).
+	$servers = Capsule::table('tblservers')
+		->where('type', 'pvewhmcs')
+		->where('disabled', 0)
+		->orderBy('id', 'asc')
+		->get();
 
-	        if (!$pve) {
-	            throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
-	        }
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-info">No enabled WHMCS server of module type pvewhmcs was found.</div>';
+	}
 
-	        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
-	        $serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-	        if (!$serverpassword) {
-	            throw new Exception('Could not decrypt Proxmox server password.');
-	        }
+	foreach ($servers as $pve) {
+		$serverLabel = trim((string) $pve->name) !== ''
+			? (string) $pve->name
+			: pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
+		if ($serverLabel === '') {
+			$serverLabel = 'Server #' . (int) $pve->id;
+		}
 
-	        $serverip = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
-	        $serverport = pvewhmcs_connection_port($pve->port ?? '');
-	        $verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
-	        $proxmox = new PVE2_API($serverip, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
-	        if (!$proxmox->login()) {
-	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.');
-	        }
-	    }
-
-	    // Fetch recent cluster-wide tasks once
-	    $limit = 150;
-	    $tasks = $proxmox->get('/cluster/tasks', ['limit' => $limit]);
-
-	    // Optional debug logging
-	    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-	        logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
-	    }
-
-	    if (!is_array($tasks) || empty($tasks)) {
-	        echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
-	    } else {
-	        // Sort newest first (defensive)
-	        usort($tasks, function ($a, $b) {
-	            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
-	        });
-
-	        echo '<table class="pve-table">';
-	        echo '<thead><tr>
-	                <th>Task</th>
-	                <th>VMID</th>
-	                <th>Status</th>
-	                <th>Node</th>
-	                <th>User</th>
-	                <th>Duration</th>
-	                <th>Start</th>
-	                <th>End</th>
-	              </tr></thead><tbody>';
-
-	        foreach ($tasks as $t) {
-	            $node   = $t['node'] ?? '—';
-	            $type   = $t['type'] ?? '';
-	            $user   = $t['user'] ?? '';
-	            $upid   = $t['upid'] ?? '';
-
-	            // Derive VMID:
-	            // 1) Prefer numeric $t['id'] when available
-	            // 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
-	            $vmid = '—';
-	            if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
-	                $vmid = (string)$t['id'];
-	            } elseif (is_string($upid) && $upid !== '') {
-	                // UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
-	                if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
-	                    if ($m[1] !== '' && ctype_digit($m[1])) {
-	                        $vmid = $m[1];
-	                    }
-	                }
-	            }
-
-	            $startTs = (int)($t['starttime'] ?? 0);
-	            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
-
-	            $start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
-	            $end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
-
-	            $durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
-	            $durH   = is_null($durSec)
-	                ? '—'
-	                : sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
-
-	            $status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
-	            $badge  = ($status === 'OK')
-	                ? '✅'
-	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
-
-	            echo '<tr>';
-	            echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
-	            echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
-	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
-	            echo '<td>' . htmlspecialchars($node) . '</td>';
-	            echo '<td>' . htmlspecialchars($user) . '</td>';
-	            echo '<td>' . htmlspecialchars($durH) . '</td>';
-	            echo '<td>' . htmlspecialchars($start) . '</td>';
-	            echo '<td>' . htmlspecialchars($end) . '</td>';
-	            echo '</tr>';
-	        }
-	        echo '</tbody></table>';
-	    }
-	} catch (Throwable $e) {
-	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
-	        . htmlspecialchars($e->getMessage()) . '</div>';
+		echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+		echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;"><h3 class="panel-title" style="margin:0;"><i class="fa fa-history"></i> Cluster task history — ' . htmlspecialchars($serverLabel) . '</h3></div>';
+		echo '<div class="panel-body">';
+		ob_start();
+		try {
+			pvewhmcs_render_cluster_task_log($pve);
+			ob_end_flush();
+		} catch (Throwable $e) {
+			ob_end_clean();
+			echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
+				. htmlspecialchars($e->getMessage()) . '</div>';
+		}
+		echo '</div></div>';
 	}
 	}
 	echo '</div></div>'; 
 	// End of tabbed content
+}
 
-	// Handle saving the configuration if the form was submitted
-	if (isset($_POST['save_config'])) {
-		save_config() ;
+// LOGS tab: cluster task history of ONE enabled pvewhmcs server, rendered into
+// the current output buffer. Throws on any per-server failure so the caller can
+// isolate it inside its own panel.
+function pvewhmcs_render_cluster_task_log($pve) {
+	$dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
+	$serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	if (!$serverpassword) {
+		throw new Exception('Could not decrypt Proxmox server password.');
 	}
+
+	$serverip = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
+	$serverport = pvewhmcs_connection_port($pve->port ?? '');
+	$verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
+	$proxmox = new PVE2_API($serverip, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
+	if (!$proxmox->login()) {
+		throw new Exception('Unable to log in to PVE API on ' . $serverip . '. Check credentials, connectivity & configurations.');
+	}
+
+	// /cluster/tasks takes no parameters; show the 150 newest entries.
+	$limit = 150;
+	$tasks = $proxmox->get('/cluster/tasks');
+
+	// Optional debug logging
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
+	}
+
+	if (!is_array($tasks) || empty($tasks)) {
+		echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
+		return;
+	}
+
+	// Sort newest first (defensive)
+	usort($tasks, function ($a, $b) {
+		return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
+	});
+	$tasks = array_slice($tasks, 0, $limit);
+
+	echo '<table class="pve-table">';
+	echo '<thead><tr>
+			<th>Task</th>
+			<th>VMID</th>
+			<th>Status</th>
+			<th>Node</th>
+			<th>User</th>
+			<th>Duration</th>
+			<th>Start</th>
+			<th>End</th>
+		  </tr></thead><tbody>';
+
+	foreach ($tasks as $t) {
+		$node   = $t['node'] ?? '—';
+		$type   = $t['type'] ?? '';
+		$user   = $t['user'] ?? '';
+		$upid   = $t['upid'] ?? '';
+
+		// Derive VMID:
+		// 1) Prefer numeric $t['id'] when available
+		// 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
+		$vmid = '—';
+		if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
+			$vmid = (string)$t['id'];
+		} elseif (is_string($upid) && $upid !== '') {
+			// UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
+			if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
+				if ($m[1] !== '' && ctype_digit($m[1])) {
+					$vmid = $m[1];
+				}
+			}
+		}
+
+		$startTs = (int)($t['starttime'] ?? 0);
+		$endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
+
+		$start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
+		$end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
+
+		$durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
+		$durH   = is_null($durSec)
+			? '—'
+			: sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
+
+		$status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
+		$badge  = ($status === 'OK')
+			? '✅'
+			: ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
+
+		echo '<tr>';
+		echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
+		echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
+		echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
+		echo '<td>' . htmlspecialchars($node) . '</td>';
+		echo '<td>' . htmlspecialchars($user) . '</td>';
+		echo '<td>' . htmlspecialchars($durH) . '</td>';
+		echo '<td>' . htmlspecialchars($start) . '</td>';
+		echo '<td>' . htmlspecialchars($end) . '</td>';
+		echo '</tr>';
+	}
+	echo '</tbody></table>';
+}
+
+function pvewhmcs_is_ipv4_netmask($mask) {
+	if (!filter_var($mask, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		return false;
+	}
+	$inverted = ~ip2long($mask) & 0xFFFFFFFF;
+
+	return ($inverted & ($inverted + 1)) === 0;
 }
 
 // Import Guest sub-page handler (standalone, outside pvewhmcs_output)
@@ -1328,32 +1504,46 @@ function pvewhmcs_output($vars) {
 function import_guest() {
 	$resultMsg = '';
 	if (!empty($_POST['import_existing_guest'])) {
-		$vmid = intval($_POST['import_vmid']);
-		$userid = intval($_POST['import_clientid']);
-		$productid = intval($_POST['import_productid']);
-		$ipaddress = trim($_POST['import_ipv4']);
-		$subnetmask = trim($_POST['import_subnet']);
-		$gateway = trim($_POST['import_gateway']);
-		$hostname = trim($_POST['import_hostname']);
-		$vtype = ($_POST['import_vtype'] === 'lxc') ? 'lxc' : 'qemu';
+		$vmid = (int) ($_POST['import_vmid'] ?? 0);
+		$userid = (int) ($_POST['import_clientid'] ?? 0);
+		$productid = (int) ($_POST['import_productid'] ?? 0);
+		$ipaddress = trim((string) ($_POST['import_ipv4'] ?? ''));
+		$subnetmask = trim((string) ($_POST['import_subnet'] ?? ''));
+		$gateway = trim((string) ($_POST['import_gateway'] ?? ''));
+		$hostname = trim((string) ($_POST['import_hostname'] ?? ''));
+		$vtype = (($_POST['import_vtype'] ?? '') === 'lxc') ? 'lxc' : 'qemu';
 
-		// Validate Client ID
 		$client = Capsule::table('tblclients')->where('id', $userid)->where('status', 'Active')->first();
-		if (!$client) {
+		$product = Capsule::table('tblproducts')->where('id', $productid)->where('retired', 0)->first();
+		// The new service uses the first server of the product's server group.
+		$serverRel = $product ? Capsule::table('tblservergroupsrel')->where('groupid', $product->servergroup)->first() : null;
+		$serverID = $serverRel ? (int) $serverRel->serverid : 0;
+		// A VMID may back only one service per Proxmox server, or two customers
+		// would power/suspend/cancel the same guest.
+		$linked = Capsule::table('mod_pvewhmcs_vms')
+			->join('tblhosting', 'tblhosting.id', '=', 'mod_pvewhmcs_vms.id')
+			->where('mod_pvewhmcs_vms.vmid', $vmid)
+			->where('tblhosting.server', $serverID)
+			->value('tblhosting.id');
+
+		if ($vmid < 100) {
+			$resultMsg = '<div class="errorbox">PVE VMID must be a number of 100 or more.</div>';
+		} elseif (!$client) {
 			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID ' . $userid . '</div>';
+		} elseif (!$product) {
+			$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID ' . $productid . '</div>';
+		} elseif ($hostname === '') {
+			$resultMsg = '<div class="errorbox">Hostname is required.</div>';
+		} elseif (!filter_var($ipaddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || !filter_var($gateway, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) || !pvewhmcs_is_ipv4_netmask($subnetmask)) {
+			$resultMsg = '<div class="errorbox">IPv4 and Gateway must be IPv4 addresses, and Subnet a dotted netmask such as 255.255.255.0.</div>';
+		} elseif ($linked) {
+			$resultMsg = '<div class="errorbox">VMID ' . $vmid . ' is already linked to Service #' . (int) $linked . ' on this server. Nothing was imported.</div>';
 		} else {
-			// Validate Product
-			$product = Capsule::table('tblproducts')->where('id', $productid)->where('retired', 0)->first();
-			if (!$product) {
-				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID ' . $productid . '</div>';
-			} else {
-				// Create WHMCS Service (Order)
-				try {
-					// First, get the first Server ID that matches the product's server group
-					$serverRel = Capsule::table('tblservergroupsrel')->where('groupid', $product->servergroup)->first();
-					$serverID = $serverRel ? $serverRel->serverid : 0;
-					// Do the insertion to the tblhosting table
-					$serviceID = Capsule::table('tblhosting')->insertGetId([
+			try {
+				// Service and guest link are created together or not at all.
+				$serviceID = Capsule::connection()->transaction(function ($connection) use ($userid, $productid, $hostname, $serverID, $ipaddress, $vmid, $vtype, $subnetmask, $gateway) {
+					/** @var \Illuminate\Database\Connection $connection */
+					$serviceID = $connection->table('tblhosting')->insertGetId([
 						'userid' => $userid,
 						'packageid' => $productid,
 						'regdate' => date('Y-m-d'),
@@ -1385,35 +1575,29 @@ function import_guest() {
 						'overidesuspenduntil' => '',
 						'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID ' . $vmid,
 					]);
-				} catch (Exception $e) {
-					$resultMsg = '<div class="errorbox">Could not create WHMCS service: ' . htmlspecialchars($e->getMessage()) . '</div>';
-					$serviceID = false;
-				}
-				if ($serviceID) {
-					// Insert into module VMs table
-					try {
-						Capsule::table('mod_pvewhmcs_vms')->insert([
-							'id' => $serviceID,
-							'vmid' => $vmid,
-							'user_id' => $userid,
-							'vtype' => $vtype,
-							'ipaddress' => $ipaddress,
-							'subnetmask' => $subnetmask,
-							'gateway' => $gateway,
-							'created' => date('Y-m-d H:i:s'),
-						]);
-						$resultMsg = '<div class="successbox">Successfully imported PVE VMID ' . $vmid . ' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
-					} catch (Exception $e) {
-						$resultMsg = '<div class="errorbox">Database error: ' . htmlspecialchars($e->getMessage()) . '</div>';
-					}
-				}
+					$connection->table('mod_pvewhmcs_vms')->insert([
+						'id' => $serviceID,
+						'vmid' => $vmid,
+						'user_id' => $userid,
+						'vtype' => $vtype,
+						'ipaddress' => $ipaddress,
+						'subnetmask' => $subnetmask,
+						'gateway' => $gateway,
+						'created' => date('Y-m-d H:i:s'),
+					]);
+
+					return $serviceID;
+				});
+				$resultMsg = '<div class="successbox">Successfully imported PVE VMID ' . $vmid . ' (' . $vtype . ') as Service ' . (int) $serviceID . ' (' . htmlspecialchars((string) $product->name) . ') for ' . htmlspecialchars(trim($client->firstname . ' ' . $client->lastname . ' ' . $client->companyname)) . '</div>';
+			} catch (\Throwable $e) {
+				$resultMsg = '<div class="errorbox">Could not import the guest; nothing was saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
 			}
 		}
 	}
 
 	// Always show the form for easy further imports
 	if (!empty($resultMsg)) echo $resultMsg;
-	echo '<form method="post">';
+	echo '<form method="post">' . pvewhmcs_csrf_field();
 	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
 	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="import_vmid" required></td></tr>';
 	echo '<tr><td class="fieldlabel">Hostname</td><td class="fieldarea"><input type="text" name="import_hostname" required></td></tr>';
@@ -1453,44 +1637,68 @@ function import_guest() {
 // MODULE CONFIG: Commit changes to the database
 function save_config() {
 	try {
-		Capsule::connection()->transaction(
-			function ($connectionManager)
-			{
-				/** @var \Illuminate\Database\Connection $connectionManager */
-				$update = [
-					'start_vmid' => $_POST['start_vmid'],
-					'debug_mode' => $_POST['debug_mode'] ?? 0,
-					'console_relay_host' => trim((string) ($_POST['console_relay_host'] ?? '')) ?: null,
-					'console_relay_port' => ($_POST['console_relay_port'] ?? '') !== '' ? (int) $_POST['console_relay_port'] : null,
-					'name_pattern' => trim((string) ($_POST['name_pattern'] ?? '')) ?: null,
-				];
+		$start_vmid = filter_var(trim((string) ($_POST['start_vmid'] ?? '')), FILTER_VALIDATE_INT, array('options' => array('min_range' => 100, 'max_range' => 999999999)));
+		if ($start_vmid === false) {
+			throw new InvalidArgumentException('VMID Start must be a whole number from 100 to 999999999.');
+		}
 
-				// Secrets are masked (blank) in the form; only overwrite the
-				// stored value when the admin actually typed a new one.
-				$vnc_secret = trim((string) ($_POST['vnc_secret'] ?? ''));
-				if ($vnc_secret !== '') {
-					$update['vnc_secret'] = $vnc_secret;
-				}
-				$console_relay_secret = trim((string) ($_POST['console_relay_secret'] ?? ''));
-				if ($console_relay_secret !== '') {
-					$update['console_relay_secret'] = $console_relay_secret;
-				}
+		$relay_host = trim((string) ($_POST['console_relay_host'] ?? ''));
+		if ($relay_host !== '' && filter_var($relay_host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) === false && filter_var($relay_host, FILTER_VALIDATE_IP) === false) {
+			throw new InvalidArgumentException('Console Relay Host must be a hostname or IP address (no scheme, port or path).');
+		}
 
-				$connectionManager->table('mod_pvewhmcs')->update($update);
+		$relay_port = trim((string) ($_POST['console_relay_port'] ?? ''));
+		if ($relay_port !== '') {
+			$relay_port = filter_var($relay_port, FILTER_VALIDATE_INT, array('options' => array('min_range' => 1, 'max_range' => 65535)));
+			if ($relay_port === false) {
+				throw new InvalidArgumentException('Console Relay Port must be empty or a port number from 1 to 65535.');
 			}
-		);
+		}
+
+		$name_pattern = trim((string) ($_POST['name_pattern'] ?? ''));
+		if (strlen($name_pattern) > 255) {
+			throw new InvalidArgumentException('VM Name Pattern must be at most 255 characters.');
+		}
+
+		$update = [
+			'start_vmid' => $start_vmid,
+			'debug_mode' => (int) !empty($_POST['debug_mode']),
+			'console_relay_host' => $relay_host !== '' ? $relay_host : null,
+			'console_relay_port' => $relay_port !== '' ? $relay_port : null,
+			'name_pattern' => $name_pattern !== '' ? $name_pattern : null,
+		];
+
+		// Secrets are masked (blank) in the form; only overwrite the stored
+		// value when the admin actually typed a new one. Minimum lengths match
+		// what noVNC (pvewhmcs_prepare_noVNC) and the console token require.
+		$vnc_secret = trim((string) ($_POST['vnc_secret'] ?? ''));
+		if ($vnc_secret !== '') {
+			if (strlen($vnc_secret) < 15) {
+				throw new InvalidArgumentException('VNC Secret must be at least 15 characters.');
+			}
+			$update['vnc_secret'] = $vnc_secret;
+		}
+		$console_relay_secret = trim((string) ($_POST['console_relay_secret'] ?? ''));
+		if ($console_relay_secret !== '') {
+			if (strlen($console_relay_secret) < 32) {
+				throw new InvalidArgumentException('Console Relay Secret must be at least 32 characters.');
+			}
+			$update['console_relay_secret'] = $console_relay_secret;
+		}
+
+		Capsule::table('mod_pvewhmcs')->where('id', 1)->update($update);
 		$_SESSION['pvewhmcs']['infomsg']['title']='Module Config saved.' ;
 		$_SESSION['pvewhmcs']['infomsg']['message']='New options have been successfully saved.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=config");
-	} catch (\Exception $e) {
-		echo "Uh oh! That didn't work, but I was able to rollback. {$e->getMessage()}";
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">Module Config was not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
 	}
 }
 
 // MODULE FORM: Add new QEMU Plan
 function qemu_plan_add() {
 	echo '
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -1806,7 +2014,7 @@ function qemu_plan_edit($id) {
 		return false ;
 	}
 	echo '
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -2081,7 +2289,7 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="' . htmlspecialchars((string) $plan->vlanid, ENT_QUOTES, 'UTF-8') . '">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
@@ -2118,7 +2326,7 @@ function qemu_plan_edit($id) {
 // MODULE FORM: Add an LXC Plan
 function lxc_plan_add() {
 	echo '
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -2238,7 +2446,7 @@ function lxc_plan_add() {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="unpriv" value="0"> Specifies whether a CT will be unprivileged. (Recommended) <strong>Set at-create only!</strong>
+	<input type="checkbox" name="unpriv" value="1"> Specifies whether a CT will be unprivileged. (Recommended) <strong>Set at-create only!</strong>
 	</label>
 	</td>
 	</tr>
@@ -2260,7 +2468,7 @@ function lxc_plan_edit($id) {
 		return false ;
 	}
 	echo '
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -2334,7 +2542,7 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="' . htmlspecialchars((string) $plan->vlanid, ENT_QUOTES, 'UTF-8') . '">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
@@ -2394,174 +2602,153 @@ function lxc_plan_edit($id) {
 	';
 }
 
-// MODULE FORM ACTION: Save QEMU Plan
-function save_qemu_plan() {
-	try {
-		list($bridge, $vmbr) = pvewhmcs_plan_network_input(($_POST['netmode'] ?? 'bridge') === 'bridge');
-		Capsule::connection()->transaction(
-			function ($connectionManager) use ($bridge, $vmbr)
-			{
-				/** @var \Illuminate\Database\Connection $connectionManager */
-				$connectionManager->table('mod_pvewhmcs_plans')->insert(
-					[
-						'title' => $_POST['title'],
-						'vmtype' => 'kvm',
-						'ostype' => $_POST['ostype'],
-						'cpus' => $_POST['cpus'],
-						'cpuemu' => $_POST['cpuemu'],
-						'cores' => $_POST['cores'],
-						'cpulimit' => $_POST['cpulimit'],
-						'cpuunits' => $_POST['cpuunits'],
-						'memory' => $_POST['memory'],
-						'balloon' => $_POST['balloon'],
-						'disk' => $_POST['disk'],
-						'diskformat' => $_POST['diskformat'],
-						'diskcache' => $_POST['diskcache'],
-						'disktype' => $_POST['disktype'],
-						'diskio' => $_POST['diskio'],
-						'storage' => $_POST['storage'],
-						'netmode' => $_POST['netmode'],
-						'bridge' => $bridge,
-						'vmbr' => $vmbr,
-						'netmodel' => $_POST['netmodel'],
-						'vlanid' => $_POST['vlanid'],
-						'netrate' => $_POST['netrate'],
-						'bw' => $_POST['bw'],
-						'ipv6' => $_POST['ipv6'],
-						'kvm' => $_POST['kvm'],
-						'onboot' => $_POST['onboot'],
-					]
-				);
-			}
-		);
-		$_SESSION['pvewhmcs']['infomsg']['title']='QEMU Plan added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the QEMU Plan successfully.' ;
-		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
-	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
+/**
+ * Whole-number plan field. $blankValue === false makes the field required;
+ * otherwise a blank input is stored as $blankValue (e.g. null = untagged VLAN).
+ */
+function pvewhmcs_plan_int($field, $label, $min, $max, $blankValue = false) {
+	$raw = trim((string) ($_POST[$field] ?? ''));
+	if ($raw === '') {
+		if ($blankValue === false) {
+			throw new InvalidArgumentException("{$label} is required.");
+		}
+
+		return $blankValue;
 	}
+
+	$value = filter_var($raw, FILTER_VALIDATE_INT, array('options' => array('min_range' => $min, 'max_range' => $max)));
+	if ($value === false) {
+		throw new InvalidArgumentException("{$label} must be a whole number from {$min} to {$max}.");
+	}
+
+	return $value;
 }
 
-// MODULE FORM ACTION: Update QEMU Plan
-function update_qemu_plan() {
-	list($bridge, $vmbr) = pvewhmcs_plan_network_input(($_POST['netmode'] ?? 'bridge') === 'bridge');
-	Capsule::table('mod_pvewhmcs_plans')
-	->where('id', $_GET['id'])
-	->update(
-		[
-			'title' => $_POST['title'],
-			'vmtype' => 'kvm',
-			'ostype' => $_POST['ostype'],
-			'cpus' => $_POST['cpus'],
-			'cpuemu' => $_POST['cpuemu'],
-			'cores' => $_POST['cores'],
-			'cpulimit' => $_POST['cpulimit'],
-			'cpuunits' => $_POST['cpuunits'],
-			'memory' => $_POST['memory'],
-			'balloon' => $_POST['balloon'],
-			'disk' => $_POST['disk'],
-			'diskformat' => $_POST['diskformat'],
-			'diskcache' => $_POST['diskcache'],
-			'disktype' => $_POST['disktype'],
-			'diskio' => $_POST['diskio'],
-			'storage' => $_POST['storage'],
-			'netmode' => $_POST['netmode'],
-			'bridge' => $bridge,
-			'vmbr' => $vmbr,
-			'netmodel' => $_POST['netmodel'],
-			'vlanid' => $_POST['vlanid'],
-			'netrate' => $_POST['netrate'],
-			'bw' => $_POST['bw'],
-			'ipv6' => $_POST['ipv6'],
-			'kvm' => $_POST['kvm'],
-			'onboot' => $_POST['onboot'],
-		]
+function pvewhmcs_plan_choice($field, $label, array $allowed) {
+	$value = (string) ($_POST[$field] ?? '');
+	if (!in_array($value, $allowed, true)) {
+		throw new InvalidArgumentException("{$label} has an unsupported value.");
+	}
+
+	return $value;
+}
+
+/**
+ * Server-side validation of the QEMU (`kvm`) and LXC plan forms (AGENTS rule 3).
+ * Returns the mod_pvewhmcs_plans columns to store, or throws
+ * InvalidArgumentException naming the first invalid field. Ranges follow the
+ * db.sql column types; blanks follow the form hints; checkboxes become 0/1.
+ */
+function pvewhmcs_plan_input($vmtype) {
+	list($bridge, $vmbr) = pvewhmcs_plan_network_input($vmtype === 'lxc' || ($_POST['netmode'] ?? 'bridge') === 'bridge');
+
+	$title = trim((string) ($_POST['title'] ?? ''));
+	if ($title === '' || strlen($title) > 255) {
+		throw new InvalidArgumentException('Plan Title is required (up to 255 characters).');
+	}
+	$storage = trim((string) ($_POST['storage'] ?? ''));
+	if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,18}[A-Za-z0-9]$/', $storage)) {
+		throw new InvalidArgumentException('Storage must be a Proxmox storage ID such as local or local-lvm.');
+	}
+
+	$plan = array(
+		'title' => $title,
+		'vmtype' => $vmtype,
+		'cpulimit' => pvewhmcs_plan_int('cpulimit', 'CPU Limit', 0, 8192),
+		'cpuunits' => pvewhmcs_plan_int('cpuunits', 'CPU Units', 0, 65535),
+		'memory' => pvewhmcs_plan_int('memory', 'RAM', 16, 4294967295),
+		'disk' => pvewhmcs_plan_int('disk', 'Disk', 1, 4294967295),
+		'diskio' => (string) pvewhmcs_plan_int('diskio', 'Disk I/O', 0, 2147483647, 0),
+		'storage' => $storage,
+		'bridge' => $bridge,
+		'vmbr' => $vmbr,
+		'vlanid' => pvewhmcs_plan_int('vlanid', 'VLAN ID', 1, 4094, null),
+		'netrate' => pvewhmcs_plan_int('netrate', 'Network Rate', 0, 2147483647, 0),
+		'bw' => pvewhmcs_plan_int('bw', 'Bandwidth', 0, 4294967295, 0),
+		'ipv6' => pvewhmcs_plan_choice('ipv6', 'IPv6', array('0', 'auto', 'dhcp', 'prefix')),
+		'onboot' => (int) !empty($_POST['onboot']),
 	);
-	$_SESSION['pvewhmcs']['infomsg']['title']='QEMU Plan updated.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the QEMU Plan successfully. (Updating plans will not alter existing VMs)' ;
+
+	if ($vmtype === 'lxc') {
+		return $plan + array(
+			'swap' => pvewhmcs_plan_int('swap', 'Swap', 0, 4294967295, null),
+			'unpriv' => (int) !empty($_POST['unpriv']),
+		);
+	}
+
+	$cpuemu = (string) ($_POST['cpuemu'] ?? '');
+	if (!preg_match('/^[A-Za-z0-9_.+-]{1,30}$/', $cpuemu)) {
+		throw new InvalidArgumentException('CPU Emulation has an unsupported value.');
+	}
+
+	return $plan + array(
+		'ostype' => pvewhmcs_plan_choice('ostype', 'OS Type', array('l26', 'l24', 'solaris', 'win11', 'win10', 'win8', 'win7', 'wvista', 'wxp', 'w2k', 'other')),
+		'cpus' => pvewhmcs_plan_int('cpus', 'CPU Sockets', 1, 4096),
+		'cpuemu' => $cpuemu,
+		'cores' => pvewhmcs_plan_int('cores', 'CPU Cores', 1, 4096),
+		'balloon' => pvewhmcs_plan_int('balloon', 'Balloon', 0, 2147483647, 0),
+		'diskformat' => pvewhmcs_plan_choice('diskformat', 'Disk Format', array('raw', 'qcow2', 'vmdk')),
+		'diskcache' => pvewhmcs_plan_choice('diskcache', 'Disk Cache', array('none', 'directsync', 'writethrough', 'writeback', 'unsafe')),
+		'disktype' => pvewhmcs_plan_choice('disktype', 'Disk Type', array('virtio', 'scsi', 'sata', 'ide')),
+		'netmode' => pvewhmcs_plan_choice('netmode', 'Network Mode', array('bridge', 'nat', 'none')),
+		'netmodel' => pvewhmcs_plan_choice('netmodel', 'NIC', array('virtio', 'e1000', 'rtl8139', 'vmxnet3')),
+		'kvm' => (int) !empty($_POST['kvm']),
+	);
+}
+
+function pvewhmcs_plan_label($vmtype) {
+	return $vmtype === 'lxc' ? 'LXC' : 'QEMU';
+}
+
+// MODULE FORM ACTION: Save a new QEMU (`kvm`) or LXC plan
+function pvewhmcs_save_plan($vmtype) {
+	try {
+		Capsule::table('mod_pvewhmcs_plans')->insert(pvewhmcs_plan_input($vmtype));
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">' . pvewhmcs_plan_label($vmtype) . ' Plan was not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
+		return;
+	}
+
+	$_SESSION['pvewhmcs']['infomsg']['title'] = pvewhmcs_plan_label($vmtype) . ' Plan added.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Saved the ' . pvewhmcs_plan_label($vmtype) . ' Plan successfully.';
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
-// MODULE FORM ACTION: Remove Plan
+// MODULE FORM ACTION: Update a QEMU (`kvm`) or LXC plan
+function pvewhmcs_update_plan($vmtype, $id) {
+	try {
+		$plan = pvewhmcs_plan_input($vmtype);
+		if (!Capsule::table('mod_pvewhmcs_plans')->where('id', $id)->where('vmtype', $vmtype)->exists()) {
+			throw new InvalidArgumentException("Plan #{$id} was not found.");
+		}
+		Capsule::table('mod_pvewhmcs_plans')->where('id', $id)->update($plan);
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">' . pvewhmcs_plan_label($vmtype) . ' Plan was not updated: ' . htmlspecialchars($e->getMessage()) . '</div>';
+		return;
+	}
+
+	$_SESSION['pvewhmcs']['infomsg']['title'] = pvewhmcs_plan_label($vmtype) . ' Plan updated.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Updated the ' . pvewhmcs_plan_label($vmtype) . ' Plan successfully. (Updating plans will not alter existing guests)';
+	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
+}
+
+// MODULE FORM ACTION: Remove Plan (refused while a product still uses it,
+// since CreateAccount/UnsuspendAccount read the product's plan)
 function remove_plan($id) {
+	$products = Capsule::table('tblproducts')
+		->where('servertype', 'pvewhmcs')
+		->where('configoption1', (string) $id)
+		->pluck('name')
+		->all();
+	if (!empty($products)) {
+		echo '<div class="alert alert-danger">Plan #' . (int) $id . ' is used by: ' . htmlspecialchars(implode(', ', $products)) . '. Assign another plan to those products first.</div>';
+		return;
+	}
+
 	Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->delete();
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	$_SESSION['pvewhmcs']['infomsg']['title']='Plan Deleted.' ;
 	$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfully.' ;
-}
-
-// MODULE FORM ACTION: Save LXC Plan
-function save_lxc_plan() {
-	try {
-		list($bridge, $vmbr) = pvewhmcs_plan_network_input(true);
-		Capsule::connection()->transaction(
-			function ($connectionManager) use ($bridge, $vmbr)
-			{
-				/** @var \Illuminate\Database\Connection $connectionManager */
-				$connectionManager->table('mod_pvewhmcs_plans')->insert(
-					[
-						'title' => $_POST['title'],
-						'vmtype' => 'lxc',
-						'cores' => $_POST['cores'],
-						'cpulimit' => $_POST['cpulimit'],
-						'cpuunits' => $_POST['cpuunits'],
-						'memory' => $_POST['memory'],
-						'swap' => $_POST['swap'],
-						'disk' => $_POST['disk'],
-						'diskio' => $_POST['diskio'],
-						'storage' => $_POST['storage'],
-						'bridge' => $bridge,
-						'vmbr' => $vmbr,
-						'netmodel' => $_POST['netmodel'],
-						'vlanid' => $_POST['vlanid'],
-						'netrate' => $_POST['netrate'],
-						'bw' => $_POST['bw'],
-						'ipv6' => $_POST['ipv6'],
-						'onboot' => $_POST['onboot'],
-						'unpriv' => $_POST['unpriv'],
-					]
-				);
-			}
-		);
-		$_SESSION['pvewhmcs']['infomsg']['title']='New LXC Plan added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the LXC Plan successfully.' ;
-		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
-	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
-	}
-}
-
-// MODULE FORM ACTION: Update LXC Plan
-function update_lxc_plan() {
-	list($bridge, $vmbr) = pvewhmcs_plan_network_input(true);
-	Capsule::table('mod_pvewhmcs_plans')
-	->where('id', $_GET['id'])
-	->update(
-		[
-			'title' => $_POST['title'],
-			'vmtype' => 'lxc',
-			'cores' => $_POST['cores'],
-			'cpulimit' => $_POST['cpulimit'],
-			'cpuunits' => $_POST['cpuunits'],
-			'memory' => $_POST['memory'],
-			'swap' => $_POST['swap'],
-			'disk' => $_POST['disk'],
-			'diskio' => $_POST['diskio'],
-			'storage' => $_POST['storage'],
-			'bridge' => $bridge,
-			'vmbr' => $vmbr,
-			'netmodel' => $_POST['netmodel'],
-			'vlanid' => $_POST['vlanid'],
-			'netrate' => $_POST['netrate'],
-			'bw' => $_POST['bw'],
-			'ipv6' => $_POST['ipv6'],
-			'onboot' => $_POST['onboot'],
-			'unpriv' => $_POST['unpriv'],
-		]
-	);
-	$_SESSION['pvewhmcs']['infomsg']['title']='LXC Plan updated.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the LXC Plan successfully. (Updating plans will not alter existing CTs)' ;
-	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
 // IP POOLS: List all Pools
@@ -2586,7 +2773,7 @@ function list_ip_pools() {
 // IP POOL FORM: Add IP Pool
 function add_ip_pool() {
 	echo '
-	<form method="post">
+	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Pool Title</td>
@@ -2608,49 +2795,196 @@ function add_ip_pool() {
 // IP POOL FORM ACTION: Save Pool
 function save_ip_pool() {
 	try {
-		Capsule::connection()->transaction(
-			function ($connectionManager)
-			{
-				/** @var \Illuminate\Database\Connection $connectionManager */
-				$connectionManager->table('mod_pvewhmcs_ip_pools')->insert(
-					[
-						'title' => $_POST['title'],
-						'gateway' => $_POST['gateway'],
-					]
-				);
-			}
-		);
-		$_SESSION['pvewhmcs']['infomsg']['title']='New IPv4 Pool added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='New IPv4 Pool saved successfully.' ;
-		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
-	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
+		$title = trim((string) ($_POST['title'] ?? ''));
+		$gateway = trim((string) ($_POST['gateway'] ?? ''));
+		if ($title === '' || strlen($title) > 255) {
+			throw new InvalidArgumentException('Pool Title is required (up to 255 characters).');
+		}
+		if (!filter_var($gateway, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+			throw new InvalidArgumentException('IPv4 Gateway must be an IPv4 address.');
+		}
+		Capsule::table('mod_pvewhmcs_ip_pools')->insert(['title' => $title, 'gateway' => $gateway]);
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">IPv4 Pool was not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
+		return;
 	}
+
+	$_SESSION['pvewhmcs']['infomsg']['title']='New IPv4 Pool added.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='New IPv4 Pool saved successfully.' ;
+	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 }
 
-// IP POOL FORM ACTION: Remove Pool
+// Service statuses that keep an IPv4 pool address in use (tblhosting.dedicatedip).
+function pvewhmcs_ip_busy_statuses() {
+	return array('Active', 'Suspended', 'Completed', 'Pending');
+}
+
+// The service holding an IPv4 address, or null when the address is free.
+function pvewhmcs_ip_service($ipaddress) {
+	return Capsule::table('tblhosting')
+		->where('dedicatedip', '=', $ipaddress)
+		->whereIn('domainstatus', pvewhmcs_ip_busy_statuses())
+		->first();
+}
+
+// A cancelled service retains its current pool address only while its guest link
+// remains. vms.ipaddress is intentionally not consulted: it is guest history.
+function pvewhmcs_ip_reservation_service($ipaddress) {
+	return Capsule::table('tblhosting as h')
+		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
+		->where('h.dedicatedip', '=', $ipaddress)
+		->where('h.domainstatus', '=', 'Terminated')
+		->select('h.id', 'h.userid', 'h.dedicatedip', 'v.vmid')
+		->first();
+}
+
+// Pool-address rows must be locked before their service rows. The caller has
+// already locked those address rows; this locks every service currently using
+// one, then the guest links needed to distinguish a cancelled reservation.
+function pvewhmcs_locked_ip_blockers(array $addresses) {
+	$addresses = array_values(array_unique(array_filter($addresses, function ($address) {
+		return is_string($address) && $address !== '';
+	})));
+	if (empty($addresses)) {
+		return array();
+	}
+
+	$services = Capsule::table('tblhosting')
+		->whereIn('dedicatedip', $addresses)
+		->orderBy('id')
+		->lock('for update')
+		->get();
+	$serviceIds = array();
+	foreach ($services as $service) {
+		$serviceIds[] = (int) $service->id;
+	}
+	$guestRows = empty($serviceIds) ? array() : Capsule::table('mod_pvewhmcs_vms')
+		->whereIn('id', $serviceIds)
+		->orderBy('id')
+		->lock('for update')
+		->get(array('id'));
+	$guestIds = array();
+	foreach ($guestRows as $guest) {
+		$guestIds[(int) $guest->id] = true;
+	}
+	$blockers = array();
+	foreach ($services as $service) {
+		if (in_array($service->domainstatus, pvewhmcs_ip_busy_statuses(), true)) {
+			$blockers[(string) $service->dedicatedip] = array('type' => 'in_use', 'service' => $service);
+		} elseif ($service->domainstatus === 'Terminated' && isset($guestIds[(int) $service->id])) {
+			$blockers[(string) $service->dedicatedip] = array('type' => 'reservation', 'service' => $service);
+		}
+	}
+
+	return $blockers;
+}
+
+function pvewhmcs_ip_blocker_message($blocker) {
+	$service = $blocker['service'];
+	return htmlspecialchars((string) $service->dedicatedip) . ' is ' . ($blocker['type'] === 'reservation' ? 'reserved for cancelled' : 'in use by') . ' Service #' . (int) $service->id . '.';
+}
+
+// IP POOL FORM ACTION: Remove Pool (refused while an address is in use or reserved).
 function removeIpPool($id) {
-	Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
-	Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
+	$result = Capsule::connection()->transaction(function () use ($id) {
+		$addresses = Capsule::table('mod_pvewhmcs_ip_addresses')
+			->where('pool_id', '=', $id)
+			->orderBy('id')
+			->lock('for update')
+			->get();
+		$blockers = pvewhmcs_locked_ip_blockers($addresses->pluck('ipaddress')->all());
+		if (!empty($blockers)) {
+			return array('blocker' => reset($blockers));
+		}
+
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $id)->delete();
+		Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
+		return array('deleted' => true);
+	});
+	if (isset($result['blocker'])) {
+		echo '<div class="alert alert-danger">IPv4 Pool #' . (int) $id . ' was not deleted: ' . pvewhmcs_ip_blocker_message($result['blocker']) . '</div>';
+		return;
+	}
 
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Pool Deleted.' ;
 	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IPv4 Pool successfully.' ;
 }
 
+/**
+ * Adds one IPv4 address (no prefix, or /32) or every usable host of a /22-/30
+ * block to a pool, in one transaction. Addresses already present (in any pool)
+ * and pool gateways are skipped. Returns array('inserted' => n, 'skipped' => n).
+ */
+function pvewhmcs_add_ips_to_pool($pool_id, $block) {
+	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
+	if (!Capsule::table('mod_pvewhmcs_ip_pools')->where('id', $pool_id)->exists()) {
+		throw new InvalidArgumentException('Select an existing IPv4 pool.');
+	}
+
+	$address = $block;
+	$prefix = 32;
+	if (preg_match('#^(.+)/(\d{1,2})$#', $block, $match)) {
+		$address = $match[1];
+		$prefix = (int) $match[2];
+	}
+	if (!filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		throw new InvalidArgumentException('Enter an IPv4 address (e.g. 203.0.113.10) or a block with its prefix (e.g. 203.0.113.0/27).');
+	}
+
+	if ($prefix === 32) {
+		$entries = array(array('ipaddress' => $address, 'mask' => '255.255.255.255'));
+	} elseif ($prefix === 31) {
+		throw new InvalidArgumentException('/31 blocks have no usable host range here: add the two addresses individually.');
+	} elseif ($prefix < 22 || $prefix > 30) {
+		throw new InvalidArgumentException('Blocks must be between /22 and /30 (at most 1022 addresses per request).');
+	} else {
+		$subnet = Ipv4_Subnet::fromString($address . '/' . $prefix);
+		$mask = $subnet->getNetmask();
+		$entries = array();
+		foreach ($subnet->getIterator() as $ip) {
+			$entries[] = array('ipaddress' => (string) $ip, 'mask' => $mask);
+		}
+	}
+
+	$gateways = Capsule::table('mod_pvewhmcs_ip_pools')->pluck('gateway')->all();
+	$inserted = 0;
+	Capsule::connection()->transaction(function ($connection) use ($entries, $gateways, $pool_id, &$inserted) {
+		/** @var \Illuminate\Database\Connection $connection */
+		foreach ($entries as $entry) {
+			if (in_array($entry['ipaddress'], $gateways, true)) {
+				continue;
+			}
+			$inserted += $connection->table('mod_pvewhmcs_ip_addresses')->insertOrIgnore(array('pool_id' => $pool_id) + $entry);
+		}
+	});
+
+	return array('inserted' => $inserted, 'skipped' => count($entries) - $inserted);
+}
+
 // IP POOL FORM ACTION: Add IP to Pool
 function add_ip_2_pool() {
-	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
-	$gateways = array();
-	echo '<form method="post">
+	if (isset($_POST['assignIP2pool'])) {
+		$pool_id = (int) ($_POST['pool_id'] ?? 0);
+		try {
+			$result = pvewhmcs_add_ips_to_pool($pool_id, trim((string) ($_POST['ipblock'] ?? '')));
+			header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
+			$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Addresses added to Pool.';
+			$_SESSION['pvewhmcs']['infomsg']['message'] = $result['inserted'] . ' added, ' . $result['skipped'] . ' skipped (already in a pool, or a pool gateway).';
+			return;
+		} catch (\Throwable $e) {
+			echo '<div class="alert alert-danger">No IPv4 addresses were added: ' . htmlspecialchars($e->getMessage()) . '</div>';
+		}
+	}
+
+	echo '<form method="post">' . pvewhmcs_csrf_field() . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">IPv4 Pool</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="pool_id">';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
-		echo '<option value="' . $pool->id . '">' . $pool->title . '</option>';
-		$gateways[] = $pool->gateway;
+		echo '<option value="' . (int) $pool->id . '">' . $pool->title . '</option>';
 	}
 	echo '</select>
 	</td>
@@ -2659,44 +2993,12 @@ function add_ip_2_pool() {
 	<td class="fieldlabel">Address/Prefix</td>
 	<td class="fieldarea">
 	<input type="text" name="ipblock"/>
-	IPv4 prefix with CIDR e.g. 172.16.255.230/27, or for single /32 address don\'t use CIDR
+	A single IPv4 address (e.g. 203.0.113.10), or a /22 to /30 block with its prefix (e.g. 172.16.255.224/27; usable hosts only)
 	</td>
 	</tr>
 	</table>
 	<input type="submit" name="assignIP2pool" value="Add"/>
 	</form>';
-	if (isset($_POST['assignIP2pool'])) {
-			// check if single IP address
-		if ((strpos($_POST['ipblock'],'/'))!=false) {
-			$subnet=Ipv4_Subnet::fromString($_POST['ipblock']);
-			$ips = $subnet->getIterator();
-			foreach($ips as $ip) {
-				if (!in_array($ip, $gateways)) {
-					Capsule::table('mod_pvewhmcs_ip_addresses')->insert(
-						[
-							'pool_id' => $_POST['pool_id'],
-							'ipaddress' => $ip,
-							'mask' => $subnet->getNetmask(),
-						]
-					);
-				}
-			}
-		}
-		else {
-			if (!in_array($_POST['ipblock'], $gateways)) {
-				Capsule::table('mod_pvewhmcs_ip_addresses')->insert(
-					[
-						'pool_id' => $_POST['pool_id'],
-						'ipaddress' => $_POST['ipblock'],
-						'mask' => '255.255.255.255',
-					]
-				);
-			}
-		}
-		header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $_POST['pool_id']);
-		$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Address/Blocks added to Pool.';
-		$_SESSION['pvewhmcs']['infomsg']['message'] = 'You can remove IPv4 Addresses from the pool.';
-	}
 }
 
 // IP POOL FORM: List IPs in Pool
@@ -2723,16 +3025,14 @@ function list_ips() {
     // Loop through IPs in the pool
     foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $pool_id)->get() as $ip) {
         
-        // Query tblhosting to see if this IP is currently "occupied"
-        // Occupied = assigned to a service that is Active, Suspended, or Completed
-        $service = Capsule::table('tblhosting')
-            ->where('dedicatedip', '=', $ip->ipaddress)
-            ->whereIn('domainstatus', ['Active', 'Suspended', 'Completed'])
-            ->first();
+        // An address is also unavailable when its cancelled service still has
+        // the retained guest link. Never infer that from vms.ipaddress.
+        $service = pvewhmcs_ip_service($ip->ipaddress);
+		$reservation = $service ? null : pvewhmcs_ip_reservation_service($ip->ipaddress);
 
         echo '<tr>
                 <td>';
-        if (!$service) {
+        if (!$service && !$reservation) {
             echo '<input type="checkbox" class="pvewhmcs-ip-checkbox" name="ids[]" value="' . (int) $ip->id . '">';
         }
         echo '</td>
@@ -2743,7 +3043,10 @@ function list_ips() {
         if ($service) {
             // IP is in use: Create a link to the related service
             $serviceLink = $adminUrl . '?userid=' . $service->userid . '&id=' . $service->id;
-            echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
+            echo 'In use: <a href="' . htmlspecialchars($serviceLink, ENT_QUOTES, 'UTF-8') . '" target="_blank">Service #' . (int) $service->id . '</a>';
+		} elseif ($reservation) {
+			$serviceLink = $adminUrl . '?userid=' . $reservation->userid . '&id=' . $reservation->id;
+			echo 'Reserved: <a href="' . htmlspecialchars($serviceLink, ENT_QUOTES, 'UTF-8') . '" target="_blank">Service #' . (int) $reservation->id . '</a>';
         } else {
             // IP is free: an individual delete button, scoped to just this
             // row by its own name/value pair (not the shared "ids[]"
@@ -2761,50 +3064,149 @@ function list_ips() {
           </form>';
 }
 
-// IP POOL FORM ACTION: Remove a single IP from Pool
+// IP POOL FORM: List retained IPv4 reservations for cancelled guests.
+function list_reserved_ips() {
+	$adminUrl = 'clientsservices.php';
+	$reservations = Capsule::table('mod_pvewhmcs_ip_addresses as i')
+		->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
+		->join('tblhosting as h', 'h.dedicatedip', '=', 'i.ipaddress')
+		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
+		->leftJoin('tblclients as c', 'c.id', '=', 'h.userid')
+		->where('h.domainstatus', '=', 'Terminated')
+		->orderBy('i.ipaddress')
+		->select(
+			'i.id as address_id', 'i.pool_id', 'i.ipaddress', 'p.title as pool_title',
+			'h.id as service_id', 'h.userid', 'v.vmid', 'c.firstname', 'c.lastname', 'c.companyname'
+		)
+		->get();
+
+	echo '<table class="datatable"><tr><th>IPv4</th><th>Pool</th><th>Service</th><th>VMID</th><th>Client</th><th>Action</th></tr>';
+	foreach ($reservations as $reservation) {
+		$ipaddress = (string) $reservation->ipaddress;
+		$poolTitle = (string) $reservation->pool_title;
+		$serviceUrl = $adminUrl . '?userid=' . (int) $reservation->userid . '&id=' . (int) $reservation->service_id;
+		$client = trim((string) $reservation->firstname . ' ' . (string) $reservation->lastname);
+		if ($client === '') {
+			$client = (string) $reservation->companyname;
+		}
+		echo '<tr>'
+			. '<td>' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td>' . htmlspecialchars($poolTitle, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td><a href="' . htmlspecialchars($serviceUrl, ENT_QUOTES, 'UTF-8') . '">Service #' . (int) $reservation->service_id . '</a></td>'
+			. '<td>' . (int) $reservation->vmid . '</td>'
+			. '<td>' . htmlspecialchars($client, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td><form method="post">'
+			. '<input type="hidden" name="pvewhmcs_action" value="release_ipv4_reservation">'
+			. '<input type="hidden" name="address_id" value="' . (int) $reservation->address_id . '">'
+			. '<input type="hidden" name="pool_id" value="' . (int) $reservation->pool_id . '">'
+			. '<input type="hidden" name="service_id" value="' . (int) $reservation->service_id . '">'
+			. '<input type="hidden" name="ipaddress" value="' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '">'
+			. pvewhmcs_csrf_field()
+			. '<label><input type="checkbox" name="release_confirmation" value="1" required> I confirm this retained CANCELADO guest cannot return to the network using this IPv4 after release.</label> '
+			. '<button type="submit" class="btn btn-danger btn-sm">Release reservation</button>'
+			. '</form></td>'
+			. '</tr>';
+	}
+	echo '</table>';
+}
+
+function pvewhmcs_release_ipv4_reservation(array $post) {
+	$addressId = (int) ($post['address_id'] ?? 0);
+	$poolId = (int) ($post['pool_id'] ?? 0);
+	$serviceId = (int) ($post['service_id'] ?? 0);
+	$ipaddress = trim((string) ($post['ipaddress'] ?? ''));
+	if (($post['release_confirmation'] ?? '') !== '1' || $addressId < 1 || $poolId < 1 || $serviceId < 1 || !filter_var($ipaddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+		echo '<div class="alert alert-danger">Reservation was not released: confirm the cancelled-guest warning and submit the unchanged reservation details.</div>';
+		return;
+	}
+
+	try {
+		Capsule::connection()->transaction(function () use ($addressId, $poolId, $serviceId, $ipaddress) {
+			$address = Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('id', '=', $addressId)
+				->where('pool_id', '=', $poolId)
+				->lock('for update')
+				->first();
+			if ($address === null || (string) $address->ipaddress !== $ipaddress) {
+				throw new RuntimeException('The requested pool address no longer matches this reservation.');
+			}
+
+			$service = Capsule::table('tblhosting')->where('id', '=', $serviceId)->lock('for update')->first();
+			if ($service === null || $service->domainstatus !== 'Terminated' || (string) $service->dedicatedip !== $ipaddress) {
+				throw new RuntimeException('The service is no longer a cancelled reservation for this address.');
+			}
+			$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceId)->lock('for update')->first();
+			if ($guest === null) {
+				throw new RuntimeException('The retained guest link no longer exists for this service.');
+			}
+
+			Capsule::table('tblhosting')->where('id', '=', $serviceId)->update(array('dedicatedip' => ''));
+		});
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">Reservation was not released: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</div>';
+		return;
+	}
+
+	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 reservation released.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'The cancelled service no longer reserves this IPv4 address. Its guest record and historical address were retained.';
+	header('Location: ' . pvewhmcs_BASEURL . '&tab=ippools&action=reserved_ips');
+}
+
+// IP POOL FORM ACTION: Remove a single IP from Pool (same checks as the bulk path)
 function removeip($id, $pool_id) {
-	Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
-	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
-	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Address deleted.';
-	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Deleted selected item successfully.';
+	removeip_bulk(array($id), $pool_id);
 }
 
 // IP POOL FORM ACTION: Remove multiple IPs from a Pool at once. Re-checks
-// occupancy server-side (rather than trusting which checkboxes were
-// rendered) so a tampered request can't delete an IP still assigned to a
-// live service.
+// pool membership and occupancy server-side (rather than trusting which
+// checkboxes were rendered) so a tampered request can't delete an IP still
+// assigned to a live service.
 function removeip_bulk(array $ids, $pool_id) {
 	$ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
 	$deleted = 0;
+	$in_use = 0;
+	$reserved = 0;
 
 	if (!empty($ids)) {
-		$candidates = Capsule::table('mod_pvewhmcs_ip_addresses')
-			->where('pool_id', '=', $pool_id)
-			->whereIn('id', $ids)
-			->get();
-
-		$deletable_ids = [];
-		foreach ($candidates as $candidate) {
-			$occupied = Capsule::table('tblhosting')
-				->where('dedicatedip', '=', $candidate->ipaddress)
-				->whereIn('domainstatus', ['Active', 'Suspended', 'Completed'])
-				->exists();
-			if (!$occupied) {
-				$deletable_ids[] = $candidate->id;
+		$result = Capsule::connection()->transaction(function () use ($ids, $pool_id) {
+			$candidates = Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('pool_id', '=', $pool_id)
+				->whereIn('id', $ids)
+				->orderBy('id')
+				->lock('for update')
+				->get();
+			$blockers = pvewhmcs_locked_ip_blockers($candidates->pluck('ipaddress')->all());
+			$deletableIds = array();
+			$inUse = 0;
+			$reserved = 0;
+			foreach ($candidates as $candidate) {
+				$blocker = $blockers[(string) $candidate->ipaddress] ?? null;
+				if ($blocker === null) {
+					$deletableIds[] = (int) $candidate->id;
+				} elseif ($blocker['type'] === 'reservation') {
+					$reserved++;
+				} else {
+					$inUse++;
+				}
 			}
-		}
-
-		if (!empty($deletable_ids)) {
-			$deleted = Capsule::table('mod_pvewhmcs_ip_addresses')->whereIn('id', $deletable_ids)->delete();
-		}
+			$deleted = empty($deletableIds) ? 0 : Capsule::table('mod_pvewhmcs_ip_addresses')
+				->where('pool_id', '=', $pool_id)
+				->whereIn('id', $deletableIds)
+				->delete();
+			return compact('deleted', 'inUse', 'reserved');
+		});
+		$deleted = $result['deleted'];
+		$in_use = $result['inUse'];
+		$reserved = $result['reserved'];
 	}
 
 	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
 	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Addresses deleted.';
-	$_SESSION['pvewhmcs']['infomsg']['message'] = $deleted . ' address(es) removed from the pool.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = $deleted . ' address(es) removed from the pool.' . ($in_use > 0 ? ' ' . $in_use . ' kept because a service still uses them.' : '') . ($reserved > 0 ? ' ' . $reserved . ' kept as cancelled-guest reservation(s).' : '');
 }
 
 function time2format($s) {
+	$str = '';
 	$d = intval( $s / 86400 );
 	if ($d < '10') {
 		$d = '0' . $d;
