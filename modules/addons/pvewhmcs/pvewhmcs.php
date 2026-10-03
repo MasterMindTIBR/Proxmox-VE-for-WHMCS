@@ -54,7 +54,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.6";
+	return "1.3.7";
 }
 
 function pvewhmcs_verify_server_tls($secure) {
@@ -200,18 +200,8 @@ function pvewhmcs_valid_csrf() {
 // Imports db.sql (every statement is CREATE TABLE IF NOT EXISTS / INSERT IGNORE,
 // so re-activating is safe) and reports the first failing statement.
 function pvewhmcs_activate() {
-	// Pull in the SQL structure (includes VNC/etc tweaks)
-	$sql = file_get_contents(__DIR__ . '/db.sql');
-	if (!$sql) {
-		return array('status'=>'error','description'=>'The db.sql file was not found.');
-	}
-
 	try {
-		foreach (explode(';', $sql) as $query) {
-			if (trim($query) !== '') {
-				Capsule::statement($query . ';');
-			}
-		}
+		pvewhmcs_ensure_schema();
 	} catch (\Throwable $e) {
 		return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly: ' . $e->getMessage());
 	}
@@ -229,6 +219,10 @@ function pvewhmcs_deactivate() {
 function pvewhmcs_upgrade($vars) {
 	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
+	if (version_compare($currentlyInstalledVersion, '1.3.7', 'lt')) {
+		pvewhmcs_ensure_schema();
+		return;
+	}
 
 	// SQL Operations for v1.2.9/10 version
 	if (version_compare($currentlyInstalledVersion, '1.2.10', 'lt')) {
@@ -448,6 +442,7 @@ function pvewhmcs_addon_fetch_rrd($proxmox, $path, $timeframe, $ds) {
 
 // ADMIN MODULE GUI: output (HTML etc)
 function pvewhmcs_output($vars) {
+	pvewhmcs_ensure_schema();
 	$modulelink = $vars['modulelink'];
 
 	// Check for update and report if available

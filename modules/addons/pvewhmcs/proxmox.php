@@ -73,7 +73,224 @@ function pvewhmcs_rrd_image_bytes($image) {
 		: utf8_decode($image);
 }
 
+const PVEWHMCS_SCHEMA_VERSION = '1.3.7';
+
+/**
+ * Returns one column from a module table, or null when it is absent.
+ * Table and column names are internal constants below, never user input.
+ */
+function pvewhmcs_schema_column($table, $column) {
+	$columns = Capsule::select(
+		'SELECT COLUMN_TYPE AS `Type`, IS_NULLABLE AS `Null`, COLUMN_DEFAULT AS `Default`'
+		. ' FROM information_schema.COLUMNS'
+		. ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+		. ' LIMIT 1',
+		array($table, $column)
+	);
+
+	return $columns[0] ?? null;
+}
+
+function pvewhmcs_schema_index_exists($table, $index) {
+	foreach (Capsule::select("SHOW INDEX FROM `{$table}`") as $row) {
+		if (($row->Key_name ?? null) === $index) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function pvewhmcs_schema_add_missing_column($table, $column, $definition) {
+	if (pvewhmcs_schema_column($table, $column) === null) {
+		Capsule::statement("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+	}
+}
+
+function pvewhmcs_schema_assert_max_length($table, $column, $maxLength) {
+	if (pvewhmcs_schema_column($table, $column) === null) {
+		return;
+	}
+	$rows = Capsule::select("SELECT COUNT(*) AS invalid_count FROM `{$table}` WHERE CHAR_LENGTH(`{$column}`) > ?", array($maxLength));
+	$row = $rows[0] ?? null;
+	if ((int) ($row->invalid_count ?? 0) > 0) {
+		throw new RuntimeException("PVEWHMCS schema repair cannot safely shorten {$table}.{$column}; existing data exceeds {$maxLength} characters.");
+	}
+}
+
+function pvewhmcs_schema_default_matches($currentDefault, $expectedDefault) {
+	if ($currentDefault === $expectedDefault) {
+		return true;
+	}
+	if ($expectedDefault === null) {
+		return $currentDefault === null || strtoupper((string) $currentDefault) === 'NULL';
+	}
+	if ($currentDefault === null) {
+		return false;
+	}
+
+	// MariaDB reports string defaults from information_schema as SQL literals
+	// (for example, "'ready'" and "''"), whereas MySQL can return plain text.
+	return (string) $currentDefault === "'" . str_replace("'", "''", (string) $expectedDefault) . "'";
+}
+
+
+function pvewhmcs_schema_normalize_column($table, $column, $definition, $type, $nullable, $default, $backfill = null) {
+	$current = pvewhmcs_schema_column($table, $column);
+	if ($current === null) {
+		Capsule::statement("ALTER TABLE `{$table}` ADD COLUMN `{$column}` {$definition}");
+		return;
+	}
+
+	if ($backfill !== null) {
+		Capsule::statement("UPDATE `{$table}` SET `{$column}` = {$backfill} WHERE `{$column}` IS NULL");
+	}
+
+	$currentDefault = $current->Default;
+	$matches = strtolower((string) $current->Type) === strtolower($type)
+		&& (($current->Null ?? null) === ($nullable ? 'YES' : 'NO'))
+		&& pvewhmcs_schema_default_matches($currentDefault, $default);
+	if (!$matches) {
+		Capsule::statement("ALTER TABLE `{$table}` MODIFY COLUMN `{$column}` {$definition}");
+	}
+}
+
+/**
+ * Brings every module table required by the current fresh-install contract to
+ * the 1.3.7 shape. This is deliberately lock-protected and has no failure
+ * cache: callers may proceed only after a complete successful repair.
+ */
+function pvewhmcs_ensure_schema() {
+	static $ensured = false;
+	if ($ensured) {
+		return true;
+	}
+
+	$lockName = 'pvewhmcs:schema';
+	$acquired = false;
+	try {
+		$result = Capsule::select('SELECT GET_LOCK(?, 30) AS acquired', array($lockName));
+		if (empty($result) || (int) ($result[0]->acquired ?? 0) !== 1) {
+			throw new RuntimeException('PVEWHMCS schema repair could not acquire its database lock.');
+		}
+		$acquired = true;
+
+		// Inspect only after the advisory lock is held. Create each missing table
+		// from the fresh-install source; do not issue no-op CREATE DDL on later calls.
+		$schema = Capsule::schema();
+		$sql = @file_get_contents(__DIR__ . '/db.sql');
+		if ($sql === false) {
+			throw new RuntimeException('PVEWHMCS schema repair cannot read db.sql.');
+		}
+		foreach (explode(';', $sql) as $statement) {
+			if (!preg_match('/^\s*CREATE TABLE IF NOT EXISTS `([^`]+)`/i', $statement, $matches)) {
+				continue;
+			}
+			if (!$schema->hasTable($matches[1])) {
+				Capsule::statement($statement);
+			}
+		}
+
+		foreach (array(
+			'config' => 'varchar(255) DEFAULT NULL',
+			'vnc_secret' => 'varchar(255) DEFAULT NULL',
+			'start_vmid' => 'int(10) unsigned DEFAULT 100',
+			'debug_mode' => 'tinyint(1) unsigned DEFAULT 0',
+			'console_relay_secret' => 'varchar(255) DEFAULT NULL',
+			'console_relay_host' => 'varchar(255) DEFAULT NULL',
+			'console_relay_port' => 'int(5) unsigned DEFAULT NULL',
+			'name_pattern' => 'varchar(255) DEFAULT NULL',
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs', $column, $definition);
+		}
+		Capsule::statement("INSERT IGNORE INTO `mod_pvewhmcs` (`id`, `config`, `vnc_secret`, `debug_mode`) VALUES (1, NULL, NULL, 0)");
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs', 'schema_version', 20);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs', 'schema_version', "varchar(20) NOT NULL DEFAULT ''", 'varchar(20)', false, '', "''");
+
+		foreach (array(
+			'title' => 'varchar(255) NOT NULL', 'gateway' => 'varchar(100) DEFAULT NULL',
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_ip_pools', $column, $definition);
+		}
+		foreach (array(
+			'pool_id' => 'int(11) NOT NULL DEFAULT 0', 'ipaddress' => "varchar(255) NOT NULL DEFAULT '0'", 'mask' => "varchar(255) NOT NULL DEFAULT '0'",
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_ip_addresses', $column, $definition);
+		}
+		if (!pvewhmcs_schema_index_exists('mod_pvewhmcs_ip_addresses', 'ipaddress')) {
+			Capsule::statement('ALTER TABLE `mod_pvewhmcs_ip_addresses` ADD UNIQUE KEY `ipaddress` (`ipaddress`)');
+		}
+
+		foreach (array(
+			'title' => 'varchar(255) NOT NULL', 'vmtype' => 'varchar(8) NOT NULL', 'ostype' => 'varchar(8) DEFAULT NULL',
+			'cpus' => 'smallint(4) unsigned DEFAULT NULL', 'cpuemu' => 'varchar(30) DEFAULT NULL', 'cores' => 'smallint(4) unsigned DEFAULT NULL',
+			'cpulimit' => 'smallint(5) unsigned DEFAULT NULL', 'cpuunits' => 'smallint(5) unsigned DEFAULT NULL', 'memory' => 'int(10) unsigned NOT NULL',
+			'swap' => 'int(10) unsigned DEFAULT NULL', 'disk' => 'int(10) unsigned DEFAULT NULL', 'diskformat' => 'varchar(10) DEFAULT NULL',
+			'diskcache' => 'varchar(20) DEFAULT NULL', 'disktype' => 'varchar(20) DEFAULT NULL', 'storage' => "varchar(20) DEFAULT 'local'",
+			'diskio' => "varchar(20) DEFAULT '0'", 'netmode' => 'varchar(10) DEFAULT NULL', 'bridge' => "varchar(20) NOT NULL DEFAULT 'vmbr'",
+			'netmodel' => 'varchar(10) DEFAULT NULL', 'netrate' => "int(10) DEFAULT '0'", 'firewall' => 'tinyint(1) unsigned NOT NULL DEFAULT 0',
+			'bw' => 'int(10) unsigned DEFAULT 0', 'kvm' => 'tinyint(1) unsigned DEFAULT 0', 'onboot' => 'tinyint(1) unsigned DEFAULT 0',
+			'vlanid' => 'int(10) DEFAULT NULL', 'ipv6' => "varchar(10) DEFAULT 'auto'", 'balloon' => "int(10) DEFAULT '0'",
+			'unpriv' => 'tinyint(1) unsigned DEFAULT 0', 'ssh-keys' => "varchar(100) DEFAULT ''",
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_plans', $column, $definition);
+		}
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_plans', 'vmbr', 64);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'vmbr', 'varchar(64) NULL DEFAULT NULL', 'varchar(64)', true, null);
+
+		foreach (array(
+			'vmid' => 'int(10) unsigned DEFAULT NULL', 'node_id' => 'int(10) unsigned DEFAULT NULL', 'user_id' => 'int(10) unsigned NOT NULL',
+			'vtype' => 'varchar(255) NOT NULL', 'ipaddress' => 'varchar(255) NOT NULL', 'subnetmask' => 'varchar(255) NOT NULL',
+			'gateway' => 'varchar(255) NOT NULL', 'created' => 'datetime DEFAULT NULL', 'v6prefix' => 'varchar(128) DEFAULT NULL',
+			'ha_suspended' => "tinyint(1) unsigned NOT NULL DEFAULT '0'",
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_vms', $column, $definition);
+		}
+		Capsule::statement('UPDATE `mod_pvewhmcs_vms` SET `vmid` = `id` WHERE `vmid` IS NULL OR `vmid` = 0');
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_vms', 'provisioning_state', 16);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_vms', 'provisioning_upid', 255);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_vms', 'provisioning_node', 255);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_vms', 'provisioning_mode', 16);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_state', "varchar(16) NOT NULL DEFAULT 'ready'", 'varchar(16)', false, 'ready', "'ready'");
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_upid', 'varchar(255) NULL DEFAULT NULL', 'varchar(255)', true, null);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_node', 'varchar(255) NULL DEFAULT NULL', 'varchar(255)', true, null);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_mode', 'varchar(16) NULL DEFAULT NULL', 'varchar(16)', true, null);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_error', 'text NULL', 'text', true, null);
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_vms', 'provisioning_updated_at', 'datetime NULL', 'datetime', true, null);
+		if (!pvewhmcs_schema_index_exists('mod_pvewhmcs_vms', 'provisioning_state')) {
+			Capsule::statement('ALTER TABLE `mod_pvewhmcs_vms` ADD KEY `provisioning_state` (`provisioning_state`)');
+		}
+
+		foreach (array(
+			'auth_id' => "int(11) NOT NULL DEFAULT '0'", 'user_id' => "int(11) NOT NULL DEFAULT '0'", 'service' => "int(11) NOT NULL DEFAULT '0'",
+			'timestamp' => 'datetime NOT NULL', 'node_id' => "int(11) NOT NULL DEFAULT '0'", 'target_id' => "int(11) NOT NULL DEFAULT '0'",
+			'level' => 'varchar(10) NOT NULL', 'type' => 'text NOT NULL', 'action' => 'text NOT NULL', 'request' => 'text NOT NULL',
+			'response' => 'text NOT NULL', 'raw' => 'text NOT NULL',
+		) as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_logs', $column, $definition);
+		}
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_logs', 'server_id', "int(11) NOT NULL DEFAULT '0'", 'int(11)', false, '0', '0');
+		if (!pvewhmcs_schema_index_exists('mod_pvewhmcs_logs', 'server_timestamp')) {
+			Capsule::statement('ALTER TABLE `mod_pvewhmcs_logs` ADD KEY `server_timestamp` (`server_id`, `timestamp`)');
+		}
+		if (!pvewhmcs_schema_index_exists('mod_pvewhmcs_logs', 'level_timestamp')) {
+			Capsule::statement('ALTER TABLE `mod_pvewhmcs_logs` ADD KEY `level_timestamp` (`level`, `timestamp`)');
+		}
+
+		// This is intentionally last: a version marker never attests to a partial repair.
+		Capsule::table('mod_pvewhmcs')->where('id', 1)->update(array('schema_version' => PVEWHMCS_SCHEMA_VERSION));
+		$ensured = true;
+	} finally {
+		if ($acquired) {
+			Capsule::select('SELECT RELEASE_LOCK(?)', array($lockName));
+		}
+	}
+
+	return true;
+}
+
 function pvewhmcs_log_action(array $fields) {
+	pvewhmcs_ensure_schema();
 	$row = array_merge(
 		array(
 			'auth_id' => 0,
@@ -105,6 +322,7 @@ function pvewhmcs_log_action(array $fields) {
 const PVEWHMCS_CONSOLE_RELAY_PATH = 'pve-console-ws';
 
 function pvewhmcs_console_relay_secret() {
+	pvewhmcs_ensure_schema();
 	return trim((string) (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('console_relay_secret') ?? ''));
 }
 
@@ -152,6 +370,7 @@ function pvewhmcs_build_console_token(array $payload, $ttl_seconds = 60) {
  * back to WHMCS's own $CONFIG['SystemURL'] host/port otherwise.
  */
 function pvewhmcs_relay_public_endpoint($system_url) {
+	pvewhmcs_ensure_schema();
 	$config = Capsule::table('mod_pvewhmcs')->where('id', '1')->first();
 	$host = trim((string) ($config->console_relay_host ?? ''));
 	$port = $config->console_relay_port ?? null;
