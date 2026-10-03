@@ -677,12 +677,16 @@ class PVE2_API {
 		unset($action_response);
 
 		if ($http_code >= 200 && $http_code < 300) {
+			$action_response_array = json_decode($body_response, true);
+			$data = is_array($action_response_array) ? ($action_response_array['data'] ?? null) : null;
+			// Most PUT endpoints are synchronous and callers historically receive
+			// true. Some Proxmox versions return an asynchronous task UPID instead;
+			// preserve that value so provisioning can wait for it before continuing.
 			if ($http_method == "PUT") {
-				return true;
+				return is_string($data) && strpos($data, 'UPID:') === 0 ? $data : true;
 			}
 
-			$action_response_array = json_decode($body_response, true);
-			return is_array($action_response_array) ? ($action_response_array['data'] ?? null) : null;
+			return $data;
 		}
 
 		// Proxmox puts most error details in the status line's reason phrase.
@@ -757,7 +761,8 @@ class PVE2_API {
 	}
 
 	/*
-	 * bool put (string action_path, array parameters)
+	 * bool|string put (string action_path, array parameters)
+	 * Synchronous PUTs return true; asynchronous PUTs return their task UPID.
 	 */
 	public function put ($action_path, $parameters) {
 		return $this->action($action_path, "PUT", $parameters);
