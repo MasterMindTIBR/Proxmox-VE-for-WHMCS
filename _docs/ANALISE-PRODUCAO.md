@@ -47,6 +47,15 @@ As correções descritas na seção 2 estão na branch `fix/production-readiness
 | Addon | Um servidor inacessível derrubava as abas Nodes/Guests inteiras | Painel inutilizável | Erro isolado por servidor |
 | `PVE2_API` | Status HTTP lido do primeiro bloco de cabeçalho; erro de cURL virava "Invalid HTTP Response"; ticket nunca expirava; IPv6 entre colchetes falhava | Falhas mal explicadas e frágeis atrás de proxy | Status e corpo pelo cURL, erro com método/caminho, `Expect:` vazio, expiração correta, IPv6 |
 | Código morto | SPICE com ticket na URL, decriptador PHP 4, helpers quebrados no PHP 8 | Risco sem uso | Removido |
+| Provisioning | Vínculo e reserva gravados só no fim do CreateAccount; queda no meio cria segunda VM | VM duplicada, IP perdido | Marcador irreversível `allocating` (VMID, nó, IP, modo) gravado na mesma transação da reserva do IP, antes do POST; UPID registrado (`pending`); tarefa falha → `failed` com IP/VMID reservados; queda incerta entre marcador e POST fica `allocating` e bloqueia o guest; retry retoma a tarefa registrada |
+| Provisioning | Clone QEMU não aguardava config nem start; origem podia não ser template | VM sobe antes do cloud-init | Origem precisa ser template QEMU (`template=1`); `PUT /config` pós-clone aguardado quando o Proxmox devolve UPID; tarefa de start aguardada |
+| IPv4 | IP do serviço cancelado voltava ao pool com a VM ainda configurada com ele | Conflito de IP ao religar a VM cancelada | Endereço fica reservado enquanto `dedicatedip` apontar e existir o vínculo do guest; excluído de alocação e de exclusão (individual/lote/pool, com revalidação sob `FOR UPDATE`); aba **Reserved IPv4** no addon lista as reservas e libera com confirmação |
+| Provisioning | Botões de energia não aguardavam a tarefa | "Sucesso" com falha posterior | Start/Reboot/Shutdown/Stop aguardam o UPID (60 s); resposta sem UPID é erro |
+| Provisioning (HA) | Unsuspend sem registro de suspensão do módulo podia forçar start de guest gerenciado por HA externamente | Conflito com o cluster HA | HA lido ANTES de qualquer mudança de config/tag: sem recurso HA → start direto; `stopped` + suspensão registrada → restaura `started`; qualquer outro caso → erro sem alterar o guest |
+| Conexões | Semântica do `Secure` divergia entre caminhos | Desmarcar Secure podia não desligar a verificação TLS | `NULL` → verificação ligada (legado); qualquer outro valor passa por `FILTER_VALIDATE_BOOLEAN` em ambos os módulos (`''`/off/false desligam); produção grava `on` |
+| Observabilidade | Actions sem filtro/paginação; Logs só o primeiro servidor; sem autoria | Painéis limitados e sem auditoria | Cada ação grava `auth_id` e `server_id` imutável; Action History/Failed Actions em painel por servidor ativo, paginado (25/50/100/200, padrão 50) com coluna Admin; aba Logs mostra tarefas de cluster de todos os servidores com erro isolado por servidor |
+| Addon | Lista de planos confiava na codificação global de entrada | Valores persistidos renderizados sem escape | Valores do plano (title, vmtype, ostype, disktype, diskio, storage, netmode, bridge/vmbr, netmodel, ipv6) escapados na renderização |
+| Schema | Migração dependia de mudança de versão registrada | Cron rodava código novo com schema antigo | `pvewhmcs_ensure_schema()` roda no início de todo callback, sob lock advisory, e repara/cria todas as tabelas no formato 1.3.7 (idempotente, marcador `schema_version`); `pvewhmcs_upgrade()` abaixo de 1.3.7 só chama a garantia |
 
 Mudanças de comportamento na branch que precisam ser comunicadas:
 
@@ -64,62 +73,37 @@ Fora do código, em 2026-10-03:
 
 ### Alta
 
-1. **Migração depende de mudança de versão.**
-   - O webhook publica o código, mas o WHMCS só roda `pvewhmcs_upgrade()` quando a versão registrada muda.
-   - Já aconteceu: o `ha_suspended` foi aplicado à mão.
-   - Callbacks do cron rodam código novo com schema antigo até alguém abrir o addon.
-   - Recomendação: `pvewhmcs_ensure_schema()` idempotente, com marcador de schema próprio, chamado no início de cada callback. Até lá vale a regra do `AGENTS.md`: migração nova exige versão nova no mesmo commit.
-2. **Vínculo gravado só no fim do CreateAccount.**
-   - A linha em `mod_pvewhmcs_vms` só é criada depois do polling (até 150 s).
-   - Timeout, `max_execution_time` ou queda deixam a VM criada sem vínculo e o IP reservado. Um novo "Create" cria outra VM.
-   - Recomendação: gravar o vínculo assim que o Proxmox aceitar a tarefa e retomar na nova tentativa.
-3. **Clone QEMU não aguarda a configuração.**
-   - O `POST /config` pós-clone é assíncrono, e o `status/start` vem em seguida.
-   - Pode falhar com lock ou subir antes do cloud-init aplicado.
-   - Recomendação: `PUT` síncrono ou esperar o UPID.
-4. **IP do serviço cancelado volta ao pool.**
-   - O serviço vira `Terminated` e o IP fica livre, mas a VM mantida continua configurada com ele.
-   - Religar essa VM para recuperação causa conflito de IP com o novo dono.
-   - **Decisão necessária** (seção 5).
-5. **Webhook de deploy frágil.**
+1. **Webhook de deploy frágil.**
    - Push concorrente recebe `409` e o GitHub não reenvia.
    - Reenviar uma entrega antiga faz rollback da produção.
    - A troca de arquivos não é atômica e não há `set_time_limit`.
-   - Recomendação: lock bloqueante, deploy do HEAD atual da `master`, troca atômica de diretórios e resposta `202` antes de copiar.
+   - O webhook (685685824) foi **desativado por decisão do dono** — a remoção do endpoint está planejada; os motivos acima continuam sendo a razão de ele permanecer desligado.
 
 ### Média
 
-6. **Botões de energia** (Start/Reboot/Shutdown/Stop) não aguardam a tarefa: mostram sucesso mesmo se o Proxmox falhar depois (lock de backup, por exemplo).
-7. **Opção Secure** tem duas fontes: `$params['serversecure']` e `tblservers.secure`, com semânticas diferentes. Desmarcar Secure pode não valer nos botões do cliente nem nas abas do admin. Em produção o Secure está ligado, então não há impacto hoje.
-8. **`mod_pvewhmcs_logs`** cresce sem limite. Os campos `auth_id` (quem executou), `request` e `node_id` nunca são preenchidos.
-9. **Campos do produto:** a validação é só de formato. `KVMTemplate` aceita qualquer VMID numérico; o ideal é exigir `template: 1` na origem ou uma lista permitida por produto.
-10. **Conta do Proxmox:** o módulo usa `root@pam` com senha (realm fixo no código). Falta suporte a API Token com privilégio mínimo.
-11. **Migração `1.3.6`:** chama `->change()` na coluna `vmbr` sem `try/catch`. Se falhar, o resto do bloco não roda.
-12. **Schema divergente:** `db.sql` tem tabelas e colunas que nunca foram migradas nem são usadas (`mod_pvewhmcs_iso`, `_nodes`, `_ssh_keys`, `_templates`, `plans.ssh-keys`, `vms.node_id`). Colunas antigas (`debug_mode`, `v6prefix`, `ipv6`, `balloon`, `vlanid`) só existem via SQL manual.
-13. **Aba Logs** só consulta o primeiro servidor. A aba Actions mostra as 200 últimas ações, sem filtro nem paginação.
-14. **Desempenho:** login completo no Proxmox a cada ação, `/cluster/resources` inteiro para achar um VMID e RRD sequencial. Plano em `PROXMOX-CALL-OPTIMIZATION-PLAN.md`.
-15. **AdminLink** faz login no Proxmox a cada visualização da lista de servidores. A branch reduziu os timeouts, mas não há cache.
-16. **Unsuspend sem ação de HA do módulo** (`ha_suspended = 0`) usa `status/start`. Se o guest tiver HA parado por um admin, o próprio Proxmox converte isso em pedido HA `started`.
-17. **Linhas órfãs:** há quatro em produção (VMIDs 400 a 403) e não existe ferramenta para limpar ou religar. É preciso conferir se essas VMs ainda existem no Proxmox, na aba Guests → Show All.
+1. **`mod_pvewhmcs_logs`** cresce sem limite. As ações agora registram `auth_id` e `server_id`; `request` segue vazio por decisão. Não há retenção configurada.
+2. **Campos do produto:** a validação é só de formato. `KVMTemplate` aceita qualquer VMID numérico; o ideal é exigir `template: 1` na origem ou uma lista permitida por produto.
+3. **Conta do Proxmox:** o módulo usa `root@pam` com senha (realm fixo no código). Falta suporte a API Token com privilégio mínimo.
+4. **Schema divergente:** `db.sql` tem tabelas e colunas que nunca foram migradas nem são usadas (`mod_pvewhmcs_iso`, `_nodes`, `_ssh_keys`, `_templates`, `plans.ssh-keys`, `vms.node_id`). Colunas antigas (`debug_mode`, `v6prefix`, `ipv6`, `balloon`, `vlanid`) só existem via SQL manual.
+5. **Desempenho:** login completo no Proxmox a cada ação, `/cluster/resources` inteiro para achar um VMID e RRD sequencial. Plano em `PROXMOX-CALL-OPTIMIZATION-PLAN.md`.
+6. **AdminLink** faz login no Proxmox a cada visualização da lista de servidores. A branch reduziu os timeouts, mas não há cache.
+7. **Linhas órfãs:** há quatro em produção (VMIDs 400 a 403) e não existe ferramenta para limpar ou religar. É preciso conferir se essas VMs ainda existem no Proxmox, na aba Guests → Show All.
 
 ### Baixa
 
-18. O modo IPv6 `prefix` aparece na interface mas não faz nada.
-19. A franquia mensal (`bw`) do plano não é usada.
-20. O módulo só tem tradução para inglês e português; as mensagens de erro do admin estão só em inglês.
-21. A lista de planos depende da codificação global de entrada do WHMCS (os valores não são escapados de novo).
-22. O `hooks.php` não registra nenhum hook.
-23. `time2format()` é declarado nos dois módulos sem `function_exists()`. Nenhum fluxo carrega os dois arquivos na mesma requisição (sempre foi assim no upstream). Se algum fluxo passar a carregar, o PHP para com `Cannot redeclare`.
+1. O modo IPv6 `prefix` aparece na interface mas não faz nada.
+2. A franquia mensal (`bw`) do plano não é usada.
+3. O módulo só tem tradução para inglês e português; as mensagens de erro do admin estão só em inglês.
+4. O `hooks.php` não registra nenhum hook.
 
 ## 4. Sugestões de funções
 
 **Operação e admin**
-- Schema garantido automaticamente (item 1 acima).
 - Painel de guests cancelados e órfãos. Listar VMs `CANCELADO`, vínculos sem serviço e VMs sem vínculo, com as ações: religar, destruir VM e liberar IP, remover vínculo.
 - Retenção configurável: destruir a VM cancelada após N dias, com aviso.
 - Aba no serviço do admin (`AdminServicesTabFields`) com VMID, node, estado, tags, HA e `ha_suspended`, e edição do vínculo.
 - Botão "Sincronizar" para reaplicar tags, `onboot` e HA conforme o status do WHMCS.
-- Auditoria de quem executou cada ação (admin, cliente ou cron), com filtros, paginação e retenção.
+- Retenção de logs (executor e paginação por servidor já existem; falta política de retenção).
 - Alerta (e-mail ou WhatsApp interno) quando uma ação do cron falhar.
 - Live migration entre nodes pela interface do admin.
 - HA opcional por produto: criar o recurso HA no provisionamento, com grupo ou regra.
@@ -151,11 +135,10 @@ Fora do código, em 2026-10-03:
    - Revisar e testar em homologação (seção 6).
    - O merge na `master` é o deploy.
    - A branch não muda schema, então não exige versão nova.
-2. **IP do serviço cancelado.** Opções:
-   - (a) manter o IP reservado enquanto existir a VM `CANCELADO`;
+2. **IP do serviço cancelado.** **RESOLVIDO na branch:** opção (a) implementada — o IP fica reservado até um admin liberá-lo na aba Reserved IPv4. Opções restantes:
    - (b) liberar o IP e tirar a rede da VM no cancelamento;
    - (c) retenção por prazo com destruição automática.
-3. **Secure:** conferir em `tblservers.secure` o valor gravado quando a opção é desmarcada, antes de unificar as duas fontes.
+3. **Secure:** **RESOLVIDO na branch** — semântica unificada (`NULL` → verificação ligada; `''`/off/false → desligada, via `FILTER_VALIDATE_BOOLEAN`); produção usa `on`.
 4. **Relay `73d396a`:** fazer o deploy só se algum servidor Proxmox for configurado por IPv6 literal.
 5. **Após o deploy da branch:** trocar a senha do `vnc@pve` (os tokens v1 a expunham) e restringir a porta 8006 aos servidores do WHMCS e do relay.
 
@@ -180,7 +163,8 @@ Fora do código, em 2026-10-03:
    - adicionar `/28` e um endereço `/32`;
    - tentar `/31` e `/8`;
    - excluir IP em uso e IP livre;
-   - excluir pool com IP em uso.
+   - excluir pool com IP em uso;
+   - conferir a aba Reserved IPv4 e a liberação com confirmação;
 6. **Admin:**
    - importar guest e repetir com o mesmo VMID;
    - salvar a configuração com valores inválidos;

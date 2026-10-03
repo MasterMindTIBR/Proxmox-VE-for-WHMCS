@@ -4,7 +4,7 @@
 
 O projeto conecta o ciclo de vida de serviços do WHMCS ao Proxmox VE. Ele cria, suspende e reativa QEMU/LXC e, no cancelamento, para e marca o guest como `CANCELADO` sem apagá-lo; mostra estado e RRD na área do cliente; mantém planos, pools IPv4 e dados operacionais no addon do WHMCS.
 
-O fork está na versão `1.3.6`, liberada e tagueada como `v1.3.6` ("Networks and Safeguards") em 2026-10-02, o primeiro release próprio do fork, derivada do commit upstream `7ff41ccecde7`. Mudanças novas entram em `## [Unreleased]` no `CHANGELOG.md` conforme a regra de versão do `AGENTS.md`. Todo push em `master` é deployado automaticamente em produção; o remoto `origin` aponta para `MasterMindTIBR/Proxmox-VE-for-WHMCS`.
+A branch `fix/production-readiness` carrega a `1.3.7` (ainda não liberada): garantia automática de schema (`pvewhmcs_ensure_schema()`), provisioning recuperável, reservas de IPv4 para serviços cancelados, tarefas de runtime aguardadas e observabilidade por servidor. Pushes em `master` NÃO fazem mais deploy (webhook desativado por decisão do dono); os deploys são pacotes manuais via SSH. Mudanças novas entram em `## [Unreleased]` no `CHANGELOG.md` conforme a regra de versão do `AGENTS.md`. O remoto `origin` aponta para `MasterMindTIBR/Proxmox-VE-for-WHMCS`.
 
 ## Mapa de execução
 
@@ -18,6 +18,9 @@ O fork está na versão `1.3.6`, liberada e tagueada como `v1.3.6` ("Networks an
 
 ## Deploy por webhook
 
+> [!NOTE]
+> O webhook foi **desativado no GitHub** (685685824) por decisão do dono: o endpoint permanece no código apenas para remoção posterior e **nada é deployado no push**. O deploy passou a ser pacote manual via SSH, conforme `PLAN.md`.
+
 `modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `MasterMindTIBR/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
 
 `github-webhook.local.php` guarda o segredo HMAC e, para repositório privado, um token GitHub com `Contents: Read-only`. O deploy nunca apaga esse arquivo nem o lock; o próprio `github-webhook.php` é atualizado a partir do repositório como os demais arquivos, mas mudanças nas regras de validação dele só valem depois de copiá-lo manualmente (o receiver instalado é quem aceita ou rejeita o push). Arquivos dos dois diretórios do módulo que não existam no commit recebido são removidos.
@@ -30,10 +33,10 @@ O módulo usa `Illuminate\Database\Capsule\Manager` para acesso ao banco. O serv
 
 ### Criação
 
-1. `pvewhmcs_CreateAccount()` carrega o plano e escolhe um endereço do pool IPv4.
-2. Para `KVMTemplate`, clona uma QEMU e aplica ajustes de cloud-init.
-3. Sem template, cria LXC ou QEMU com parâmetros do plano.
-4. Depois de a tarefa Proxmox concluir com `OK`, grava o vínculo em `mod_pvewhmcs_vms` e o IP dedicado em `tblhosting`.
+1. Sob o lock advisory de VMID do servidor, `pvewhmcs_CreateAccount()` grava o marcador irreversível `allocating` (VMID, tipo, node, IP, modo) na mesma transação que reserva o endereço do pool IPv4 — antes do POST ao Proxmox.
+2. Aceita a tarefa, registra o UPID (`pending`) e aguarda: QEMU clona um template (`template=1`), com o `PUT /config` pós-clone aguardado quando o Proxmox devolve UPID, e o start aguardado; sem template, cria LXC ou QEMU com os parâmetros do plano.
+3. Tarefa `OK` → pós-configuração → `ready`, com o vínculo em `mod_pvewhmcs_vms` e o IP dedicado em `tblhosting`.
+4. Tarefa com erro → `failed`, com IP e VMID mantidos reservados; queda incerta entre o marcador e o POST deixa `allocating`, que bloqueia todas as ações do guest; um novo CreateAccount retoma a tarefa registrada em vez de criar um segundo guest.
 
 ### Localização e ciclo de vida
 
@@ -72,11 +75,11 @@ O nome de rede é montado por concatenação de `plan.bridge` e `plan.vmbr`. O s
 ## Salvaguardas e resumo do servidor
 
 1. `PVE2_API` valida o certificado do Proxmox por padrão. A configuração **Secure** do servidor WHMCS controla a validação por servidor; desmarcá-la mantém HTTPS, mas ignora certificado e hostname.
-2. A reserva IPv4 usa transação e `FOR UPDATE` antes de gravar `tblhosting.dedicatedip`.
+2. A reserva IPv4 usa transação e `FOR UPDATE` antes de gravar `tblhosting.dedicatedip`. Reservas de serviços cancelados ficam excluídas de alocação e exclusão até um admin liberá-las (aba Reserved IPv4).
 3. A seleção e o envio do VMID usam um advisory lock MySQL por servidor WHMCS até o Proxmox aceitar a criação.
 4. Todo `POST` do addon passa pelo token CSRF do módulo, checado uma vez no início de `pvewhmcs_output()`; sem token válido, o POST é descartado e nada é gravado.
 5. `pvewhmcs_AdminLink()` mostra acesso ao PVE em uma coluna e, em outra, cluster, nós, QEMU e LXC. O resumo consulta `/cluster/status` e `/cluster/resources`; falhas nunca removem o atalho de login.
-6. `mod_pvewhmcs_logs` grava toda ação de lifecycle (`CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`) e de energia (`vmStart`, `vmReboot`, `vmShutdown`, `vmStop`) via `pvewhmcs_run_tracked_action()`, definido em `modules/servers/pvewhmcs/pvewhmcs.php`. A gravação em si (`pvewhmcs_log_action()`) vive em `proxmox.php`, compartilhado pelos dois módulos. O wrapper nunca engole falhas: registra e relança a exceção original ou a string `"Error ..."` do handler. As abas **Actions → Action History / Failed Actions** do addon leem essa tabela; qualquer nova ação de ciclo de vida deve passar por `pvewhmcs_run_tracked_action()` para aparecer ali. Instalações existentes recebem a tabela pela migração `1.3.6`, no mesmo bloco do ajuste de `vmbr`; o DDL é idêntico, caractere a caractere, ao de `db.sql`.
+6. `mod_pvewhmcs_logs` grava toda ação de lifecycle (`CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`) e de energia (`vmStart`, `vmReboot`, `vmShutdown`, `vmStop`) via `pvewhmcs_run_tracked_action()`, definido em `modules/servers/pvewhmcs/pvewhmcs.php`. A gravação em si (`pvewhmcs_log_action()`) vive em `proxmox.php`, compartilhado pelos dois módulos. O wrapper nunca engole falhas: registra e relança a exceção original ou a string `"Error ..."` do handler. As abas **Actions → Action History / Failed Actions** do addon leem essa tabela; qualquer nova ação de ciclo de vida deve passar por `pvewhmcs_run_tracked_action()` para aparecer ali. Cada entrada registra `auth_id` (admin executor; 0 para cron/checkout) e `server_id` imutável (servidor Proxmox do serviço no momento da ação); a aba **Actions** é paginada e renderiza um painel por servidor ativo. Instalações existentes recebem a tabela pela migração `1.3.6`, no mesmo bloco do ajuste de `vmbr`; o DDL é idêntico, caractere a caractere, ao de `db.sql`.
 
 ## Operação TLS
 

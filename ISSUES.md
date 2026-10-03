@@ -1,6 +1,8 @@
 # Correções e sugestões: staging
 
-## Executar nesta rodada
+## Executado nesta rodada (branch `fix/production-readiness`)
+
+Todos os 12 itens abaixo foram implementados e verificados com smoke tests (fake-PVE + MariaDB descartáveis); itens 1–12 correspondem aos commits de 0cd5f8f a b5fe280.
 
 1. **Schema sem garantia.** Código novo pode rodar contra tabelas e colunas antigas. A migração depende da tela do addon e de um bump de versão.
 2. **CreateAccount não é recuperável.** O módulo reserva o IP antes da operação Proxmox e grava o vínculo serviço/guest só depois de esperar a tarefa. Um timeout deixa guest e IP fora de sincronia.

@@ -3,9 +3,13 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [Unreleased]
 
-No schema change. Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
+Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1.3.7 shape on every callback — existing installs self-heal without manual SQL (`schema_version` marker in `mod_pvewhmcs`). Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
 
 ### 🚀 Feature
+- Provisioning: Recoverable CreateAccount — an irreversible allocation marker (VMID, node, IP, mode) is written before the Proxmox call; the returned task UPID is recorded and awaited; failed tasks keep the IP and VMID reserved as `failed`; an uncertain crash between marker and POST blocks the guest pending admin review; a retry resumes the recorded task instead of creating a second guest.
+- Provisioning: QEMU clone source must be a real template (`template=1`); the post-clone `PUT /config` is awaited when Proxmox returns a task, and the start task is awaited before finishing.
+- Addon (IPv4): New **Reserved IPv4** tab listing addresses retained by cancelled services (IP, pool, service, VMID, client) with a CSRF-protected, confirmation-required **Release reservation** action that frees only the address; the guest and its IP history are kept.
+- Observability: Action History / Failed Actions render one paginated panel per enabled server (25/50/100/200 rows, safe filters) with the acting admin; every action records the executor and the original Proxmox server, so later server moves don't reclassify history; the Logs tab shows cluster tasks for every enabled server with per-server error isolation.
 - Provisioning: Unsuspend turns start-at-boot back on when the service's plan has On-boot enabled (1.3.6 left it off until an administrator changed it).
 - Provisioning: CreateAccount validates the product custom fields before provisioning: `KVMTemplate` must be a numeric VMID, `TPL_Node_QEMU`/`TPL_Node_LXC` must name a node of the cluster, `ISO` must be a bare file name and `Template` a `storage:vztmpl/file` volume ID.
 - Addon: Plans, IPv4 pools, guest import and Module Config are validated server-side; invalid input shows an error and stores nothing.
@@ -13,6 +17,11 @@ No schema change. Deploy together with pvewhmcs-console-relay `4a5081f` or later
 - Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
 
 ### 🐛 Bug Fix
+- Provisioning: Cancelled services keep their IPv4 reserved (out of allocation and deletion, single/bulk/pool) until an admin releases it in **Reserved IPv4**.
+- Provisioning: Power buttons (Start/Reboot/Shutdown/Stop) wait for the Proxmox task and report failure/timeout instead of instant success.
+- Provisioning (HA): Unsuspend reads the HA resource before touching tags/config; a guest whose HA state changed outside the module — or that is HA-managed without a module-recorded suspension — returns an error and is left unchanged.
+- Connections: An explicitly empty/unchecked **Secure** checkbox now disables TLS certificate verification on every path (legacy installs with the field left NULL keep verification on).
+- Addon: The plan list escapes persisted values (title, vmtype, ostype, netmode, bridge, etc.) instead of trusting WHMCS input encoding.
 - Provisioning (LXC): Suspend, Unsuspend and Cancel failed on every container because they used `POST …/config`, which LXC does not have. Start-at-boot and the lifecycle tag are now written with one synchronous `PUT …/config`, before any HA or power change.
 - noVNC (LXC): The console now opens for containers; `vncproxy` receives only `websocket=1` (`generate-password` exists only for QEMU).
 - noVNC: The console token is encrypted (v2, AES-256-GCM, key derived from the Console Relay Secret). The browser no longer receives the `vnc@pve` ticket, the Proxmox host or the port. After deploying, rotate the `vnc@pve` password and limit TCP/8006 to the WHMCS and relay servers.

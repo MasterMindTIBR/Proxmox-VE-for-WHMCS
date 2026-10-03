@@ -125,7 +125,7 @@ WHMCS does not expose a provisioning-module callback for custom fields in its na
 
 ### Action History & Failed Actions
 
-**Addons > Proxmox VE for WHMCS > Actions** lists the 200 most recent `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` calls the module has run, newest first, with the linked WHMCS service, Proxmox VMID, and result. **Failed Actions** shows the 200 most recent calls that returned or threw an error, so you can triage without scrolling past every success. Existing installs pick this up automatically the next time WHMCS runs the module's upgrade routine.
+**Addons > Proxmox VE for WHMCS > Actions** renders one **Action History** + **Failed Actions** panel per enabled pvewhmcs server. Each panel lists that server's tracked `CreateAccount`, `SuspendAccount`, `UnsuspendAccount`, `TerminateAccount`, `vmStart`, `vmReboot`, `vmShutdown`, and `vmStop` calls, newest first, with the linked WHMCS service, Proxmox VMID, result, and an **Admin** column showing who performed the action. Panels are paginated (25/50/100/200 rows per page, 50 by default) with server-side validated filters. Every record keeps the Proxmox server the service was on when the action ran, so moving a service to another server later doesn't reclassify its history; **Failed Actions** filters failures per server the same way. Existing installs pick this up automatically: the module repairs its own schema on the first callback after the update.
 
 ### HA, shared storage, and lifecycle
 
@@ -254,6 +254,14 @@ is no reliable, browser-portable way to force it into a new tab.
 
 Please make sure you create an IPv4 Pool with sufficient scope/size to be able to deploy addresses within it to your guest VMs and CTs. Else it won't be able to create a Service for you.
 
+### IPv4: cancelled services keep their address (Reserved IPv4)
+
+When a service is terminated, the module keeps the guest and its IP: the address stays reserved — excluded from new allocations and from pool/address deletion — as long as `dedicatedip` still points to it and the retained guest link exists.
+
+**Addons > Proxmox VE for WHMCS > IPv4 > Reserved IPv4** lists these reservations (IP, pool, service, VMID, client).
+
+**Release reservation** (per row) frees the address for new services after an explicit confirmation; the retained CANCELADO guest can never return to the network with that IP. Nothing is released automatically.
+
 #### Private IPs for PVE Hosts
 
 PVE hosts may use private IPs. Only WHMCS and the Console Relay connect to Proxmox (TCP/8006); browsers never do. With **Secure** enabled, the hostname WHMCS uses must appear in the Proxmox certificate (see "TLS certificate verification"). Restrict TCP/8006 on the PVE hosts to the WHMCS and Console Relay servers: customers have no reason to reach it.
@@ -379,7 +387,7 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 ### SQL: Keeping your DB up-to-date
 
 > [!IMPORTANT]  
-> Since v1.3.x, opening the module in WHMCS Admin after the module version changes runs any needed SQL Ops (`pvewhmcs_upgrade()`).
+> Since v1.3.x, opening the module in WHMCS Admin after the module version changes runs any needed SQL Ops (`pvewhmcs_upgrade()`). Since 1.3.7 the module guarantees its own schema on every callback (`pvewhmcs_ensure_schema()`), so updating the files is enough — `pvewhmcs_upgrade()` only triggers the repair.
 > 
 > WHMCS skips that routine when the version did not change. Installs that ran a pre-release 1.3.6 build, and v1.2.x & below, consult **_docs/UPDATE-SQL.md** and run the listed statements.
 
@@ -519,7 +527,7 @@ FOSS is only possible thanks to dedicated people around the world! :-)
 
 # MasterMind TI
 
-**MasterMind TI** :: https://mastermindti.com.br — maintains this fork: console relay, lifecycle safeguards (suspend/unsuspend/cancel tags, HA), pt-BR translation and the GitHub webhook deploy.
+**MasterMind TI** :: https://mastermindti.com.br — maintains this fork: console relay, lifecycle safeguards (suspend/unsuspend/cancel tags, HA), pt-BR translation and the manual staging-first deploy process.
 
 # TNC & Co. (upstream)
 
