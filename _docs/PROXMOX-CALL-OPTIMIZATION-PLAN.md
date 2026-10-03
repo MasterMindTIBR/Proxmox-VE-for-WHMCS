@@ -1,73 +1,95 @@
 # Plano de otimização das chamadas ao Proxmox
 
-Status: **plano, não implementado**. Este documento só registra evidência e opções; nenhuma mudança de código foi feita a partir dele.
+Status:
+- **B e a parte RRD da área do cliente foram feitas** (branch `fix/production-readiness`).
+- **O bug de expiração do ticket foi corrigido.**
+- A, C e D continuam como plano.
 
-## Evidência coletada (com linha/arquivo)
+As referências usam nomes de função, não números de linha.
+
+## Evidência coletada
 
 ### 1. Nenhum reaproveitamento de sessão entre requisições
 
-`PVE2_API::login()` (`modules/addons/pvewhmcs/proxmox.php:228`) guarda `ticket`/`CSRFPreventionToken` só em memória da instância (`$this->login_ticket`). Como cada requisição HTTP do WHMCS é um processo PHP novo, isso nunca sobrevive entre page loads. Resultado: **toda** ação — clique em Start/Reboot/Shutdown/Stop, abrir a área do cliente, abrir noVNC/SPICE, cada aba admin — cria um `PVE2_API` novo e faz login do zero (`modules/servers/pvewhmcs/pvewhmcs.php:955,997,1047,1404,1539,1554`; `modules/addons/pvewhmcs/pvewhmcs.php:544,745,1205`). Login no Proxmox é uma autenticação PAM completa no servidor, não é barato.
+`PVE2_API::login()` (`modules/addons/pvewhmcs/proxmox.php`) guarda `ticket` e `CSRFPreventionToken` só na memória da instância. Cada requisição HTTP do WHMCS é um processo PHP novo, então nada sobrevive entre carregamentos de página.
 
-O ticket já é válido por até 2h (`check_login_ticket()`, `proxmox.php:339`), mas isso nunca é aproveitado entre requisições.
+Resultado: toda ação cria um `PVE2_API` novo e faz login do zero. Isso vale para:
+- `pvewhmcs_vmStart_impl()` e as outras ações de energia;
+- `pvewhmcs_ClientArea()` e `pvewhmcs_noVNC()`;
+- os callbacks de ciclo de vida;
+- `pvewhmcs_AdminLink()`;
+- as abas Nodes, Guests e Logs do addon.
 
-### 2. `/cluster/resources` buscado duas vezes na mesma requisição
+Login no Proxmox é uma autenticação PAM completa no servidor.
 
-Em `pvewhmcs_ClientArea()` (`modules/servers/pvewhmcs/pvewhmcs.php:1386`), toda vez que o cliente abre a página do serviço:
+Dentro de uma mesma requisição, `check_login_ticket()` renova o ticket 5 minutos antes das 2 h de validade (`LOGIN_TICKET_LIFETIME - LOGIN_TICKET_RENEW_MARGIN`).
 
-```
-1408: pvewhmcs_find_guest_node($proxmox, $guest, ...)   → dentro, chama GET /cluster/resources (linha 1909)
-1417: $cluster_resources = $proxmox->get('/cluster/resources');   → chama de novo, mesmo payload
-```
+### 2. `/cluster/resources` para achar o node de um guest
 
-O mesmo padrão (login + `find_guest_node` chamando `/cluster/resources` inteiro só para achar o node de UM guest) se repete em `vmStart`/`vmReboot`/`vmShutdown`/`vmStop` (linhas 955-1048) e em `noVNC`/`SPICE` (linhas 1404-1408, 1539-1558). `/cluster/resources` devolve node+qemu+lxc+storage+pool do cluster inteiro — caro para clusters com muitos guests, e buscado só para achar o node de UM VMID.
+`pvewhmcs_find_guest_resource()` busca `/cluster/resources` inteiro (node + qemu + lxc + storage + pool do cluster) para achar o node de **um** VMID. `pvewhmcs_find_guest_node()` o chama nos seguintes pontos:
+- ações de energia;
+- `pvewhmcs_noVNC()`;
+- callbacks de ciclo de vida.
+
+`pvewhmcs_ClientArea()` já faz uma leitura só e reaproveita o resultado para o node e para o status (opção B, feita).
 
 ### 3. `mod_pvewhmcs_vms.node_id` existe no schema mas não é usado
 
-`db.sql:127` já tem a coluna `node_id`, mas nada grava ou lê dela — `pvewhmcs_find_guest_node()` sempre redescobre o node via scan completo do cluster, mesmo quando o guest não migrou de node desde a criação (o caso comum).
+O `db.sql` tem a coluna `node_id`, mas nada grava nem lê dela. O node é sempre redescoberto pelo scan do cluster, mesmo quando o guest não migrou desde a criação (o caso comum).
 
-### 4. Aba Nodes: RRD é síncrono, 4 chamadas por node
+### 4. Aba Nodes: RRD síncrono, 4 chamadas por node
 
-`pvewhmcs_addon_fetch_rrd()` é chamado 4x por node (cpu/mem/net/io — `modules/addons/pvewhmcs/pvewhmcs.php` dentro do loop de nodes), cada uma uma requisição HTTP separada e sequencial que o Proxmox responde renderizando um PNG no próprio servidor. Cluster com 5 nodes = 20 round-trips sequenciais só de gráfico, symptom que bate exatamente com "lentidão bem grande" ao abrir essa aba.
+`pvewhmcs_addon_fetch_rrd()` é chamado 4 vezes por node (cpu, memused, netin/netout, iowait), em requisições sequenciais que o Proxmox responde renderizando um PNG. Um cluster de 5 nodes faz 20 round-trips seguidos só de gráfico.
+
+Na área do cliente, os 16 gráficos de `pvewhmcs_fetch_rrd_stat()` só são buscados na tela Statistics (`a=vmStat`); antes eram buscados em toda abertura da página.
 
 ## Opções (independentes, podem ser combinadas)
 
 ### A. Cache do ticket de login por servidor (maior impacto, risco baixo)
 
-Persistir `{ticket, CSRFPreventionToken, criado_em}` por `tblservers.id` num cache rápido (APCu se disponível; senão uma linha em `mod_pvewhmcs` ou tabela dedicada) com TTL menor que a validade real do Proxmox (ex.: 100min de 120min). `PVE2_API::login()` primeiro confere o cache; só faz POST `/access/ticket` se ausente/expirado/rejeitado (fallback automático em caso de 401).
+**Proposta:**
+- Guardar `{ticket, CSRFPreventionToken, criado_em}` por `tblservers.id` num cache compartilhado: APCu, ou uma tabela dedicada se o APCu não estiver disponível.
+- TTL abaixo da validade real (ex.: 100 de 120 minutos).
+- `PVE2_API::login()` consulta o cache primeiro e só faz `POST /access/ticket` quando o ticket está ausente, expirado ou foi rejeitado (401).
 
-Elimina a autenticação PAM completa em quase toda ação — o maior custo fixo por requisição.
+**Ganho:** elimina a autenticação PAM em quase toda ação.
 
-**Risco:** cache compartilhado entre processos PHP precisa ser thread-safe (comparar com o advisory lock de VMID já usado no projeto); precisa invalidar corretamente se a senha do servidor mudar.
+**Riscos:**
+- A escrita concorrente entre processos PHP precisa ser segura (há o mesmo padrão no advisory lock de VMID).
+- O cache precisa ser invalidado quando a senha do servidor mudar.
+- O ticket fica em repouso no banco ou no APCu, o que o torna um segredo a proteger.
 
-### B. Eliminar o `/cluster/resources` duplicado em `pvewhmcs_ClientArea()`
+### B. Uma leitura de `/cluster/resources` em `pvewhmcs_ClientArea()` — **feito**
 
-Buscar `/cluster/resources` **uma vez**, usar o mesmo resultado para achar o node E o `vm_status`, em vez de `find_guest_node()` buscar de novo internamente. Mudança pequena, localizada, zero risco de regressão de comportamento.
+`pvewhmcs_find_guest_resource()` aceita o payload já lido. A área do cliente faz uma única leitura e usa o mesmo resultado para node e `vm_status`.
 
 ### C. Cachear o node resolvido em `mod_pvewhmcs_vms.node_id`
 
-Gravar o node achado por `find_guest_node()` na primeira resolução; ações seguintes tentam usar esse valor direto contra `/nodes/{node}/{vtype}/{vmid}/status/current` e só caem para o scan completo de `/cluster/resources` se a chamada direta falhar (404 = migrou de node). Reduz o `/cluster/resources` completo para o caso raro (migração), não o caso comum (toda ação).
+**Proposta:**
+- Gravar o node na primeira resolução.
+- Nas ações seguintes, chamar direto `/nodes/{node}/{vtype}/{vmid}/status/current`.
+- Voltar ao scan de `/cluster/resources` só se essa chamada falhar (o guest migrou).
 
-**Risco:** precisa de uma migração de schema idempotente (o padrão já documentado em `AGENTS.md`) e de decidir quando invalidar (ex.: após uma live migration manual fora do WHMCS).
+**Riscos:**
+- Exige migração de schema idempotente com versão nova (regra do `AGENTS.md`): a coluna entrou no `db.sql` em 2025-08-01 (`9c8a677`) e nenhuma migração a cria, então instalações ativadas antes disso não a têm.
+- É preciso definir a invalidação após live migration feita fora do WHMCS.
 
-### D. Paralelizar as 4 chamadas de RRD por node
+### D. Paralelizar o RRD da aba Nodes
 
-Usar `curl_multi_exec` (ou `Fibers`/promises se o cliente HTTP for trocado) para buscar cpu/mem/net/io em paralelo por node, e paralelizar entre nodes também. 4 chamadas sequenciais por node viram ~1 round-trip de latência.
+**Proposta:** `curl_multi_exec` para buscar os 4 gráficos de cada node em paralelo, e também entre nodes.
 
-**Risco:** maior mudança estrutural em `PVE2_API`/`pvewhmcs_addon_fetch_rrd()`; precisa tratar timeout parcial (1 gráfico falha, outros 3 não devem travar a aba).
+**Riscos:**
+- É a maior mudança estrutural em `PVE2_API` e `pvewhmcs_addon_fetch_rrd()`.
+- Um gráfico com falha ou timeout não pode travar os outros.
 
-### E. (Descartada por ora) Cache do payload de `/cluster/resources` em si
+### E. (Descartada por ora) Cache do payload de `/cluster/resources`
 
-Cachear o cluster_resources por alguns segundos (ex. 5-10s) evitaria refetch entre ações próximas no tempo, mas introduz dado potencialmente desatualizado logo após uma ação (ex.: Start e checar status na sequência veria estado antigo). Combinar com B+C já resolve a maior parte do custo sem esse risco de staleness — só reconsiderar se B+C não bastarem.
+Cachear por 5 a 10 s evitaria refetch entre ações próximas, mas logo após uma ação (ex.: Start seguido de leitura de status) a tela mostraria estado antigo. A e C resolvem a maior parte do custo sem esse problema.
 
-## Ordem sugerida (não decidida, para discussão)
+## Ordem sugerida (para discussão)
 
 ```
-B (zero risco, imediato)
-  → C (schema pequeno, elimina custo do caso comum)
-    → A (maior ganho agregado, mais delicado por ser cache compartilhado)
-      → D (só se a aba Nodes continuar lenta após A+B+C)
+C (schema pequeno, elimina o scan no caso comum)
+  → A (maior ganho agregado, mais delicado por ser cache compartilhado)
+    → D (só se a aba Nodes continuar lenta)
 ```
-
-## Fora de escopo deste plano
-
-Bug pré-existente e não relacionado encontrado durante a investigação: `check_login_ticket()` (`proxmox.php:339`) compara `$this->login_ticket_timestamp >= (time() + 7200)`, que parece sempre falso (deveria provavelmente ser `<= time() - 7200`, ou seja, "criado há mais de 2h"). Não mexi nisso agora — está fora do pedido desta rodada, mas relevante se a opção A for implementada (o cache proposto tem sua própria lógica de TTL e não depende deste método).

@@ -7,15 +7,19 @@
   "description": {
     "name": "Proxmox VE for WHMCS",
     "tagline": "Seamless integration of Proxmox VE (PVE) VMs & CTs with WHMCS.",
-    "long": ""
+    "long": "MasterMind TI fork of Proxmox VE for WHMCS by The Network Crew Pty Ltd (TNC) & Co."
   },
     "logo": {
         "filename": "img/logo.png"
   },
   "support": {
-    "docs_url": "https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS"
+    "docs_url": "https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS"
   },
   "authors": [
+    {
+      "name": "MasterMind TI",
+      "homepage": "https:\/\/mastermindti.com.br\/"
+    },
     {
       "name": "The Network Crew Pty Ltd",
       "homepage": "https:\/\/tnc.works\/"
