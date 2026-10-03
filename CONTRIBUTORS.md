@@ -2,6 +2,10 @@
 
 This document seeks to say "cheers", "many thanks" & "love your work" to the people and companies who have helped to make this project what it is today.
 
+## Fork maintainer
+
+- [MasterMind TI](https://mastermindti.com.br/) ([@MasterMindTIBR](https://github.com/MasterMindTIBR)) maintains this fork.
+
 ## Users who've contributed
 
 - [@cybercoder](https://github.com/cybercoder)
@@ -15,6 +19,7 @@ This document seeks to say "cheers", "many thanks" & "love your work" to the peo
 - [@InnocentCivilian](https://github.com/InnocentCivilian)
 - [@jdomenechg](https://github.com/jdomenechg)
 - [@cl0secall](https://github.com/cl0secall)
+- [@junglivre](https://github.com/junglivre) (MasterMind TI)
 
 ## Why not make it even better?
 
