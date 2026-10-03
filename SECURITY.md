@@ -38,15 +38,15 @@ Best practices should be followed during Software Engineering which is especiall
 
 ## 🐛 Reporting a Vulnerability
 
-GitHub "Private vulnerability reporting" is enabled for The-Network-Crew/Proxmox-VE-for-WHMCS repository.
+GitHub "Private vulnerability reporting" is enabled for the MasterMindTIBR/Proxmox-VE-for-WHMCS repository (the MasterMind TI fork): https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/security/advisories/new
 
-Or, use a publicly-available email address for The Network Crew Pty Ltd to submit it via email instead.
+If the issue also exists in the upstream module, report it to The Network Crew Pty Ltd as well, through private vulnerability reporting on The-Network-Crew/Proxmox-VE-for-WHMCS.
 
 DO NOT raise a public issue where there is threat to users of the module. Raise it properly.
 
 ### No bounties offered
 
-As a company, we do not believe in paying security bounties, rather in writing good code.
+This project does not pay security bounties; the focus is on writing good code.
 
 We appreciate your input and work to address issues as quickly as possible, security first and foremost.
 

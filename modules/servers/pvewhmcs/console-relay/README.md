@@ -6,9 +6,10 @@ repository: **[MasterMindTIBR/pvewhmcs-console-relay](https://github.com/MasterM
 It bridges a browser's noVNC WebSocket to Proxmox's `vncwebsocket` API
 endpoint, so Proxmox never needs a public IP, a PTR record, or to share a
 registrable domain with WHMCS. `pvewhmcs_noVNC()` (in
-`modules/servers/pvewhmcs/pvewhmcs.php`) mints the short-lived, HMAC-signed
-token that relay verifies — see `pvewhmcs_build_console_token()` in
-`modules/addons/pvewhmcs/proxmox.php`.
+`modules/servers/pvewhmcs/pvewhmcs.php`) mints the short-lived, encrypted
+(v2, AES-256-GCM) token that relay decrypts — see
+`pvewhmcs_build_console_token()` in `modules/addons/pvewhmcs/proxmox.php`.
+v2 tokens need the relay at commit `4a5081f` or later.
 
 Clone or Git-deploy that repository (Plesk's Git integration works well for
 this) and follow its README. Then configure this module under **Addons >
