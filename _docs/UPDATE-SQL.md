@@ -1,5 +1,11 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.3.6 to v1.3.7
+
+No manual SQL needed. `pvewhmcs_ensure_schema()` runs at the first callback after the update and repairs/creates everything under a MySQL advisory lock: the `provisioning_*` columns + index on `mod_pvewhmcs_vms`, `server_id` plus `server_timestamp`/`level_timestamp` indexes on `mod_pvewhmcs_logs`, `plans.vmbr` VARCHAR(64) with legacy backfill, and `schema_version='1.3.7'` in `mod_pvewhmcs`. Updating the files is enough.
+
+The section below (1.3.6 pre-release) stays as historical remediation only.
+
 ## v1.3.6 pre-release installs (registered 1.3.6 between 2026-09-25 and 2026-10-02)
 
 > [!IMPORTANT]
