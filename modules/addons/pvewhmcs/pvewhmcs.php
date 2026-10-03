@@ -2687,8 +2687,7 @@ function save_ip_pool() {
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 }
 
-// Service statuses that keep an IPv4 pool address in use (tblhosting.dedicatedip);
-// the same set pvewhmcs_reserve_ip_address() treats as taken.
+// Service statuses that keep an IPv4 pool address in use (tblhosting.dedicatedip).
 function pvewhmcs_ip_busy_statuses() {
 	return array('Active', 'Suspended', 'Completed', 'Pending');
 }
