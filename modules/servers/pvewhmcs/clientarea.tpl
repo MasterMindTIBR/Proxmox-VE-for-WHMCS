@@ -282,6 +282,12 @@
 </style>
 
 <div class="pve-client-area">
+	{if $pvewhmcs_error}
+	<div class="pve-alert-warning">
+		<i class="fa fa-exclamation-triangle"></i>
+		{$pvewhmcs_error|escape:'html'}
+	</div>
+	{else}
 	{* Header Panel with VM Type, Status, and Gauges *}
 	<div class="pve-header-panel">
 		<div class="pve-status-section">
@@ -439,7 +445,7 @@
 	</table>
 
 	{* Statistics Section *}
-	{if ($smarty.get.a eq 'vmStat')}
+	{if $vm_show_statistics}
 	<div class="pve-stats-section">
 		<h4><i class="fa fa-line-chart"></i> {$lang['guest_statistics']}</h4>
 		
@@ -491,5 +497,6 @@
 		</div>
 		{/if}
 	</div>
+	{/if}
 	{/if}
 </div>
