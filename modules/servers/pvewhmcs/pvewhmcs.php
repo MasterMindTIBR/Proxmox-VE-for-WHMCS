@@ -2,10 +2,12 @@
 
 /*
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
-	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+	https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ (MasterMind TI fork)
+	Upstream: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 	File: /modules/servers/pvewhmcs/pvewhmcs.php (PVE Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	Modified since 2026-09-25 by MasterMind TI (https://mastermindti.com.br).
 	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
     This program is free software: you can redistribute it and/or modify

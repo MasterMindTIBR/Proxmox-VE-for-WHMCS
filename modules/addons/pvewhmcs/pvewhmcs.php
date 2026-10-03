@@ -2,10 +2,12 @@
 
 /*  
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
-	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
+	https://github.com/MasterMindTIBR/Proxmox-VE-for-WHMCS/ (MasterMind TI fork)
+	Upstream: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 	File: /modules/addons/pvewhmcs/pvewhmcs.php (GUI Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	Modified since 2026-09-25 by MasterMind TI (https://mastermindti.com.br).
 	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
 	This program is free software: you can redistribute it and/or modify
@@ -42,9 +44,9 @@ require_once('proxmox.php');
 function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
-		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
+		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs. Fork maintained by MasterMind TI.".is_pvewhmcs_outdated(),
 		"version" => pvewhmcs_version(),
-		"author" => "The Network Crew Pty Ltd",
+		"author" => "MasterMind TI (fork of The Network Crew Pty Ltd)",
 		'language' => 'English'
 	);
 	return $configarray;
@@ -1125,6 +1127,7 @@ function pvewhmcs_output($vars) {
 		<div style="background:#faf8fc;border:1px solid #e0d4e8;border-radius:8px;padding:25px;margin-bottom:20px;">
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9829;</span> Open Source</h3>
 			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">PVEWHMCS is open-source and free to use &amp; improve on!</p>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">This fork is maintained by <a href="https://mastermindti.com.br/" target="_blank" style="color:#5c3d7a;">MasterMind TI</a>. It is based on <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank" style="color:#5c3d7a;">Proxmox VE for WHMCS</a> by The Network Crew Pty Ltd (TNC) &amp; Co.</p>
 			<p style="margin:0;">
 				<a href="' . PVEWHMCS_REPO_URL . '/" target="_blank" style="color:#5c3d7a;">&#10132; GitHub Repository</a>
 			</p>
@@ -1146,7 +1149,7 @@ function pvewhmcs_output($vars) {
 			</p>
 			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Only raise a GitHub Issue &mdash; including logs &mdash; if you have properly tried to resolve it first.</p>
 			<p style="margin:0 0 15px 0;">
-				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose" target="_blank" style="color:#5c3d7a;">&#10132; Open an Issue</a>
+				<a href="' . PVEWHMCS_REPO_URL . '/issues/new/choose" target="_blank" style="color:#5c3d7a;">&#10132; Open an Issue</a>
 			</p>
 			<p style="margin:0;padding:12px;background:#fff8f0;border-radius:6px;font-size:13px;color:#856404;border:1px solid #ffc107;">&#9888; Help is not guaranteed (FOSS). We will need your assistance to troubleshoot.</p>
 		</div>
