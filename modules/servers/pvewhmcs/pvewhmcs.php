@@ -493,6 +493,7 @@ function pvewhmcs_dns_name_sanitize($value) {
  * failure. Failures are always re-thrown so WHMCS's own error handling is unaffected.
  */
 function pvewhmcs_run_tracked_action($action, $type, array $params, callable $handler) {
+	pvewhmcs_ensure_schema();
 	$service_id = (int) ($params['serviceid'] ?? 0);
 	$user_id = (int) ($params['clientsdetails']['userid'] ?? ($params['userid'] ?? 0));
 	$vmid_before = pvewhmcs_guest_vmid($service_id);
@@ -630,6 +631,7 @@ function pvewhmcs_cluster_usage_stats_html(array $stats) {
  * Falls back to server IP if hostname is empty.
  */
 function pvewhmcs_AdminLink(array $params) {
+	pvewhmcs_ensure_schema();
     $host = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
     $port = pvewhmcs_connection_port($params['serverport'] ?? '');
     if (!$host) {
@@ -678,6 +680,7 @@ function pvewhmcs_AdminLink(array $params) {
 
 // WHMCS CONFIG > SERVICES/PRODUCTS > Their Service > Tab #3 (Plan/Pool)
 function pvewhmcs_ConfigOptions() {
+	pvewhmcs_ensure_schema();
 	// Retrieve PVE for WHMCS Cluster
 	$server=Capsule::table('tblservers')->where('type', '=', 'pvewhmcs')->get()[0] ;
 
@@ -1317,6 +1320,7 @@ function pvewhmcs_vmid_is_linked($vmid) {
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
 function pvewhmcs_TestConnection(array $params) {
+	pvewhmcs_ensure_schema();
 	$success = false;
 	$errorMsg = '';
 
@@ -1730,6 +1734,7 @@ function pvewhmcs_client_area_error($message, array $params) {
 
 // OUTPUT: Module output to the Client Area
 function pvewhmcs_ClientArea($params) {
+	pvewhmcs_ensure_schema();
 	$lang = pvewhmcs_load_client_lang($params);
 	$unavailable = $lang['hypervisor_unavailable'] ?? 'Error: Unable to gather data from Hypervisor. Please contact Tech Support!';
 
@@ -1830,6 +1835,7 @@ function pvewhmcs_vmStat($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_prepare_noVNC($params) {
+	pvewhmcs_ensure_schema();
 	global $CONFIG;
 
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
@@ -1904,6 +1910,7 @@ function pvewhmcs_prepare_noVNC($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	pvewhmcs_ensure_schema();
 	$lang = pvewhmcs_load_client_lang($params);
 
 	if (pvewhmcs_client_service_inactive($params)) {
