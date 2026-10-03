@@ -133,9 +133,62 @@ function pvewhmcs_guest_hosting_map($server_id) {
 	return $map;
 }
 
-function pvewhmcs_render_action_log_table($entries, array $labels) {
+function pvewhmcs_action_log_admin_labels(array $auth_ids) {
+	$auth_ids = array_values(array_unique(array_filter(array_map('intval', $auth_ids))));
+	$labels = array();
+	if (empty($auth_ids)) {
+		return $labels;
+	}
+
+	foreach (Capsule::table('tbladmins')->whereIn('id', $auth_ids)->get(array('id', 'username')) as $admin) {
+		$labels[(int) $admin->id] = $admin->username;
+	}
+
+	return $labels;
+}
+
+/**
+ * One page of the module action log for one server, plus its total row count.
+ * `$level` null lists every level; page and size are clamped server-side so a
+ * tampered query cannot ask for unbounded rows.
+ */
+function pvewhmcs_action_log_page($serverId, $level, $page, $perPage) {
+	$query = Capsule::table('mod_pvewhmcs_logs')->where('server_id', (int) $serverId);
+	if ($level !== null) {
+		$query->where('level', $level);
+	}
+	$total = (clone $query)->count();
+	$pages = max(1, (int) ceil($total / $perPage));
+	$page = min(max(1, (int) $page), $pages);
+	$entries = $query->orderBy('id', 'desc')->forPage($page, $perPage)->get();
+
+	return array($entries, $total, $page, $pages);
+}
+
+/**
+ * Prev/next pagination links for one action-log panel. The page parameter is
+ * keyed per server and panel, so panels paginate independently.
+ */
+function pvewhmcs_action_log_pager($serverId, $pageParam, $page, $pages, $perPage, $total) {
+	if ($pages <= 1) {
+		return;
+	}
+
+	$link = static function ($targetPage) use ($serverId, $pageParam, $perPage) {
+		return htmlspecialchars(pvewhmcs_BASEURL . '&tab=actions&per_page=' . (int) $perPage . '&' . $pageParam . '=' . (int) $targetPage, ENT_QUOTES, 'UTF-8');
+	};
+
+	echo '<div style="margin:8px 0 20px;">'
+		. 'Page ' . (int) $page . ' of ' . (int) $pages . ' (' . (int) $total . ' entries on Server #' . (int) $serverId . ') — '
+		. ($page > 1 ? '<a href="' . $link(1) . '">First</a> · <a href="' . $link($page - 1) . '">Previous</a>' : 'First · Previous')
+		. ' · '
+		. ($page < $pages ? '<a href="' . $link($page + 1) . '">Next</a> · <a href="' . $link($pages) . '">Last</a>' : 'Next · Last')
+		. '</div>';
+}
+
+function pvewhmcs_render_action_log_table($entries, array $labels, array $admins = array()) {
 	$html = '<table class="pve-table"><thead><tr>'
-		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Result</th><th>Details</th>'
+		. '<th>Time</th><th>Action</th><th>Service</th><th>VMID</th><th>Admin</th><th>Result</th><th>Details</th>'
 		. '</tr></thead><tbody>';
 
 	foreach ($entries as $entry) {
@@ -143,6 +196,8 @@ function pvewhmcs_render_action_log_table($entries, array $labels) {
 		$service_label = $service_id > 0
 			? ($labels[$service_id] ?? ('Service #' . $service_id))
 			: '—';
+		$auth_id = (int) ($entry->auth_id ?? 0);
+		$admin_label = $auth_id > 0 ? ($admins[$auth_id] ?? ('Admin #' . $auth_id)) : '—';
 		$target_id = (int) $entry->target_id;
 		$is_error = $entry->level === 'error';
 
@@ -151,6 +206,7 @@ function pvewhmcs_render_action_log_table($entries, array $labels) {
 		$html .= '<td><code>' . htmlspecialchars((string) $entry->action) . '</code></td>';
 		$html .= '<td>' . htmlspecialchars($service_label) . '</td>';
 		$html .= '<td>' . ($target_id > 0 ? (string) $target_id : '—') . '</td>';
+		$html .= '<td>' . htmlspecialchars($admin_label) . '</td>';
 		$html .= '<td>' . ($is_error ? '❌' : '✅') . ' ' . htmlspecialchars(ucfirst((string) $entry->level)) . '</td>';
 		$html .= '<td>' . htmlspecialchars((string) $entry->response) . '</td>';
 		$html .= '</tr>';
@@ -1092,24 +1148,59 @@ function pvewhmcs_output($vars) {
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
 	if ($_GET['tab'] === 'actions') {
 
-	$action_history = Capsule::table('mod_pvewhmcs_logs')->orderBy('id', 'desc')->limit(200)->get();
-	$failed_actions = Capsule::table('mod_pvewhmcs_logs')->where('level', 'error')->orderBy('id', 'desc')->limit(200)->get();
-	$action_log_labels = pvewhmcs_action_log_service_labels(
-		array_merge($action_history->pluck('service')->all(), $failed_actions->pluck('service')->all())
-	);
-
-	echo '<h2>Module: Action History</h2>';
-	if ($action_history->isEmpty()) {
-		echo '<div class="alert alert-info">No module actions have been recorded yet.</div>';
-	} else {
-		echo pvewhmcs_render_action_log_table($action_history, $action_log_labels);
+	// Every enabled pvewhmcs server gets its own isolated panels: rows are
+	// filtered by the immutable server_id recorded with the action, so a
+	// service later moved to another server keeps its history where it ran.
+	$perPageChoices = array(25, 50, 100, 200);
+	$perPage = (int) ($_GET['per_page'] ?? 50);
+	if (!in_array($perPage, $perPageChoices, true)) {
+		$perPage = 50;
 	}
 
-	echo '<h2 style="margin-top:25px;">Module: Failed Actions</h2>';
-	if ($failed_actions->isEmpty()) {
-		echo '<div class="alert alert-info">No failed actions recorded.</div>';
-	} else {
-		echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels);
+	$servers = Capsule::table('tblservers')
+		->where('type', 'pvewhmcs')
+		->where('disabled', 0)
+		->orderBy('id')
+		->get(array('id', 'name', 'hostname', 'ipaddress'));
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-info">No enabled WHMCS server of module type pvewhmcs was found.</div>';
+	}
+
+	foreach ($servers as $server) {
+		$serverLabel = trim((string) $server->name) !== ''
+			? (string) $server->name
+			: pvewhmcs_connection_host($server->hostname ?? '', $server->ipaddress ?? '');
+		if ($serverLabel === '') {
+			$serverLabel = 'Server #' . (int) $server->id;
+		}
+		$serverId = (int) $server->id;
+		$historyPage = max(1, (int) ($_GET['page_' . $serverId] ?? 1));
+		$failedPage = max(1, (int) ($_GET['fpage_' . $serverId] ?? 1));
+
+		echo '<h2>Module: Action History — ' . htmlspecialchars($serverLabel) . '</h2>';
+		list($action_history, $history_total, $history_page, $history_pages) = pvewhmcs_action_log_page($serverId, null, $historyPage, $perPage);
+		list($failed_actions, $failed_total, $failed_page, $failed_pages) = pvewhmcs_action_log_page($serverId, 'error', $failedPage, $perPage);
+		$action_log_labels = pvewhmcs_action_log_service_labels(
+			array_merge($action_history->pluck('service')->all(), $failed_actions->pluck('service')->all())
+		);
+		$action_admin_labels = pvewhmcs_action_log_admin_labels(
+			array_merge($action_history->pluck('auth_id')->all(), $failed_actions->pluck('auth_id')->all())
+		);
+
+		if ($action_history->isEmpty()) {
+			echo '<div class="alert alert-info">No module actions have been recorded for this server yet.</div>';
+		} else {
+			echo pvewhmcs_render_action_log_table($action_history, $action_log_labels, $action_admin_labels);
+		}
+		pvewhmcs_action_log_pager($serverId, 'page_' . $serverId, $history_page, $history_pages, $perPage, $history_total);
+
+		echo '<h2 style="margin-top:25px;">Module: Failed Actions — ' . htmlspecialchars($serverLabel) . '</h2>';
+		if ($failed_actions->isEmpty()) {
+			echo '<div class="alert alert-info">No failed actions recorded for this server.</div>';
+		} else {
+			echo pvewhmcs_render_action_log_table($failed_actions, $action_log_labels, $action_admin_labels);
+		}
+		pvewhmcs_action_log_pager($serverId, 'fpage_' . $serverId, $failed_page, $failed_pages, $perPage, $failed_total);
 	}
 
 	}
@@ -1259,122 +1350,146 @@ function pvewhmcs_output($vars) {
 
 	if ($_GET['tab'] === 'logs') {
 
-	try {
-	    // Cluster history of the first enabled pvewhmcs server.
-	    $pve = Capsule::table('tblservers')
-	        ->where('type', 'pvewhmcs')
-	        ->where('disabled', 0)
-	        ->orderBy('id', 'asc')
-	        ->first();
+	// Every enabled pvewhmcs server gets its own panel; one unreachable or
+	// misconfigured server cannot blank the whole tab (same pattern as Nodes).
+	$servers = Capsule::table('tblservers')
+		->where('type', 'pvewhmcs')
+		->where('disabled', 0)
+		->orderBy('id', 'asc')
+		->get();
 
-	    if (!$pve) {
-	        throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
-	    }
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-info">No enabled WHMCS server of module type pvewhmcs was found.</div>';
+	}
 
-	    $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
-	    $serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-	    if (!$serverpassword) {
-	        throw new Exception('Could not decrypt Proxmox server password.');
-	    }
+	foreach ($servers as $pve) {
+		$serverLabel = trim((string) $pve->name) !== ''
+			? (string) $pve->name
+			: pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
+		if ($serverLabel === '') {
+			$serverLabel = 'Server #' . (int) $pve->id;
+		}
 
-	    $serverip = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
-	    $serverport = pvewhmcs_connection_port($pve->port ?? '');
-	    $verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
-	    $proxmox = new PVE2_API($serverip, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
-	    if (!$proxmox->login()) {
-	        throw new Exception('Unable to log in to PVE API on ' . $serverip . '. Check credentials, connectivity & configurations.');
-	    }
-
-	    // /cluster/tasks takes no parameters; show the 150 newest entries.
-	    $limit = 150;
-	    $tasks = $proxmox->get('/cluster/tasks');
-
-	    // Optional debug logging
-	    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-	        logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
-	    }
-
-	    if (!is_array($tasks) || empty($tasks)) {
-	        echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
-	    } else {
-	        // Sort newest first (defensive)
-	        usort($tasks, function ($a, $b) {
-	            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
-	        });
-	        $tasks = array_slice($tasks, 0, $limit);
-
-	        echo '<table class="pve-table">';
-	        echo '<thead><tr>
-	                <th>Task</th>
-	                <th>VMID</th>
-	                <th>Status</th>
-	                <th>Node</th>
-	                <th>User</th>
-	                <th>Duration</th>
-	                <th>Start</th>
-	                <th>End</th>
-	              </tr></thead><tbody>';
-
-	        foreach ($tasks as $t) {
-	            $node   = $t['node'] ?? '—';
-	            $type   = $t['type'] ?? '';
-	            $user   = $t['user'] ?? '';
-	            $upid   = $t['upid'] ?? '';
-
-	            // Derive VMID:
-	            // 1) Prefer numeric $t['id'] when available
-	            // 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
-	            $vmid = '—';
-	            if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
-	                $vmid = (string)$t['id'];
-	            } elseif (is_string($upid) && $upid !== '') {
-	                // UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
-	                if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
-	                    if ($m[1] !== '' && ctype_digit($m[1])) {
-	                        $vmid = $m[1];
-	                    }
-	                }
-	            }
-
-	            $startTs = (int)($t['starttime'] ?? 0);
-	            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
-
-	            $start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
-	            $end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
-
-	            $durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
-	            $durH   = is_null($durSec)
-	                ? '—'
-	                : sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
-
-	            $status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
-	            $badge  = ($status === 'OK')
-	                ? '✅'
-	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
-
-	            echo '<tr>';
-	            echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
-	            echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
-	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
-	            echo '<td>' . htmlspecialchars($node) . '</td>';
-	            echo '<td>' . htmlspecialchars($user) . '</td>';
-	            echo '<td>' . htmlspecialchars($durH) . '</td>';
-	            echo '<td>' . htmlspecialchars($start) . '</td>';
-	            echo '<td>' . htmlspecialchars($end) . '</td>';
-	            echo '</tr>';
-	        }
-	        echo '</tbody></table>';
-	    }
-	} catch (Throwable $e) {
-	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
-	        . htmlspecialchars($e->getMessage()) . '</div>';
+		echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+		echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;"><h3 class="panel-title" style="margin:0;"><i class="fa fa-history"></i> Cluster task history — ' . htmlspecialchars($serverLabel) . '</h3></div>';
+		echo '<div class="panel-body">';
+		ob_start();
+		try {
+			pvewhmcs_render_cluster_task_log($pve);
+			ob_end_flush();
+		} catch (Throwable $e) {
+			ob_end_clean();
+			echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
+				. htmlspecialchars($e->getMessage()) . '</div>';
+		}
+		echo '</div></div>';
 	}
 	}
 	echo '</div></div>'; 
 	// End of tabbed content
 }
 
-// True for a dotted IPv4 netmask with contiguous bits (e.g. 255.255.255.0).
+// LOGS tab: cluster task history of ONE enabled pvewhmcs server, rendered into
+// the current output buffer. Throws on any per-server failure so the caller can
+// isolate it inside its own panel.
+function pvewhmcs_render_cluster_task_log($pve) {
+	$dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
+	$serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
+	if (!$serverpassword) {
+		throw new Exception('Could not decrypt Proxmox server password.');
+	}
+
+	$serverip = pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? '');
+	$serverport = pvewhmcs_connection_port($pve->port ?? '');
+	$verify_ssl = pvewhmcs_verify_server_tls($pve->secure ?? null);
+	$proxmox = new PVE2_API($serverip, $pve->username, "pam", $serverpassword, $serverport, $verify_ssl);
+	if (!$proxmox->login()) {
+		throw new Exception('Unable to log in to PVE API on ' . $serverip . '. Check credentials, connectivity & configurations.');
+	}
+
+	// /cluster/tasks takes no parameters; show the 150 newest entries.
+	$limit = 150;
+	$tasks = $proxmox->get('/cluster/tasks');
+
+	// Optional debug logging
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
+	}
+
+	if (!is_array($tasks) || empty($tasks)) {
+		echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
+		return;
+	}
+
+	// Sort newest first (defensive)
+	usort($tasks, function ($a, $b) {
+		return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
+	});
+	$tasks = array_slice($tasks, 0, $limit);
+
+	echo '<table class="pve-table">';
+	echo '<thead><tr>
+			<th>Task</th>
+			<th>VMID</th>
+			<th>Status</th>
+			<th>Node</th>
+			<th>User</th>
+			<th>Duration</th>
+			<th>Start</th>
+			<th>End</th>
+		  </tr></thead><tbody>';
+
+	foreach ($tasks as $t) {
+		$node   = $t['node'] ?? '—';
+		$type   = $t['type'] ?? '';
+		$user   = $t['user'] ?? '';
+		$upid   = $t['upid'] ?? '';
+
+		// Derive VMID:
+		// 1) Prefer numeric $t['id'] when available
+		// 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
+		$vmid = '—';
+		if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
+			$vmid = (string)$t['id'];
+		} elseif (is_string($upid) && $upid !== '') {
+			// UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
+			if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
+				if ($m[1] !== '' && ctype_digit($m[1])) {
+					$vmid = $m[1];
+				}
+			}
+		}
+
+		$startTs = (int)($t['starttime'] ?? 0);
+		$endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
+
+		$start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
+		$end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
+
+		$durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
+		$durH   = is_null($durSec)
+			? '—'
+			: sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
+
+		$status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
+		$badge  = ($status === 'OK')
+			? '✅'
+			: ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
+
+		echo '<tr>';
+		echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
+		echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
+		echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
+		echo '<td>' . htmlspecialchars($node) . '</td>';
+		echo '<td>' . htmlspecialchars($user) . '</td>';
+		echo '<td>' . htmlspecialchars($durH) . '</td>';
+		echo '<td>' . htmlspecialchars($start) . '</td>';
+		echo '<td>' . htmlspecialchars($end) . '</td>';
+		echo '</tr>';
+	}
+	echo '</tbody></table>';
+}
+
 function pvewhmcs_is_ipv4_netmask($mask) {
 	if (!filter_var($mask, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
 		return false;
