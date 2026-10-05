@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `console_relay_host` varchar(255) DEFAULT NULL,
   `console_relay_port` int(5) unsigned DEFAULT NULL,
   `name_pattern` varchar(255) DEFAULT NULL,
+  `cloud_init_user` varchar(32) DEFAULT NULL,
+  `guest_dns_ipv4` varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6',
+  `guest_dns_ipv6` varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1',
   `schema_version` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 );
