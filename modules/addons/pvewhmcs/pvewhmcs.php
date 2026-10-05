@@ -3069,7 +3069,12 @@ function list_reserved_ips() {
 	$adminUrl = 'clientsservices.php';
 	$reservations = Capsule::table('mod_pvewhmcs_ip_addresses as i')
 		->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
-		->join('tblhosting as h', 'h.dedicatedip', '=', 'i.ipaddress')
+		// tblhosting.dedicatedip inherits WHMCS's utf8mb3_unicode_ci, while older
+		// module tables may be utf8mb3_general_ci. IPv4 addresses are ASCII, so a
+		// bytewise comparison is exact and avoids a server-wide collation migration.
+		->join('tblhosting as h', function ($join) {
+			$join->on('h.dedicatedip', '=', Capsule::raw('BINARY i.ipaddress'));
+		})
 		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
 		->leftJoin('tblclients as c', 'c.id', '=', 'h.userid')
 		->where('h.domainstatus', '=', 'Terminated')
