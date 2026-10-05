@@ -54,7 +54,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.7";
+	return "1.3.8";
 }
 
 function pvewhmcs_verify_server_tls($secure) {
@@ -278,7 +278,7 @@ function pvewhmcs_deactivate() {
 function pvewhmcs_upgrade($vars) {
 	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
-	if (version_compare($currentlyInstalledVersion, '1.3.7', 'lt')) {
+	if (version_compare($currentlyInstalledVersion, '1.3.8', 'lt')) {
 		pvewhmcs_ensure_schema();
 		return;
 	}
@@ -1321,6 +1321,33 @@ function pvewhmcs_output($vars) {
 		</td>
 	</tr>
 	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Cloud-Init User (QEMU)</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" maxlength="32" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="cloud_init_user" id="cloud_init_user" placeholder="Image default user" value="' . htmlspecialchars((string) $config->cloud_init_user, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For QEMU Cloud-Init templates. Leave blank to send no <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">ciuser</code> and retain the image default account; enter a Linux username, such as <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">root</code>, to receive the provisioned password.</p>
+		</td>
+	</tr>
+	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Guest IPv4 DNS Servers</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" maxlength="255" style="width:100%;max-width:500px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="guest_dns_ipv4" id="guest_dns_ipv4" value="' . htmlspecialchars((string) $config->guest_dns_ipv4, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Space- or comma-separated resolver IPs sent to every newly provisioned LXC and QEMU guest.</p>
+		</td>
+	</tr>
+	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Guest IPv6 DNS Servers</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" maxlength="255" style="width:100%;max-width:500px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="guest_dns_ipv6" id="guest_dns_ipv6" value="' . htmlspecialchars((string) $config->guest_dns_ipv6, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Space- or comma-separated resolver IPs added only when the selected plan enables IPv6.</p>
+		</td>
+	</tr>
+	<tr>
 		<td style="padding:15px 0;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">Debug Mode</label>
 		</td>
@@ -1660,12 +1687,22 @@ function save_config() {
 			throw new InvalidArgumentException('VM Name Pattern must be at most 255 characters.');
 		}
 
+		$cloud_init_user = trim((string) ($_POST['cloud_init_user'] ?? ''));
+		if ($cloud_init_user !== '' && preg_match('/^[a-z_][a-z0-9_-]{0,31}$/i', $cloud_init_user) !== 1) {
+			throw new InvalidArgumentException('Cloud-Init User must be empty or a Linux username up to 32 characters.');
+		}
+		$guest_dns_ipv4 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv4'] ?? '', 'Guest IPv4 DNS Servers');
+		$guest_dns_ipv6 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv6'] ?? '', 'Guest IPv6 DNS Servers');
+
 		$update = [
 			'start_vmid' => $start_vmid,
 			'debug_mode' => (int) !empty($_POST['debug_mode']),
 			'console_relay_host' => $relay_host !== '' ? $relay_host : null,
 			'console_relay_port' => $relay_port !== '' ? $relay_port : null,
 			'name_pattern' => $name_pattern !== '' ? $name_pattern : null,
+			'cloud_init_user' => $cloud_init_user !== '' ? $cloud_init_user : null,
+			'guest_dns_ipv4' => $guest_dns_ipv4,
+			'guest_dns_ipv6' => $guest_dns_ipv6,
 		];
 
 		// Secrets are masked (blank) in the form; only overwrite the stored

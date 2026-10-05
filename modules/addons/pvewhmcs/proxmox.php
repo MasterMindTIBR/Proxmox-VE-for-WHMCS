@@ -73,7 +73,53 @@ function pvewhmcs_rrd_image_bytes($image) {
 		: utf8_decode($image);
 }
 
-const PVEWHMCS_SCHEMA_VERSION = '1.3.7';
+const PVEWHMCS_SCHEMA_VERSION = '1.3.8';
+
+const PVEWHMCS_DEFAULT_GUEST_DNS_IPV4 = '208.67.222.222 64.6.64.6';
+const PVEWHMCS_DEFAULT_GUEST_DNS_IPV6 = '2620:119:35::35 2620:74:1b::1:1';
+
+/**
+ * Returns the configured guest resolvers. IPv6 resolvers are emitted only
+ * when the selected plan enables IPv6, matching the prior network contract.
+ */
+function pvewhmcs_guest_nameservers($includeIpv6): string {
+	$config = Capsule::table('mod_pvewhmcs')
+		->where('id', '=', 1)
+		->select('guest_dns_ipv4', 'guest_dns_ipv6')
+		->first();
+	$ipv4 = trim((string) ($config->guest_dns_ipv4 ?? PVEWHMCS_DEFAULT_GUEST_DNS_IPV4));
+	$ipv6 = trim((string) ($config->guest_dns_ipv6 ?? PVEWHMCS_DEFAULT_GUEST_DNS_IPV6));
+
+	return trim($ipv4 . ($includeIpv6 ? ' ' . $ipv6 : ''));
+}
+
+/**
+ * Blank means "do not send ciuser": Proxmox/Cloud-Init retains the image's
+ * default account. A configured value is used only for QEMU Cloud-Init.
+ */
+function pvewhmcs_cloud_init_user(): ?string {
+	$value = Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('cloud_init_user');
+	$value = trim((string) $value);
+
+	return $value === '' ? null : $value;
+}
+
+function pvewhmcs_normalize_guest_dns_servers($servers, $label): string {
+	$addresses = preg_split('/[\s,]+/', trim((string) $servers), -1, PREG_SPLIT_NO_EMPTY);
+	if (empty($addresses)) {
+		throw new InvalidArgumentException("{$label} must contain at least one IPv4 or IPv6 address.");
+	}
+	if (count($addresses) > 8) {
+		throw new InvalidArgumentException("{$label} may contain at most 8 addresses.");
+	}
+	foreach ($addresses as $address) {
+		if (filter_var($address, FILTER_VALIDATE_IP) === false) {
+			throw new InvalidArgumentException("{$label} contains an invalid IP address: {$address}.");
+		}
+	}
+
+	return implode(' ', array_values(array_unique($addresses)));
+}
 
 /**
  * Returns one column from a module table, or null when it is absent.
@@ -200,6 +246,9 @@ function pvewhmcs_ensure_schema() {
 			'console_relay_host' => 'varchar(255) DEFAULT NULL',
 			'console_relay_port' => 'int(5) unsigned DEFAULT NULL',
 			'name_pattern' => 'varchar(255) DEFAULT NULL',
+			'cloud_init_user' => 'varchar(32) DEFAULT NULL',
+			'guest_dns_ipv4' => "varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6'",
+			'guest_dns_ipv6' => "varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1'",
 		) as $column => $definition) {
 			pvewhmcs_schema_add_missing_column('mod_pvewhmcs', $column, $definition);
 		}
