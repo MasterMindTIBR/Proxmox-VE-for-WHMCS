@@ -3,11 +3,12 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [Unreleased]
 
-Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1.3.7 shape on every callback — existing installs self-heal without manual SQL (`schema_version` marker in `mod_pvewhmcs`). Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
+Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1.3.8 shape on every callback — existing installs self-heal without manual SQL (`schema_version` marker in `mod_pvewhmcs`). Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
 
 ### 🚀 Feature
 - Provisioning: Recoverable CreateAccount — an irreversible allocation marker (VMID, node, IP, mode) is written before the Proxmox call; the returned task UPID is recorded and awaited; failed tasks keep the IP and VMID reserved as `failed`; an uncertain crash between marker and POST blocks the guest pending admin review; a retry resumes the recorded task instead of creating a second guest.
 - Provisioning: QEMU clone source must be a real template (`template=1`); the post-clone `PUT /config` is awaited when Proxmox returns a task, and the start task is awaited before finishing.
+- Provisioning: Module Config now controls IPv4/IPv6 DNS servers for new LXC and QEMU guests, plus the optional QEMU Cloud-Init user. Leaving the user blank preserves the template image default; a configured username is sent as `ciuser` with the provisioned password.
 - Addon (IPv4): New **Reserved IPv4** tab listing addresses retained by cancelled services (IP, pool, service, VMID, client) with a CSRF-protected, confirmation-required **Release reservation** action that frees only the address; the guest and its IP history are kept.
 - Observability: Action History / Failed Actions render one paginated panel per enabled server (25/50/100/200 rows, safe filters) with the acting admin; every action records the executor and the original Proxmox server, so later server moves don't reclassify history; the Logs tab shows cluster tasks for every enabled server with per-server error isolation.
 - Provisioning: Unsuspend turns start-at-boot back on when the service's plan has On-boot enabled (1.3.6 left it off until an administrator changed it).

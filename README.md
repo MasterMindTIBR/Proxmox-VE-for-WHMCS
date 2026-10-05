@@ -262,6 +262,24 @@ When a service is terminated, the module keeps the guest and its IP: the address
 
 **Release reservation** (per row) frees the address for new services after an explicit confirmation; the retained CANCELADO guest can never return to the network with that IP. Nothing is released automatically.
 
+### Guest DNS and QEMU Cloud-Init user
+
+**Addons > Proxmox VE for WHMCS > Module Config** controls the DNS servers sent
+to newly provisioned guests. Enter IPv4 resolvers for every LXC/QEMU guest and
+IPv6 resolvers for plans that enable IPv6; changes affect future provisioning,
+not existing guests.
+
+The same page has an optional **Cloud-Init User (QEMU)**. Leave it blank to
+preserve the template image's default user. Set a Linux username such as
+`root`, `ubuntu`, or `debian` to send Proxmox `ciuser` together with the
+provisioned `cipassword`. This only has an effect when the QEMU template has a
+Cloud-Init drive and its guest image runs Cloud-Init.
+
+LXC receives its static IPv4/gateway directly in `net0`; QEMU receives
+`ipconfig0`/DNS through Proxmox Cloud-Init. A QEMU installed from an ISO, or a
+template without a Cloud-Init drive, does not configure its network inside the
+guest automatically.
+
 #### Private IPs for PVE Hosts
 
 PVE hosts may use private IPs. Only WHMCS and the Console Relay connect to Proxmox (TCP/8006); browsers never do. With **Secure** enabled, the hostname WHMCS uses must appear in the Proxmox certificate (see "TLS certificate verification"). Restrict TCP/8006 on the PVE hosts to the WHMCS and Console Relay servers: customers have no reason to reach it.
@@ -316,6 +334,11 @@ Secondly, use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 > **Note**: `Name` is what will be displayed to your Clients in WHMCS.
 
 Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
+
+> **Cloud-Init required for in-guest configuration:** attach a Cloud-Init drive
+> to the source template and use a Cloud-Init-capable guest image. The module
+> sets `ipconfig0`, DNS, the VM name, and optionally `ciuser`/`cipassword`; it
+> does not create or attach the Cloud-Init drive itself.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 

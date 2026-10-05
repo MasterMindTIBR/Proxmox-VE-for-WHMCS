@@ -952,20 +952,20 @@ function pvewhmcs_existing_provisioning_create_result($guest) {
 
 function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $guestType) {
 	$settings = array();
+	$ipv6Enabled = !empty($plan->ipv6) && $plan->ipv6 != '0';
+	$nameservers = pvewhmcs_guest_nameservers($ipv6Enabled);
 	if ($guestType === 'lxc') {
 		$settings['ostemplate'] = $params['customfields']['Template'];
 		$settings['swap'] = $plan->swap;
 		$settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 		$settings['bwlimit'] = $plan->diskio;
-		$settings['nameserver'] = '208.67.222.222 64.6.64.6';
+		$settings['nameserver'] = $nameservers;
 		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
-		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+		if ($ipv6Enabled) {
 			$settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
 			if ($plan->ipv6 === 'auto') {
-				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 				$settings['net1'] .= ',ip6=auto';
 			} elseif ($plan->ipv6 === 'dhcp') {
-				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 				$settings['net1'] .= ',ip6=dhcp';
 			}
 			if (!empty($plan->vlanid)) {
@@ -983,14 +983,15 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 		$settings['sockets'] = $plan->cpus;
 		$settings['cores'] = $plan->cores;
 		$settings['cpu'] = $plan->cpuemu;
-		$settings['nameserver'] = '208.67.222.222 64.6.64.6';
+		$settings['nameserver'] = $nameservers;
 		$settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
-		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+		if (($cloudInitUser = pvewhmcs_cloud_init_user()) !== null) {
+			$settings['ciuser'] = $cloudInitUser;
+		}
+		if ($ipv6Enabled) {
 			if ($plan->ipv6 === 'auto') {
-				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 				$settings['ipconfig1'] = 'ip6=auto';
 			} elseif ($plan->ipv6 === 'dhcp') {
-				$settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 				$settings['ipconfig1'] = 'ip6=dhcp';
 			}
 		}
@@ -1039,27 +1040,29 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 }
 
 function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $plan, $ip, $network, $node, $vmid) {
+	$ipv6Enabled = !empty($plan->ipv6) && $plan->ipv6 != '0';
 	$tweaks = array(
 		'memory' => $plan->memory, 'ostype' => $plan->ostype,
 		'sockets' => $plan->cpus, 'cores' => $plan->cores, 'cpu' => $plan->cpuemu,
 		'kvm' => $plan->kvm, 'onboot' => $plan->onboot,
-		'nameserver' => '208.67.222.222 64.6.64.6',
+		'nameserver' => pvewhmcs_guest_nameservers($ipv6Enabled),
 		'ipconfig0' => 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway,
 	);
+	if (($cloudInitUser = pvewhmcs_cloud_init_user()) !== null) {
+		$tweaks['ciuser'] = $cloudInitUser;
+	}
 	$guestPath = '/nodes/' . $node . '/qemu/' . $vmid;
 	if ($plan->netmode === 'bridge') {
 		$config = $proxmox->get($guestPath . '/config');
 		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
-		if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+		if ($ipv6Enabled) {
 			$tweaks['net1'] = pvewhmcs_replace_qemu_bridge($config['net1'] ?? $plan->netmodel, $network);
 		}
 	}
-	if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+	if ($ipv6Enabled) {
 		if ($plan->ipv6 === 'auto') {
-			$tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 			$tweaks['ipconfig1'] = 'ip6=auto';
 		} elseif ($plan->ipv6 === 'dhcp') {
-			$tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 			$tweaks['ipconfig1'] = 'ip6=dhcp';
 		}
 	}
