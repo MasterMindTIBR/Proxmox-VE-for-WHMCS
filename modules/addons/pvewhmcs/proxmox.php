@@ -104,6 +104,16 @@ function pvewhmcs_cloud_init_user(): ?string {
 	return $value === '' ? null : $value;
 }
 
+/**
+ * Proxmox resource pool for new guests. Blank sends no pool; a configured one
+ * keeps clones and direct creates inside the pool a limited API user manages.
+ */
+function pvewhmcs_pve_pool(): ?string {
+	$value = trim((string) Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('pve_pool'));
+
+	return $value === '' ? null : $value;
+}
+
 function pvewhmcs_normalize_guest_dns_servers($servers, $label): string {
 	$addresses = preg_split('/[\s,]+/', trim((string) $servers), -1, PREG_SPLIT_NO_EMPTY);
 	if (empty($addresses)) {
@@ -249,6 +259,7 @@ function pvewhmcs_ensure_schema() {
 			'cloud_init_user' => 'varchar(32) DEFAULT NULL',
 			'guest_dns_ipv4' => "varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6'",
 			'guest_dns_ipv6' => "varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1'",
+			'pve_pool' => 'varchar(64) DEFAULT NULL',
 		) as $column => $definition) {
 			pvewhmcs_schema_add_missing_column('mod_pvewhmcs', $column, $definition);
 		}
@@ -502,6 +513,12 @@ class PVE2_API {
 	protected $cluster_node_list = null;
 
 	public function __construct ($hostname, $username, $realm, #[\SensitiveParameter] $password, $port = 8006, $verify_ssl = true) {
+		// "user@realm" in the WHMCS username field overrides the caller's default realm (e.g. whmcs@pve).
+		$at = strrpos((string) $username, '@');
+		if ($at !== false) {
+			$realm    = substr($username, $at + 1);
+			$username = substr($username, 0, $at);
+		}
 		if (empty($hostname) || empty($username) || empty($realm) || empty($password) || empty($port)) {
 			throw new PVE2_Exception("PVE2 API: Hostname/Username/Realm/Password/Port required for PVE2_API object constructor.", 1);
 		}
