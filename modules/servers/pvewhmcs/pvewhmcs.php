@@ -1474,11 +1474,11 @@ function pvewhmcs_params_api(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor.
-// Refuses CANCELADO guests. Writes onboot=0 + SUSPENSO first (one config PUT,
-// before any HA/power change can hold the guest's config lock); then an HA
-// resource in `started` is set to `stopped` and recorded in ha_suspended (kept
-// at 1 when a previous partial suspend already did it); finally the guest is
-// stopped (task awaited).
+// Refuses CANCELADO guests. An HA resource in `started` is first set to
+// `stopped` and recorded in ha_suspended (kept at 1 when a previous partial
+// suspend already did it); then onboot=0 + SUSPENSO (one config PUT); finally
+// a guest without HA is stopped directly (task awaited) — HA guests are
+// stopped by the CRM.
 function pvewhmcs_SuspendAccount_impl(array $params) {
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
@@ -1507,15 +1507,11 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 		return 'Error: guest is marked CANCELADO (cancelled service); suspend refused.';
 	}
 
-	// Read HA before the first change, so a missing permission or an HA API
-	// failure aborts before tags/onboot are touched.
+	// HA is read and written before the guest config: an HA permission or API
+	// failure aborts with nothing changed. `ha_suspended` is persisted right
+	// after the HA write, so a retry after a failed config write resumes
+	// (HA already `stopped` with ha_suspended=1) instead of forgetting it.
 	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
-
-	// Only transition HA for a guest that is already HA-managed. `ha_suspended`
-	// records that the module itself stopped HA, so UnsuspendAccount knows to
-	// restore it. A retry after a partial suspend finds HA already `stopped`
-	// with ha_suspended=1 and must not forget that.
 	if ($haState === 'started') {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'stopped');
 		$haSuspended = 1;
@@ -1526,10 +1522,16 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	}
 	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haSuspended]);
 
-	$status = $proxmox->get($guestPath . '/status/current');
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
+
+	// An HA-managed guest is stopped by the CRM; a direct stop would be a
+	// queued CRM command that can override a later Unsuspend.
 	$stopTask = null;
-	if (($status['status'] ?? null) !== 'stopped') {
-		$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+	if ($haState === null || $haState === 'ignored') {
+		$status = $proxmox->get($guestPath . '/status/current');
+		if (($status['status'] ?? null) !== 'stopped') {
+			$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+		}
 	}
 
 	if (pvewhmcs_debug_enabled()) {
@@ -1571,7 +1573,9 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
 	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	$suspendedByModule = (int) ($guest->ha_suspended ?? 0) === 1;
-	if ($haState !== null && !($haState === 'stopped' && $suspendedByModule)) {
+	// `started` with ha_suspended=1 is a previous Unsuspend whose config write
+	// failed after HA was restored: resume it.
+	if ($haState !== null && !(in_array($haState, array('stopped', 'started'), true) && $suspendedByModule)) {
 		$sid = pvewhmcs_guest_ha_sid($guest);
 		return "Error unsuspending: HA resource {$sid} is in state '{$haState}' and this module did not record suspending it; guest not changed. Resolve the HA state and retry.";
 	}
@@ -1587,11 +1591,11 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	$planOnboot = !empty($params['configoption1'])
 		&& !empty(Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'])->value('onboot'));
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
-
+	// HA first (see Suspend): a failed HA write leaves the guest untouched.
 	if ($haRestore) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'started');
 	}
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
 	$startTask = null;
 	if ($directStart) {
 		$status = $proxmox->get($guestPath . '/status/current');
@@ -1609,10 +1613,10 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Cancel a Service on the hypervisor.
-// The guest is retained for recovery: onboot=0 + CANCELADO first (one config
-// PUT), then the HA resource is set to `disabled` only if one already exists
-// (never create one; the CRM then stops the guest, so no direct stop is sent
-// for HA guests); other guests are stopped directly (task awaited).
+// The guest is retained for recovery: an existing HA resource is first set to
+// `disabled` (never create one; the CRM then stops the guest, so no direct
+// stop is sent for HA guests); then onboot=0 + CANCELADO (one config PUT);
+// other guests are stopped directly (task awaited).
 // The service-to-VM mapping is retained, except when the VMID is gone from the
 // cluster or now belongs to another service (stale row removed).
 function pvewhmcs_TerminateAccount_impl(array $params) {
@@ -1647,16 +1651,18 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
 	$config = (array) $proxmox->get($guestPath . '/config');
-	// Read HA before the first change (same reason as Suspend).
-	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
-
+	// HA first (see Suspend): a failed HA write leaves the guest untouched, and
+	// a retry after a failed config write sets `disabled` again (idempotent).
 	// A direct stop of an HA guest becomes an HA stop request that rewrites the
 	// resource state to `stopped`, so HA guests are only set to `disabled`.
-	$stopTask = null;
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	if ($haState !== null) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'disabled');
-	} else {
+	}
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
+
+	$stopTask = null;
+	if ($haState === null) {
 		$status = $proxmox->get($guestPath . '/status/current');
 		if (($status['status'] ?? null) !== 'stopped') {
 			$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
