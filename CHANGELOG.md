@@ -22,8 +22,10 @@ Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1
 - Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
 
 ### 🐛 Bug Fix
+- Provisioning (HA On): the guest stays `ha_pending` until its HA resource and optional HA rule exist; CreateAccount resumes that stage instead of reporting the service as already linked, and lifecycle actions are refused meanwhile.
+- Provisioning (HA On): the HA rule update sends the rule's `type` (required by PVE 9.2) with `resources` and `digest`, re-reading and retrying on a concurrent change.
+- Provisioning (HA): Suspend, Unsuspend and Terminate change the HA state before the guest config, so an HA failure (e.g. no `Sys.Console`) leaves the guest untouched; a retry after a later failure resumes. Suspend no longer sends a direct stop to an HA guest.
 - Provisioning (HA): Start/Stop/Shutdown of an HA-managed guest change the HA desired state instead of `status/start|stop`; a Stop followed by a Start no longer leaves the guest stopped (queued CRM stop command).
-- Provisioning (HA): Suspend and Terminate read the HA resource before changing tags/start-at-boot, so an HA read failure aborts before any change.
 - Provisioning: Terminate's error for a guest hidden from the API user now says the VMID could not be confirmed free (in use outside the pool/ACL, or the check failed).
 - Provisioning: Terminate no longer deletes the service link when the guest is merely hidden from the API user (e.g. moved out of its pool); the link is removed only when `/cluster/nextid` confirms the VMID is free, otherwise an error is returned and the guest is kept.
 - Provisioning: A create/clone rejected by Proxmox with HTTP 400/403 (before any task starts) releases the `allocating` marker, IP and VMID so CreateAccount can be retried; uncertain failures keep the reservation.
