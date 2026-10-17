@@ -2084,7 +2084,7 @@ function pvewhmcs_power_target(array $params) {
 		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
 	}
 
-	return array($proxmox, pvewhmcs_guest_api_path($guest_node, $guest), $serverpassword);
+	return array($proxmox, pvewhmcs_guest_api_path($guest_node, $guest), $serverpassword, $guest);
 }
 
 function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params, $serverpassword) {
@@ -2099,7 +2099,17 @@ function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params
  * is reported as an error (a thrown PVE2_Exception propagates to the tracked
  * action wrapper, which records and re-throws it).
  */
-function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword) {
+function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword, $guest = null) {
+	// An HA-managed guest is powered through its HA desired state: a direct
+	// status/stop becomes a queued CRM command that can override a later start.
+	if ($guest !== null && in_array($command, array('start', 'stop', 'shutdown'), true)
+		&& pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params))) !== null) {
+		$state = $command === 'start' ? 'started' : 'stopped';
+		$response = pvewhmcs_set_guest_ha_state($proxmox, $guest, $state);
+		pvewhmcs_power_debug_log($action, '/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest) . ' state=' . $state, $response, $params, $serverpassword);
+
+		return "success";
+	}
 	$logrequest = $guestPath . '/status/' . $command;
 	$response = $proxmox->post($logrequest, array());
 	pvewhmcs_power_debug_log($action, $logrequest, $response, $params, $serverpassword);
@@ -2117,9 +2127,9 @@ function pvewhmcs_vmStart_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT (starts it when stopped)
@@ -2142,9 +2152,9 @@ function pvewhmcs_vmShutdown_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
@@ -2153,9 +2163,9 @@ function pvewhmcs_vmStop_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 /**
