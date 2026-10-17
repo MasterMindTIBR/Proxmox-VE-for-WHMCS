@@ -85,6 +85,7 @@ The module does not need `root@pam`. A limited user works when every guest it cr
 1. Create the pool (e.g. `RESELLER-1`) and add to it the QEMU templates used for cloning and the storage(s) the plans allocate disks on.
 2. Grant the user, on `/pool/<pool>`: `VM.Allocate`, `VM.Clone`, `VM.Audit`, `VM.Config.*`, `VM.PowerMgmt`, `VM.Console` and `Datastore.AllocateSpace`/`Datastore.Audit` (`PVEVMAdmin` + `PVEDatastoreUser` covers them; `Administrator` also works but includes `Permissions.Modify`).
 3. Grant `SDN.Use` on the zone/vnet used by the plans (e.g. `/sdn/zones/<zone>/<vnet>`) and `Sys.Audit` on `/` (cluster status/resources, `/cluster/nextid`, HA reads).
+   ISO-based QEMU plans attach `local:iso/<file>`, which Proxmox only allows with read access to that storage: grant a role holding just `Datastore.Audit` on `/storage/local` (no propagate), or keep ISOs on a storage inside the pool.
 4. In **Addons > Proxmox VE for WHMCS > Module Config**, set **Proxmox Pool** to the pool ID. CreateAccount then sends `pool=<pool>` on clones and direct LXC/QEMU creates, so the new guest stays inside the user's permissions.
 
 Changing HA resources still needs `Sys.Console` on `/` (see *HA, shared storage, and lifecycle*); the module only touches HA for guests that already have an HA resource.
