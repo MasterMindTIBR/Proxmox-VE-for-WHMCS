@@ -1528,6 +1528,11 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
+		// /cluster/resources is filtered by VM.Audit: a guest moved out of the
+		// API user's pool is hidden, not gone. Only a free VMID proves deletion.
+		if (!pvewhmcs_vmid_confirmed_free($proxmox, $guest->vmid)) {
+			return "Error cancelling account: VMID {$guest->vmid} is not visible to the Proxmox API user but is still in use in the cluster (outside the user's pool or ACL?). The guest and its link were kept; fix the permissions and retry.";
+		}
 		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 		return "success";
 	}
@@ -2128,6 +2133,18 @@ function pvewhmcs_find_guest_resource(PVE2_API $proxmox, $guest, $cluster_resour
 	}
 
 	return null;
+}
+
+/**
+ * True only when Proxmox confirms the VMID is free cluster-wide. Unlike
+ * /cluster/resources, /cluster/nextid?vmid= is not filtered by guest ACLs.
+ */
+function pvewhmcs_vmid_confirmed_free(PVE2_API $proxmox, $vmid) {
+	try {
+		return (int) $proxmox->get('/cluster/nextid?vmid=' . (int) $vmid) === (int) $vmid;
+	} catch (\Throwable $e) {
+		return false;
+	}
 }
 
 /**
