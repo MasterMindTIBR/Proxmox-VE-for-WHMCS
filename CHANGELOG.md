@@ -20,6 +20,9 @@ Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1
 - Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
 
 ### 🐛 Bug Fix
+- Provisioning: Terminate no longer deletes the service link when the guest is merely hidden from the API user (e.g. moved out of its pool); the link is removed only when `/cluster/nextid` confirms the VMID is free, otherwise an error is returned and the guest is kept.
+- Provisioning: A create/clone rejected by Proxmox with HTTP 400/403 (before any task starts) releases the `allocating` marker, IP and VMID so CreateAccount can be retried; uncertain failures keep the reservation.
+- Connections: Usernames with an API token (`user@realm!token`) are rejected with an explicit message (only password login is supported).
 - Provisioning: Cancelled services keep their IPv4 reserved (out of allocation and deletion, single/bulk/pool) until an admin releases it in **Reserved IPv4**.
 - Provisioning: Power buttons (Start/Reboot/Shutdown/Stop) wait for the Proxmox task and report failure/timeout instead of instant success.
 - Provisioning (HA): Unsuspend reads the HA resource before touching tags/config; a guest whose HA state changed outside the module — or that is HA-managed without a module-recorded suspension — returns an error and is left unchanged.

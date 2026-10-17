@@ -80,15 +80,23 @@ Configured via WHMCS > Servers. A bare username (e.g. `root`) logs in on the `pa
 
 #### Limited API user (resource pool)
 
-The module does not need `root@pam`. A limited user works when every guest it creates lands in a Proxmox resource pool the user administers:
+The module does not need `root@pam`. A limited user works when every guest it creates lands in a Proxmox resource pool (a simple pool ID such as `RESELLER-1`; nested `parent/child` pools are not accepted by the field). Minimal ACL validated end to end (clone and ISO plans) on Proxmox VE, with custom roles instead of `Administrator`/`PVEVMAdmin`:
 
-1. Create the pool (e.g. `RESELLER-1`) and add to it the QEMU templates used for cloning and the storage(s) the plans allocate disks on.
-2. Grant the user, on `/pool/<pool>`: `VM.Allocate`, `VM.Clone`, `VM.Audit`, `VM.Config.*`, `VM.PowerMgmt`, `VM.Console` and `Datastore.AllocateSpace`/`Datastore.Audit` (`PVEVMAdmin` + `PVEDatastoreUser` covers them; `Administrator` also works but includes `Permissions.Modify`).
-3. Grant `SDN.Use` on the zone/vnet used by the plans (e.g. `/sdn/zones/<zone>/<vnet>`) and `Sys.Audit` on `/` (cluster status/resources, `/cluster/nextid`, HA reads).
-   ISO-based QEMU plans attach `local:iso/<file>`, which Proxmox only allows with read access to that storage: grant a role holding just `Datastore.Audit` on `/storage/local` (no propagate), or keep ISOs on a storage inside the pool.
-4. In **Addons > Proxmox VE for WHMCS > Module Config**, set **Proxmox Pool** to the pool ID. CreateAccount then sends `pool=<pool>` on clones and direct LXC/QEMU creates, so the new guest stays inside the user's permissions.
+| Path | Role (privileges) | Propagate | Why |
+| --- | --- | --- | --- |
+| `/pool/<pool>` | `WHMCS-VPS`: `VM.Allocate`, `VM.Audit`, `VM.PowerMgmt`, `VM.Config.CDROM`, `VM.Config.CPU`, `VM.Config.Cloudinit`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Memory`, `VM.Config.Network`, `VM.Config.Options` | yes | create/clone into the pool, lifecycle, power, tags |
+| `/vms/<template-vmid>` (each clone template, kept **outside** the pool) | `WHMCS-Template`: `VM.Audit`, `VM.Clone` | no | clone source; outside the pool so it does not inherit write access |
+| `/storage/<disk storage>` (e.g. `san-raw`) | `WHMCS-Datastore`: `Datastore.AllocateSpace`, `Datastore.Audit` | no | plan disks |
+| `/storage/local` | `WHMCS-ISORead`: `Datastore.Audit` | no | ISO plans: the module always attaches `local:iso/<file>`, which Proxmox only allows with read access to `local` (otherwise `403 Permission check failed (/storage/local, Datastore.AllocateSpace\|Datastore.Audit)`) |
+| `/sdn/zones/<zone>/<vnet>` | `WHMCS-SDN`: `SDN.Use` | yes | plan bridge/VNet |
+| `/` and `/nodes/<node>` | `WHMCS-SysAudit`: `Sys.Audit` | no | cluster status, HA reads, node stats/RRD |
+| `/pool/<pool>` for the console user (`vnc@pve`) | `VNC`: `VM.Console` | yes | console only for the reseller's guests, not `/vms` |
 
-Changing HA resources still needs `Sys.Console` on `/` (see *HA, shared storage, and lifecycle*); the module only touches HA for guests that already have an HA resource.
+Then, in **Addons > Proxmox VE for WHMCS > Module Config**, set **Proxmox Pool** to the pool ID. CreateAccount sends `pool=<pool>` on clones and direct LXC/QEMU creates, so the new guest stays inside the user's permissions. The pool setting is global: with several Proxmox servers, the same pool and ACLs must exist on each cluster.
+
+A guest that the API user cannot see (e.g. moved out of the pool) is never treated as deleted: Terminate returns an error and keeps the service link unless `/cluster/nextid` confirms the VMID is free. A create/clone that Proxmox rejects with 400/403 releases the reserved IP and VMID so it can be retried after fixing the ACL. API tokens (`user@realm!token`) are not supported; use a user and password.
+
+Not covered by this ACL: **HA**. Changing HA resources needs `Sys.Console` on `/`, which breaks pool isolation; sell VPS products without module-managed HA when using a limited user. Datacenter-registered tags may also need `Sys.Modify` on `/` (see below); the POC used unregistered `suspenso`/`cancelado` tags. LXC plans were not exercised with this ACL.
 
 #### Credentials: VNC user for Console Access only
 
