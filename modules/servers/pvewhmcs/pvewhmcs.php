@@ -251,6 +251,9 @@ function pvewhmcs_guest_provisioning_error($guest) {
 	if ($state === 'allocating') {
 		return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome; it is blocked pending administrative investigation.";
 	}
+	if ($state === 'ha_pending') {
+		return "Error: VMID {$vmid} was created, but its HA registration is incomplete; retry CreateAccount to finish it before operating the guest.";
+	}
 	if ($state === 'failed') {
 		return "Error: provisioning for VMID {$vmid} failed and remains reserved; resolve the recorded allocation before operating the guest.";
 	}
@@ -492,35 +495,60 @@ function pvewhmcs_set_guest_ha_state(PVE2_API $proxmox, $guest, $state) {
 }
 
 /**
- * ha_mode=on: register a freshly provisioned guest as an HA resource (`started`)
- * and, when the server names one, append it to an HA rule (PVE 9 rules replace
- * groups). Returns null on success or an error string; the guest stays
- * provisioned either way, so a failure only needs the HA side fixed by hand.
+ * ha_mode=on: register a provisioned guest as an HA resource (`started`) and,
+ * when the server names one, append it to an existing HA rule (PVE 9 rules
+ * replace groups). Idempotent: each step is skipped when already done, so a
+ * CreateAccount retry resumes it. Returns null on success or an error string.
  */
-function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $serviceId) {
-	if (pvewhmcs_server_ha_mode($serverId) !== 'on') {
-		return null;
-	}
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first();
+function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 	$sid = pvewhmcs_guest_ha_sid($guest);
 	try {
 		if (pvewhmcs_guest_ha_resource($proxmox, $guest) === null) {
 			$proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'started'));
 		}
 		$rule = trim((string) (pvewhmcs_server_settings($serverId)->ha_rule ?? ''));
-		if ($rule !== '') {
+		// The rule update schema takes no `type`; `digest` makes a concurrent
+		// writer fail instead of being overwritten, so re-read and retry.
+		for ($attempt = 1; $rule !== ''; $attempt++) {
 			$current = (array) $proxmox->get('/cluster/ha/rules/' . rawurlencode($rule));
-			$resources = array_filter(array_map('trim', explode(',', (string) ($current['resources'] ?? ''))));
-			if (!in_array($sid, $resources, true)) {
-				$resources[] = $sid;
-				$proxmox->put('/cluster/ha/rules/' . rawurlencode($rule), array('type' => $current['type'] ?? 'node-affinity', 'resources' => implode(',', $resources)));
+			$resources = array_values(array_filter(array_map('trim', explode(',', (string) ($current['resources'] ?? '')))));
+			if (in_array($sid, $resources, true)) {
+				break;
+			}
+			$resources[] = $sid;
+			try {
+				$proxmox->put('/cluster/ha/rules/' . rawurlencode($rule), array('resources' => implode(',', $resources), 'digest' => (string) ($current['digest'] ?? '')));
+				break;
+			} catch (PVE2_Exception $e) {
+				if ($attempt >= 3) {
+					throw $e;
+				}
 			}
 		}
 	} catch (\Throwable $e) {
-		return "Error: guest {$sid} was provisioned, but registering it in HA failed (add it to HA manually): {$e->getMessage()}";
+		return "Error: guest {$sid} was provisioned, but its HA registration is incomplete; retry CreateAccount to finish it. {$e->getMessage()}";
 	}
 
 	return null;
+}
+
+/**
+ * Last provisioning stage. With HA mode On the guest stays `ha_pending` (lifecycle
+ * blocked, CreateAccount resumes here) until the HA resource and rule exist;
+ * only then is it `ready`.
+ */
+function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId) {
+	if (pvewhmcs_server_ha_mode($serverId) === 'on') {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_state' => 'ha_pending', 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+		$error = pvewhmcs_register_guest_ha($proxmox, $serverId, Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first());
+		if ($error !== null) {
+			Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_error' => $error, 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+			return $error;
+		}
+	}
+	pvewhmcs_provisioning_set_ready($serviceId);
+
+	return 'success';
 }
 
 /**
@@ -1190,6 +1218,12 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		$existing = pvewhmcs_locked_provisioning_guest($serviceId, $serverId);
 		if ($existing !== null) {
 			$state = (string) ($existing->provisioning_state ?? 'ready');
+			if ($state === 'ha_pending') {
+				if (!$proxmox->login()) {
+					return "Error: VMID {$existing->vmid} awaits its HA registration, but PVE login failed; retry CreateAccount.";
+				}
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+			}
 			if ($state !== 'pending' || !pvewhmcs_is_upid($existing->provisioning_upid ?? null)) {
 				return pvewhmcs_existing_provisioning_create_result($existing);
 			}
@@ -1201,8 +1235,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (($existing->provisioning_mode ?? null) === 'clone') {
 					pvewhmcs_resume_pending_clone($proxmox, $params, $existing);
 				}
-				pvewhmcs_provisioning_set_ready($serviceId);
-				return pvewhmcs_register_guest_ha($proxmox, $serverId, $serviceId) ?? 'success';
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
 			} catch (PVE2_Exception $e) {
 				return "Error: provisioning for VMID {$existing->vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 			} catch (RuntimeException $e) {
@@ -1294,8 +1327,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			if ($isClone) {
 				pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $templateNode, $vmid);
 			}
-			pvewhmcs_provisioning_set_ready($serviceId);
-			return pvewhmcs_register_guest_ha($proxmox, $serverId, $serviceId) ?? 'success';
+			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
 		} catch (PVE2_Exception $e) {
 			return "Error: provisioning for VMID {$vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 		} catch (RuntimeException $e) {
