@@ -303,6 +303,34 @@ function pvewhmcs_wait_recorded_provisioning_task(PVE2_API $proxmox, $serviceId,
 }
 
 /**
+ * Proxmox validates parameters (400) and permissions (403) synchronously,
+ * before the create/clone worker exists. Any other failure (timeouts, 5xx,
+ * proxy errors) leaves the outcome uncertain and keeps the reservation.
+ */
+function pvewhmcs_is_pre_creation_rejection(\Throwable $e) {
+	return $e instanceof PVE2_Exception && preg_match('/\nHTTP CODE: (400|403),\n/', $e->getMessage()) === 1;
+}
+
+/**
+ * Undo an `allocating` marker after a proven pre-creation rejection, with the
+ * same lock order as allocation (address row, then service, then marker).
+ */
+function pvewhmcs_release_rejected_marker($serviceId, $vmid, $ipaddress) {
+	Capsule::connection()->transaction(function () use ($serviceId, $vmid, $ipaddress) {
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('ipaddress', '=', $ipaddress)->lock('for update')->first();
+		Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
+		$deleted = Capsule::table('mod_pvewhmcs_vms')
+			->where('id', (int) $serviceId)
+			->where('vmid', (int) $vmid)
+			->where('provisioning_state', '=', 'allocating')
+			->delete();
+		if ($deleted === 1) {
+			Capsule::table('tblhosting')->where('id', (int) $serviceId)->where('dedicatedip', '=', $ipaddress)->update(array('dedicatedip' => ''));
+		}
+	});
+}
+
+/**
  * Under the server VMID lock, lock a candidate pool address before the target
  * service and write the irreversible marker before a create/clone POST. The
  * dedicated IP changes in this same transaction, so a process death cannot
@@ -1212,6 +1240,10 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		try {
 			$response = $proxmox->post($path, $settings);
 		} catch (\Throwable $e) {
+			if (pvewhmcs_is_pre_creation_rejection($e)) {
+				pvewhmcs_release_rejected_marker($serviceId, $vmid, $ip->ipaddress);
+				return "Error: Proxmox rejected the request before creating VMID {$vmid}; the IP and VMID were released and CreateAccount can be retried. {$e->getMessage()}";
+			}
 			return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome after the Proxmox request; no retry will create another guest. {$e->getMessage()}";
 		}
 		if (pvewhmcs_debug_enabled()) {
