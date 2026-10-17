@@ -151,3 +151,10 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   PRIMARY KEY (`id`),
   KEY `provisioning_state` (`provisioning_state`)
 );
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_servers` (
+  `server_id` int(10) unsigned NOT NULL,
+  `pve_pool` varchar(64) DEFAULT NULL,
+  `ha_mode` varchar(8) DEFAULT NULL,
+  `ha_rule` varchar(64) DEFAULT NULL,
+  PRIMARY KEY (`server_id`)
+);
