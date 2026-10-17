@@ -1499,7 +1499,7 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	$suspendedByModule = (int) ($guest->ha_suspended ?? 0) === 1;
 	if ($haState !== null && !($haState === 'stopped' && $suspendedByModule)) {
 		$sid = pvewhmcs_guest_ha_sid($guest);
