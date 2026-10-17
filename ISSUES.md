@@ -32,5 +32,5 @@ Todos os 12 itens abaixo foram implementados e verificados com smoke tests (fake
 ## Fora de código nesta rodada
 
 - Merge da branch `fix/production-readiness` em `master`.
-- Deploy manual no site staging `staging.example` e do relay `73d396a`.
+- Deploy manual no site de staging e do relay `73d396a`.
 - O usuário vai trocar a senha de `vnc@pve` depois do deploy.
