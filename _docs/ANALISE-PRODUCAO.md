@@ -77,7 +77,7 @@ Fora do código, em 2026-10-03:
    - Push concorrente recebe `409` e o GitHub não reenvia.
    - Reenviar uma entrega antiga faz rollback da produção.
    - A troca de arquivos não é atômica e não há `set_time_limit`.
-   - O webhook (685685824) foi **desativado por decisão do dono** — a remoção do endpoint está planejada; os motivos acima continuam sendo a razão de ele permanecer desligado.
+   - O webhook foi **desativado por decisão do dono** — a remoção do endpoint está planejada; os motivos acima continuam sendo a razão de ele permanecer desligado.
 
 ### Média
 
