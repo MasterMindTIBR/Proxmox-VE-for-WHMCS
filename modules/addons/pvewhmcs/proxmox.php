@@ -105,13 +105,35 @@ function pvewhmcs_cloud_init_user(): ?string {
 }
 
 /**
- * Proxmox resource pool for new guests. Blank sends no pool; a configured one
- * keeps clones and direct creates inside the pool a limited API user manages.
+ * Per-connection settings (mod_pvewhmcs_servers) of a WHMCS server, or null.
  */
-function pvewhmcs_pve_pool(): ?string {
-	$value = trim((string) Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('pve_pool'));
+function pvewhmcs_server_settings($serverId) {
+	return Capsule::table('mod_pvewhmcs_servers')->where('server_id', '=', (int) $serverId)->first();
+}
+
+/**
+ * Proxmox resource pool for new guests: the server's own pool, else the global
+ * Module Config pool. Blank sends no pool; a configured one keeps clones and
+ * direct creates inside the pool a limited API user manages.
+ */
+function pvewhmcs_pve_pool($serverId = 0): ?string {
+	$value = trim((string) (pvewhmcs_server_settings($serverId)->pve_pool ?? ''));
+	if ($value === '') {
+		$value = trim((string) Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('pve_pool'));
+	}
 
 	return $value === '' ? null : $value;
+}
+
+/**
+ * HA handling for a server: `off` never calls /cluster/ha (standalone PVE or no
+ * Sys.Audit/Sys.Console on /); `on` makes every new guest an HA resource;
+ * `auto` (unset, the pre-existing behaviour) only manages existing resources.
+ */
+function pvewhmcs_server_ha_mode($serverId): string {
+	$mode = (string) (pvewhmcs_server_settings($serverId)->ha_mode ?? '');
+
+	return in_array($mode, array('off', 'on'), true) ? $mode : 'auto';
 }
 
 function pvewhmcs_normalize_guest_dns_servers($servers, $label): string {
