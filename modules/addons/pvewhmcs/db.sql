@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `cloud_init_user` varchar(32) DEFAULT NULL,
   `guest_dns_ipv4` varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6',
   `guest_dns_ipv6` varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1',
+  `pve_pool` varchar(64) DEFAULT NULL,
   `schema_version` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 );
@@ -149,4 +150,11 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `provisioning_updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `provisioning_state` (`provisioning_state`)
+);
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_servers` (
+  `server_id` int(10) unsigned NOT NULL,
+  `pve_pool` varchar(64) DEFAULT NULL,
+  `ha_mode` varchar(8) DEFAULT NULL,
+  `ha_rule` varchar(64) DEFAULT NULL,
+  PRIMARY KEY (`server_id`)
 );

@@ -6,6 +6,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1.3.8 shape on every callback — existing installs self-heal without manual SQL (`schema_version` marker in `mod_pvewhmcs`). Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
 
 ### 🚀 Feature
+- Connections: API token authentication — a WHMCS server username `user@realm!tokenid` uses `Authorization: PVEAPIToken` with the token secret stored (encrypted by WHMCS) in the server password field; no ticket/CSRF. The console keeps using `vnc@pve`.
+- Addon: **Per-server settings** in Module Config (`mod_pvewhmcs_servers`, created automatically): pool override per WHMCS server and HA mode — *Off* never calls `/cluster/ha` (standalone PVE, no privileges on `/`), *On* registers every new guest as an HA resource (`started`, optional PVE 9 HA rule) and drives Suspend/Unsuspend/Terminate and the power buttons through the HA state, *Legacy* (default) keeps the previous behaviour.
+- Connections: The WHMCS server username may be `user@realm` (e.g. `whmcs@pve`); the realm in the username overrides the built-in `pam` default on every login path (provisioning, client area, console, admin link, Nodes/Guests/Logs).
+- Provisioning: New **Proxmox Pool** in Module Config (`mod_pvewhmcs.pve_pool`, repaired automatically). When set, clones and direct LXC/QEMU creates send `pool=<pool>`, so a limited API user with permissions on `/pool/<pool>` keeps access to the guests it creates. Blank keeps the previous behaviour.
 - Provisioning: Recoverable CreateAccount — an irreversible allocation marker (VMID, node, IP, mode) is written before the Proxmox call; the returned task UPID is recorded and awaited; failed tasks keep the IP and VMID reserved as `failed`; an uncertain crash between marker and POST blocks the guest pending admin review; a retry resumes the recorded task instead of creating a second guest.
 - Provisioning: QEMU clone source must be a real template (`template=1`); the post-clone `PUT /config` is awaited when Proxmox returns a task, and the start task is awaited before finishing.
 - Provisioning: Module Config now controls IPv4/IPv6 DNS servers for new LXC and QEMU guests, plus the optional QEMU Cloud-Init user. Leaving the user blank preserves the template image default; a configured username is sent as `ciuser` with the provisioned password.
@@ -18,6 +22,13 @@ Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1
 - Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
 
 ### 🐛 Bug Fix
+- Provisioning (HA On): the guest stays `ha_pending` until its HA resource and optional HA rule exist; CreateAccount resumes that stage instead of reporting the service as already linked, and lifecycle actions are refused meanwhile.
+- Provisioning (HA On): the HA rule update sends the rule's `type` (required by PVE 9.2) with `resources` and `digest`, re-reading and retrying on a concurrent change.
+- Provisioning (HA): Suspend, Unsuspend and Terminate change the HA state before the guest config, so an HA failure (e.g. no `Sys.Console`) leaves the guest untouched; a retry after a later failure resumes. Suspend no longer sends a direct stop to an HA guest.
+- Provisioning (HA): Start/Stop/Shutdown of an HA-managed guest change the HA desired state instead of `status/start|stop`; a Stop followed by a Start no longer leaves the guest stopped (queued CRM stop command).
+- Provisioning: Terminate's error for a guest hidden from the API user now says the VMID could not be confirmed free (in use outside the pool/ACL, or the check failed).
+- Provisioning: Terminate no longer deletes the service link when the guest is merely hidden from the API user (e.g. moved out of its pool); the link is removed only when `/cluster/nextid` confirms the VMID is free, otherwise an error is returned and the guest is kept.
+- Provisioning: A create/clone rejected by Proxmox with HTTP 400/403 (before any task starts) releases the `allocating` marker, IP and VMID so CreateAccount can be retried; uncertain failures keep the reservation.
 - Provisioning: Cancelled services keep their IPv4 reserved (out of allocation and deletion, single/bulk/pool) until an admin releases it in **Reserved IPv4**.
 - Provisioning: Power buttons (Start/Reboot/Shutdown/Stop) wait for the Proxmox task and report failure/timeout instead of instant success.
 - Provisioning (HA): Unsuspend reads the HA resource before touching tags/config; a guest whose HA state changed outside the module — or that is HA-managed without a module-recorded suspension — returns an error and is left unchanged.

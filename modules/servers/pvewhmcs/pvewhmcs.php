@@ -251,6 +251,9 @@ function pvewhmcs_guest_provisioning_error($guest) {
 	if ($state === 'allocating') {
 		return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome; it is blocked pending administrative investigation.";
 	}
+	if ($state === 'ha_pending') {
+		return "Error: VMID {$vmid} was created, but its HA registration is incomplete; retry CreateAccount to finish it before operating the guest.";
+	}
 	if ($state === 'failed') {
 		return "Error: provisioning for VMID {$vmid} failed and remains reserved; resolve the recorded allocation before operating the guest.";
 	}
@@ -300,6 +303,34 @@ function pvewhmcs_wait_recorded_provisioning_task(PVE2_API $proxmox, $serviceId,
 		pvewhmcs_provisioning_set_failed($serviceId, $e->getMessage());
 		throw $e;
 	}
+}
+
+/**
+ * Proxmox validates parameters (400) and permissions (403) synchronously,
+ * before the create/clone worker exists. Any other failure (timeouts, 5xx,
+ * proxy errors) leaves the outcome uncertain and keeps the reservation.
+ */
+function pvewhmcs_is_pre_creation_rejection(\Throwable $e) {
+	return $e instanceof PVE2_Exception && preg_match('/\nHTTP CODE: (400|403),\n/', $e->getMessage()) === 1;
+}
+
+/**
+ * Undo an `allocating` marker after a proven pre-creation rejection, with the
+ * same lock order as allocation (address row, then service, then marker).
+ */
+function pvewhmcs_release_rejected_marker($serviceId, $vmid, $ipaddress) {
+	Capsule::connection()->transaction(function () use ($serviceId, $vmid, $ipaddress) {
+		Capsule::table('mod_pvewhmcs_ip_addresses')->where('ipaddress', '=', $ipaddress)->lock('for update')->first();
+		Capsule::table('tblhosting')->where('id', (int) $serviceId)->lock('for update')->first();
+		$deleted = Capsule::table('mod_pvewhmcs_vms')
+			->where('id', (int) $serviceId)
+			->where('vmid', (int) $vmid)
+			->where('provisioning_state', '=', 'allocating')
+			->delete();
+		if ($deleted === 1) {
+			Capsule::table('tblhosting')->where('id', (int) $serviceId)->where('dedicatedip', '=', $ipaddress)->update(array('dedicatedip' => ''));
+		}
+	});
 }
 
 /**
@@ -444,7 +475,11 @@ function pvewhmcs_guest_ha_resource(PVE2_API $proxmox, $guest) {
  * without an explicit state (or with the `enabled` alias) is `started`, as in
  * the Proxmox HA config defaults.
  */
-function pvewhmcs_guest_ha_state(PVE2_API $proxmox, $guest) {
+function pvewhmcs_guest_ha_state(PVE2_API $proxmox, $guest, $haMode = 'auto') {
+	if ($haMode === 'off') {
+		// ha_mode=off: never touch /cluster/ha (standalone PVE, no Sys.Audit on /).
+		return null;
+	}
 	$resource = pvewhmcs_guest_ha_resource($proxmox, $guest);
 	if ($resource === null) {
 		return null;
@@ -457,6 +492,64 @@ function pvewhmcs_guest_ha_state(PVE2_API $proxmox, $guest) {
 
 function pvewhmcs_set_guest_ha_state(PVE2_API $proxmox, $guest, $state) {
 	return $proxmox->put('/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest), array('state' => $state));
+}
+
+/**
+ * ha_mode=on: register a provisioned guest as an HA resource (`started`) and,
+ * when the server names one, append it to an existing HA rule (PVE 9 rules
+ * replace groups). Idempotent: each step is skipped when already done, so a
+ * CreateAccount retry resumes it. Returns null on success or an error string.
+ */
+function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
+	$sid = pvewhmcs_guest_ha_sid($guest);
+	try {
+		if (pvewhmcs_guest_ha_resource($proxmox, $guest) === null) {
+			$proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'started'));
+		}
+		$rule = trim((string) (pvewhmcs_server_settings($serverId)->ha_rule ?? ''));
+		// PVE 9.2 selects the rule update schema by `type` (required; without it
+		// `resources` is rejected). `digest` makes a concurrent writer fail
+		// instead of being overwritten, so re-read and retry.
+		for ($attempt = 1; $rule !== ''; $attempt++) {
+			$current = (array) $proxmox->get('/cluster/ha/rules/' . rawurlencode($rule));
+			$resources = array_values(array_filter(array_map('trim', explode(',', (string) ($current['resources'] ?? '')))));
+			if (in_array($sid, $resources, true)) {
+				break;
+			}
+			$resources[] = $sid;
+			try {
+				$proxmox->put('/cluster/ha/rules/' . rawurlencode($rule), array('type' => (string) ($current['type'] ?? ''), 'resources' => implode(',', $resources), 'digest' => (string) ($current['digest'] ?? '')));
+				break;
+			} catch (PVE2_Exception $e) {
+				if ($attempt >= 3) {
+					throw $e;
+				}
+			}
+		}
+	} catch (\Throwable $e) {
+		return "Error: guest {$sid} was provisioned, but its HA registration is incomplete; retry CreateAccount to finish it. {$e->getMessage()}";
+	}
+
+	return null;
+}
+
+/**
+ * Last provisioning stage. With HA mode On the guest stays `ha_pending` (lifecycle
+ * blocked, CreateAccount resumes here) until the HA resource and rule exist;
+ * only then is it `ready`.
+ */
+function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId) {
+	if (pvewhmcs_server_ha_mode($serverId) === 'on') {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_state' => 'ha_pending', 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+		$error = pvewhmcs_register_guest_ha($proxmox, $serverId, Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first());
+		if ($error !== null) {
+			Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_error' => $error, 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+			return $error;
+		}
+	}
+	pvewhmcs_provisioning_set_ready($serviceId);
+
+	return 'success';
 }
 
 /**
@@ -1126,6 +1219,12 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		$existing = pvewhmcs_locked_provisioning_guest($serviceId, $serverId);
 		if ($existing !== null) {
 			$state = (string) ($existing->provisioning_state ?? 'ready');
+			if ($state === 'ha_pending') {
+				if (!$proxmox->login()) {
+					return "Error: VMID {$existing->vmid} awaits its HA registration, but PVE login failed; retry CreateAccount.";
+				}
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+			}
 			if ($state !== 'pending' || !pvewhmcs_is_upid($existing->provisioning_upid ?? null)) {
 				return pvewhmcs_existing_provisioning_create_result($existing);
 			}
@@ -1137,8 +1236,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (($existing->provisioning_mode ?? null) === 'clone') {
 					pvewhmcs_resume_pending_clone($proxmox, $params, $existing);
 				}
-				pvewhmcs_provisioning_set_ready($serviceId);
-				return 'success';
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
 			} catch (PVE2_Exception $e) {
 				return "Error: provisioning for VMID {$existing->vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 			} catch (RuntimeException $e) {
@@ -1203,12 +1301,19 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			$settings['vmid'] = $vmid;
 			$settings[$guestType === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title);
 		}
+		if (($pool = pvewhmcs_pve_pool($serverId)) !== null) {
+			$settings['pool'] = $pool;
+		}
 		$path = $isClone
 			? '/nodes/' . $templateNode . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone'
 			: '/nodes/' . $templateNode . '/' . $guestType;
 		try {
 			$response = $proxmox->post($path, $settings);
 		} catch (\Throwable $e) {
+			if (pvewhmcs_is_pre_creation_rejection($e)) {
+				pvewhmcs_release_rejected_marker($serviceId, $vmid, $ip->ipaddress);
+				return "Error: Proxmox rejected the request before creating VMID {$vmid}; the IP and VMID were released and CreateAccount can be retried. {$e->getMessage()}";
+			}
 			return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome after the Proxmox request; no retry will create another guest. {$e->getMessage()}";
 		}
 		if (pvewhmcs_debug_enabled()) {
@@ -1223,8 +1328,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			if ($isClone) {
 				pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $templateNode, $vmid);
 			}
-			pvewhmcs_provisioning_set_ready($serviceId);
-			return 'success';
+			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
 		} catch (PVE2_Exception $e) {
 			return "Error: provisioning for VMID {$vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 		} catch (RuntimeException $e) {
@@ -1371,11 +1475,11 @@ function pvewhmcs_params_api(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor.
-// Refuses CANCELADO guests. Writes onboot=0 + SUSPENSO first (one config PUT,
-// before any HA/power change can hold the guest's config lock); then an HA
-// resource in `started` is set to `stopped` and recorded in ha_suspended (kept
-// at 1 when a previous partial suspend already did it); finally the guest is
-// stopped (task awaited).
+// Refuses CANCELADO guests. An HA resource in `started` is first set to
+// `stopped` and recorded in ha_suspended (kept at 1 when a previous partial
+// suspend already did it); then onboot=0 + SUSPENSO (one config PUT); finally
+// a guest without HA is stopped directly (task awaited) — HA guests are
+// stopped by the CRM.
 function pvewhmcs_SuspendAccount_impl(array $params) {
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 	if ($guest === null) {
@@ -1404,13 +1508,11 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 		return 'Error: guest is marked CANCELADO (cancelled service); suspend refused.';
 	}
 
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
-
-	// Only transition HA for a guest that is already HA-managed. `ha_suspended`
-	// records that the module itself stopped HA, so UnsuspendAccount knows to
-	// restore it. A retry after a partial suspend finds HA already `stopped`
-	// with ha_suspended=1 and must not forget that.
-	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	// HA is read and written before the guest config: an HA permission or API
+	// failure aborts with nothing changed. `ha_suspended` is persisted right
+	// after the HA write, so a retry after a failed config write resumes
+	// (HA already `stopped` with ha_suspended=1) instead of forgetting it.
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	if ($haState === 'started') {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'stopped');
 		$haSuspended = 1;
@@ -1421,10 +1523,16 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	}
 	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haSuspended]);
 
-	$status = $proxmox->get($guestPath . '/status/current');
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
+
+	// An HA-managed guest is stopped by the CRM; a direct stop would be a
+	// queued CRM command that can override a later Unsuspend.
 	$stopTask = null;
-	if (($status['status'] ?? null) !== 'stopped') {
-		$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+	if ($haState === null || $haState === 'ignored') {
+		$status = $proxmox->get($guestPath . '/status/current');
+		if (($status['status'] ?? null) !== 'stopped') {
+			$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
+		}
 	}
 
 	if (pvewhmcs_debug_enabled()) {
@@ -1464,9 +1572,11 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	}
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
-	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	$suspendedByModule = (int) ($guest->ha_suspended ?? 0) === 1;
-	if ($haState !== null && !($haState === 'stopped' && $suspendedByModule)) {
+	// `started` with ha_suspended=1 is a previous Unsuspend whose config write
+	// failed after HA was restored: resume it.
+	if ($haState !== null && !(in_array($haState, array('stopped', 'started'), true) && $suspendedByModule)) {
 		$sid = pvewhmcs_guest_ha_sid($guest);
 		return "Error unsuspending: HA resource {$sid} is in state '{$haState}' and this module did not record suspending it; guest not changed. Resolve the HA state and retry.";
 	}
@@ -1482,11 +1592,11 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	$planOnboot = !empty($params['configoption1'])
 		&& !empty(Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'])->value('onboot'));
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
-
+	// HA first (see Suspend): a failed HA write leaves the guest untouched.
 	if ($haRestore) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'started');
 	}
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
 	$startTask = null;
 	if ($directStart) {
 		$status = $proxmox->get($guestPath . '/status/current');
@@ -1504,10 +1614,10 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Cancel a Service on the hypervisor.
-// The guest is retained for recovery: onboot=0 + CANCELADO first (one config
-// PUT), then the HA resource is set to `disabled` only if one already exists
-// (never create one; the CRM then stops the guest, so no direct stop is sent
-// for HA guests); other guests are stopped directly (task awaited).
+// The guest is retained for recovery: an existing HA resource is first set to
+// `disabled` (never create one; the CRM then stops the guest, so no direct
+// stop is sent for HA guests); then onboot=0 + CANCELADO (one config PUT);
+// other guests are stopped directly (task awaited).
 // The service-to-VM mapping is retained, except when the VMID is gone from the
 // cluster or now belongs to another service (stale row removed).
 function pvewhmcs_TerminateAccount_impl(array $params) {
@@ -1525,6 +1635,11 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
+		// /cluster/resources is filtered by VM.Audit: a guest moved out of the
+		// API user's pool is hidden, not gone. Only a free VMID proves deletion.
+		if (!pvewhmcs_vmid_confirmed_free($proxmox, $guest->vmid)) {
+			return "Error cancelling account: VMID {$guest->vmid} is not visible to the Proxmox API user, and Proxmox did not confirm that the VMID is free (it may be in use outside the user's pool/ACL, or the check failed). The guest link was kept; check permissions and connectivity, then retry.";
+		}
 		Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 		return "success";
 	}
@@ -1537,15 +1652,18 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 
 	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
 	$config = (array) $proxmox->get($guestPath . '/config');
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
-
+	// HA first (see Suspend): a failed HA write leaves the guest untouched, and
+	// a retry after a failed config write sets `disabled` again (idempotent).
 	// A direct stop of an HA guest becomes an HA stop request that rewrites the
 	// resource state to `stopped`, so HA guests are only set to `disabled`.
-	$haState = pvewhmcs_guest_ha_state($proxmox, $guest);
-	$stopTask = null;
+	$haState = pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params)));
 	if ($haState !== null) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'disabled');
-	} else {
+	}
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
+
+	$stopTask = null;
+	if ($haState === null) {
 		$status = $proxmox->get($guestPath . '/status/current');
 		if (($status['status'] ?? null) !== 'stopped') {
 			$stopTask = pvewhmcs_guest_power_and_wait($proxmox, $guestPath, 'stop');
@@ -2005,7 +2123,7 @@ function pvewhmcs_power_target(array $params) {
 		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
 	}
 
-	return array($proxmox, pvewhmcs_guest_api_path($guest_node, $guest), $serverpassword);
+	return array($proxmox, pvewhmcs_guest_api_path($guest_node, $guest), $serverpassword, $guest);
 }
 
 function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params, $serverpassword) {
@@ -2020,7 +2138,17 @@ function pvewhmcs_power_debug_log($action, $logrequest, $response, array $params
  * is reported as an error (a thrown PVE2_Exception propagates to the tracked
  * action wrapper, which records and re-throws it).
  */
-function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword) {
+function pvewhmcs_guest_power_action(PVE2_API $proxmox, $guestPath, $command, $action, array $params, $serverpassword, $guest = null) {
+	// An HA-managed guest is powered through its HA desired state: a direct
+	// status/stop becomes a queued CRM command that can override a later start.
+	if ($guest !== null && in_array($command, array('start', 'stop', 'shutdown'), true)
+		&& pvewhmcs_guest_ha_state($proxmox, $guest, pvewhmcs_server_ha_mode(pvewhmcs_service_server_id($params))) !== null) {
+		$state = $command === 'start' ? 'started' : 'stopped';
+		$response = pvewhmcs_set_guest_ha_state($proxmox, $guest, $state);
+		pvewhmcs_power_debug_log($action, '/cluster/ha/resources/' . pvewhmcs_guest_ha_sid($guest) . ' state=' . $state, $response, $params, $serverpassword);
+
+		return "success";
+	}
 	$logrequest = $guestPath . '/status/' . $command;
 	$response = $proxmox->post($logrequest, array());
 	pvewhmcs_power_debug_log($action, $logrequest, $response, $params, $serverpassword);
@@ -2038,9 +2166,9 @@ function pvewhmcs_vmStart_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'start', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT (starts it when stopped)
@@ -2063,9 +2191,9 @@ function pvewhmcs_vmShutdown_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'shutdown', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Stop the VM/CT
@@ -2074,9 +2202,9 @@ function pvewhmcs_vmStop_impl($params) {
 	if (is_string($target)) {
 		return $target;
 	}
-	list($proxmox, $guestPath, $serverpassword) = $target;
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
 
-	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword);
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'stop', __FUNCTION__, $params, $serverpassword, $guest);
 }
 
 /**
@@ -2125,6 +2253,18 @@ function pvewhmcs_find_guest_resource(PVE2_API $proxmox, $guest, $cluster_resour
 	}
 
 	return null;
+}
+
+/**
+ * True only when Proxmox confirms the VMID is free cluster-wide. Unlike
+ * /cluster/resources, /cluster/nextid?vmid= is not filtered by guest ACLs.
+ */
+function pvewhmcs_vmid_confirmed_free(PVE2_API $proxmox, $vmid) {
+	try {
+		return (int) $proxmox->get('/cluster/nextid?vmid=' . (int) $vmid) === (int) $vmid;
+	} catch (\Throwable $e) {
+		return false;
+	}
 }
 
 /**

@@ -621,6 +621,11 @@ function pvewhmcs_output($vars) {
 		save_config() ;
 	}
 
+	if (isset($_POST['save_server_settings']))
+	{
+		pvewhmcs_save_server_settings() ;
+	}
+
 	// NODES / GUESTS tab in ADMIN GUI
 	// Every tab is real navigation (`&tab=...`) and only the requested tab's
 	// body runs. Nodes, Guests and Logs call Proxmox (login + /cluster/resources
@@ -1348,6 +1353,15 @@ function pvewhmcs_output($vars) {
 		</td>
 	</tr>
 	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Proxmox Pool</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" maxlength="64" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="pve_pool" id="pve_pool" placeholder="No pool" value="' . htmlspecialchars((string) $config->pve_pool, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Resource pool sent as <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">pool</code> on every new clone and direct LXC/QEMU create. Required when the WHMCS server user is a limited Proxmox user whose permissions are granted on <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">/pool/&lt;pool&gt;</code>. Leave blank to create guests outside any pool. A pool set for a server in Per-server settings below overrides this one.</p>
+		</td>
+	</tr>
+	<tr>
 		<td style="padding:15px 0;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">Debug Mode</label>
 		</td>
@@ -1366,6 +1380,7 @@ function pvewhmcs_output($vars) {
 	</div>
 	</form>
 	</div>
+	' . pvewhmcs_server_settings_form() . '
 	<a href="' . PVEWHMCS_REPO_URL . '" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>
 	';
@@ -1693,6 +1708,10 @@ function save_config() {
 		}
 		$guest_dns_ipv4 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv4'] ?? '', 'Guest IPv4 DNS Servers');
 		$guest_dns_ipv6 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv6'] ?? '', 'Guest IPv6 DNS Servers');
+		$pve_pool = trim((string) ($_POST['pve_pool'] ?? ''));
+		if ($pve_pool !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/', $pve_pool) !== 1) {
+			throw new InvalidArgumentException('Proxmox Pool must be empty or a Proxmox pool ID up to 64 characters (letters, digits, _ . -).');
+		}
 
 		$update = [
 			'start_vmid' => $start_vmid,
@@ -1703,6 +1722,7 @@ function save_config() {
 			'cloud_init_user' => $cloud_init_user !== '' ? $cloud_init_user : null,
 			'guest_dns_ipv4' => $guest_dns_ipv4,
 			'guest_dns_ipv6' => $guest_dns_ipv6,
+			'pve_pool' => $pve_pool !== '' ? $pve_pool : null,
 		];
 
 		// Secrets are masked (blank) in the form; only overwrite the stored
@@ -1729,6 +1749,92 @@ function save_config() {
 		header("Location: ".pvewhmcs_BASEURL."&tab=config");
 	} catch (\Throwable $e) {
 		echo '<div class="alert alert-danger">Module Config was not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
+	}
+}
+
+// MODULE CONFIG: per-connection settings (one row per pvewhmcs WHMCS server).
+function pvewhmcs_server_settings_form() {
+	$servers = Capsule::table('tblservers')->where('type', '=', 'pvewhmcs')->orderBy('id', 'asc')->get();
+	$globalPool = trim((string) Capsule::table('mod_pvewhmcs')->where('id', 1)->value('pve_pool'));
+	$e = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+	$rows = '';
+	foreach ($servers as $server) {
+		$s = pvewhmcs_server_settings($server->id);
+		$id = (int) $server->id;
+		$mode = (string) ($s->ha_mode ?? '');
+		$options = '';
+		foreach (array('' => 'Legacy (manage existing HA only)', 'off' => 'Off (never call HA API)', 'on' => 'On (new guests become HA resources)') as $value => $label) {
+			$options .= '<option value="' . $e($value) . '"' . ($mode === $value ? ' selected' : '') . '>' . $e($label) . '</option>';
+		}
+		$auth = strpos((string) $server->username, '!') !== false ? 'API token' : 'Password';
+		$rows .= '<tr>'
+			. '<td style="padding:8px;">' . $e($server->name) . ' <span style="color:#888;">#' . $id . '</span><br><code>' . $e($server->username) . '</code></td>'
+			. '<td style="padding:8px;">' . $auth . '</td>'
+			. '<td style="padding:8px;"><input type="text" maxlength="64" name="servers[' . $id . '][pve_pool]" value="' . $e($s->pve_pool ?? '') . '" placeholder="' . $e($globalPool !== '' ? 'Global: ' . $globalPool : 'No pool') . '" style="width:180px;"></td>'
+			. '<td style="padding:8px;"><select name="servers[' . $id . '][ha_mode]">' . $options . '</select></td>'
+			. '<td style="padding:8px;"><input type="text" maxlength="64" name="servers[' . $id . '][ha_rule]" value="' . $e($s->ha_rule ?? '') . '" placeholder="Optional HA rule" style="width:160px;"></td>'
+			. '</tr>';
+	}
+	if ($rows === '') {
+		$rows = '<tr><td colspan="5" style="padding:8px;">No WHMCS server of module type pvewhmcs was found.</td></tr>';
+	}
+
+	return '<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:25px;margin:20px 0;">
+	<h3 style="margin:0 0 10px 0;color:#5c3d7a;">Per-server settings</h3>
+	<p style="font-size:13px;color:#666;">Each WHMCS server (Proxmox connection) can override the global pool and choose how HA is handled. <b>Auth</b> follows the server username: <code>user@realm</code> + password, or an API token <code>user@realm!tokenid</code> with the token secret in the server password field. <b>HA Off</b> never reads or changes <code>/cluster/ha</code> (standalone PVE, no <code>Sys.Audit</code>/<code>Sys.Console</code> on <code>/</code>). <b>HA On</b> registers every new guest as an HA resource (<code>started</code>), optionally in the named HA rule; Suspend/Unsuspend/Terminate then switch it to <code>stopped</code>/<code>started</code>/<code>disabled</code>. Deleting such a guest later requires removing its HA resource first. <b style="color:#b91c1c;">HA On needs <code>Sys.Console</code> on <code>/</code>, which lets this API user change, stop, remove or migrate the HA of every guest in the cluster, including guests outside its pool; use it only on a cluster dedicated to this WHMCS.</b> Switching On to Off does not remove existing HA resources.</p>
+	<form method="post">' . pvewhmcs_csrf_field() . '
+	<table style="width:100%;border-collapse:collapse;font-size:13px;">
+	<tr style="text-align:left;border-bottom:1px solid #eee;"><th style="padding:8px;">Server</th><th style="padding:8px;">Auth</th><th style="padding:8px;">Proxmox Pool</th><th style="padding:8px;">HA mode</th><th style="padding:8px;">HA rule</th></tr>
+	' . $rows . '
+	</table>
+	<div style="margin-top:15px;"><input type="submit" style="background:#5c3d7a;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;cursor:pointer;" value="Save server settings" name="save_server_settings"></div>
+	</form></div>';
+}
+
+function pvewhmcs_save_server_settings() {
+	try {
+		$posted = $_POST['servers'] ?? array();
+		if (!is_array($posted)) {
+			throw new InvalidArgumentException('Invalid server settings.');
+		}
+		$validIds = Capsule::table('tblservers')->where('type', '=', 'pvewhmcs')->pluck('id')->map(function ($id) { return (int) $id; })->all();
+		$rows = array();
+		foreach ($posted as $serverId => $values) {
+			$serverId = (int) $serverId;
+			if (!in_array($serverId, $validIds, true) || !is_array($values)) {
+				throw new InvalidArgumentException('Unknown pvewhmcs server.');
+			}
+			$pool = trim((string) ($values['pve_pool'] ?? ''));
+			$haMode = (string) ($values['ha_mode'] ?? '');
+			$haRule = trim((string) ($values['ha_rule'] ?? ''));
+			if ($pool !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/', $pool) !== 1) {
+				throw new InvalidArgumentException("Server #{$serverId}: Proxmox Pool must be empty or a Proxmox pool ID up to 64 characters (letters, digits, _ . -).");
+			}
+			if (!in_array($haMode, array('', 'off', 'on'), true)) {
+				throw new InvalidArgumentException("Server #{$serverId}: invalid HA mode.");
+			}
+			if ($haRule !== '' && preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/', $haRule) !== 1) {
+				throw new InvalidArgumentException("Server #{$serverId}: HA rule must be empty or a Proxmox HA rule ID (letter first; letters, digits, _ . -).");
+			}
+			if ($haRule !== '' && $haMode !== 'on') {
+				throw new InvalidArgumentException("Server #{$serverId}: an HA rule only applies when HA mode is On.");
+			}
+			$rows[$serverId] = array('pve_pool' => $pool !== '' ? $pool : null, 'ha_mode' => $haMode !== '' ? $haMode : null, 'ha_rule' => $haRule !== '' ? $haRule : null);
+		}
+		Capsule::connection()->transaction(function () use ($rows) {
+			foreach ($rows as $serverId => $row) {
+				if ($row['pve_pool'] === null && $row['ha_mode'] === null && $row['ha_rule'] === null) {
+					Capsule::table('mod_pvewhmcs_servers')->where('server_id', $serverId)->delete();
+				} else {
+					Capsule::table('mod_pvewhmcs_servers')->updateOrInsert(array('server_id' => $serverId), $row);
+				}
+			}
+		});
+		$_SESSION['pvewhmcs']['infomsg']['title'] = 'Server settings saved.';
+		$_SESSION['pvewhmcs']['infomsg']['message'] = 'Per-server pool and HA settings have been saved.';
+		header("Location: " . pvewhmcs_BASEURL . "&tab=config");
+	} catch (\Throwable $e) {
+		echo '<div class="alert alert-danger">Server settings were not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
 	}
 }
 

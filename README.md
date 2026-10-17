@@ -74,11 +74,47 @@ Please note specific VNC & Network requirements below - read 100% of the README.
 
 ### 👥 PVE: User x2 Requirement (API & VNC users)
 
-#### Credentials: root account for each PVE host
+#### Credentials: API account for each PVE host
 
-**You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
+Configured via WHMCS > Servers. A bare username (e.g. `root`) logs in on the `pam` realm. Enter `user@realm` (e.g. `whmcs@pve`) to use another realm; the realm in the username always wins.
 
-This is configured in the `pam` realm. 
+All three login modes were validated end to end on PVE 9.2 (TestConnection + create → suspend → unsuspend → terminate): a PAM user (`user@pam`), a PVE realm user with password (`user@pve`) and an API token.
+
+**API token:** enter `user@realm!tokenid` (e.g. `whmcs@pve!whmcs`) as the username and the token **secret** in the server password field (WHMCS encrypts it like any server password). Every request then sends `Authorization: PVEAPIToken=...`; no ticket, cookie or CSRF token is used. A token created with `--privsep 0` has exactly the user's ACL; with privilege separation, grant the same ACL to the token itself. The console still uses the separate `vnc@pve` user and password.
+
+#### Limited API user (resource pool)
+
+The module does not need `root@pam`. A limited user works when every guest it creates lands in a Proxmox resource pool (a simple pool ID such as `RESELLER-1`; nested `parent/child` pools are not accepted by the field). Minimal ACL validated end to end (clone and ISO plans) on Proxmox VE, with custom roles instead of `Administrator`/`PVEVMAdmin`:
+
+| Path | Role (privileges) | Propagate | Why |
+| --- | --- | --- | --- |
+| `/pool/<pool>` | `WHMCS-VPS`: `VM.Allocate`, `VM.Audit`, `VM.PowerMgmt`, `VM.Config.CDROM`, `VM.Config.CPU`, `VM.Config.Cloudinit`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Memory`, `VM.Config.Network`, `VM.Config.Options` | yes | create/clone into the pool, lifecycle, power, tags |
+| `/vms/<template-vmid>` (each clone template, kept **outside** the pool) | `WHMCS-Template`: `VM.Audit`, `VM.Clone` | no | clone source; outside the pool so it does not inherit write access |
+| `/storage/<disk storage>` (e.g. `san-raw`) | `WHMCS-Datastore`: `Datastore.AllocateSpace`, `Datastore.Audit` | no | plan disks |
+| `/storage/local` | `WHMCS-ISORead`: `Datastore.Audit` | no | ISO plans: the module always attaches `local:iso/<file>`, which Proxmox only allows with read access to `local` (otherwise `403 Permission check failed (/storage/local, Datastore.AllocateSpace\|Datastore.Audit)`) |
+| `/sdn/zones/<zone>/<vnet>` | `WHMCS-SDN`: `SDN.Use` | yes | plan bridge/VNet |
+| `/nodes/<node>` | `WHMCS-SysAudit`: `Sys.Audit` | no | node stats/RRD |
+| `/` | `WHMCS-SysAudit`: `Sys.Audit` | no | only for HA mode *Legacy*/*On* (HA reads) and cluster status in AdminLink; not needed with HA mode *Off* |
+| `/` | `WHMCS-HA`: `Sys.Console` | no | HA mode *On* (register/change HA resources) and *Legacy* (change the HA state of guests that already have an HA resource); not needed with *Off* — see the isolation warning below |
+| `/pool/<pool>` for the console user (`vnc@pve`) | `VNC`: `VM.Console` | yes | console only for the reseller's guests, not `/vms` |
+
+Then, in **Addons > Proxmox VE for WHMCS > Module Config**, set **Proxmox Pool** to the pool ID (global default), and under **Per-server settings** optionally override it per WHMCS server. CreateAccount sends `pool=<pool>` on clones and direct LXC/QEMU creates, so the new guest stays inside the user's permissions.
+
+A guest that the API user cannot see (e.g. moved out of the pool) is never treated as deleted: Terminate returns an error and keeps the service link unless `/cluster/nextid` confirms the VMID is free. A create/clone that Proxmox rejects with 400/403 releases the reserved IP and VMID so it can be retried after fixing the ACL.
+
+#### Per-server settings: pool and HA mode
+
+Each WHMCS server of type pvewhmcs (one Proxmox connection) has its own row in **Module Config > Per-server settings**:
+
+- **Proxmox Pool** — overrides the global pool for guests created on that server.
+- **HA mode**
+  - **Off** — the module never reads or changes `/cluster/ha`. Use it for a standalone PVE, or a cluster where the API user has nothing on `/`. Power and lifecycle use direct start/stop.
+  - **On** — every new guest becomes an HA resource (`started`), optionally appended to the named **HA rule** (PVE 9 HA rules; the rule must already exist; the update sends the rule's `type`, `resources` and `digest`, retrying on a concurrent change). Until both steps succeed the guest stays `ha_pending`: lifecycle and power actions are refused and **retrying CreateAccount resumes the HA stage** (no new guest, IP or VMID). Suspend sets it to `stopped`, Unsuspend back to `started`, Terminate to `disabled` (the guest is kept, stopped by the HA manager). The HA write is always the first change: if it fails (e.g. missing `Sys.Console`) nothing on the guest is touched, and a retry after a later failure resumes. Start/Stop/Shutdown buttons change the HA desired state instead of sending direct power commands (a direct stop of an HA guest is a queued CRM command that would override a later start). **Deleting such a guest later requires removing its HA resource first** (`ha-manager remove vm:<vmid>`).
+  - **Legacy** (empty, the default for existing installs) — previous behaviour: never creates HA resources, but manages the HA state of guests that already have one.
+
+**HA isolation warning:** Proxmox checks only `Sys.Console` on `/` for creating, changing, removing, migrating and relocating HA resources — there is no per-VM check. An API user granted it (HA mode *On* or *Legacy*) can therefore change the HA state of **any** HA guest in the cluster, including guests outside its pool (stopping or disabling them), and register any VMID in HA. Granted without propagation, `Sys.Console` on `/` does **not** give node shells (`termproxy`/`vncshell`/`spiceshell` on `/nodes/<node>` stay `403`) nor any access to VMs outside the pool. Use HA mode *On* only where the WHMCS server is trusted with the whole cluster's HA, e.g. a dedicated cluster per reseller; prefer *Off* for shared clusters.
+
+Datacenter-registered tags may also need `Sys.Modify` on `/` (see below); the POC used unregistered `suspenso`/`cancelado` tags. LXC plans were not exercised with this ACL.
 
 #### Credentials: VNC user for Console Access only
 
