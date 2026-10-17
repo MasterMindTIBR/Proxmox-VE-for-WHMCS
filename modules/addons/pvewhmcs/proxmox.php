@@ -513,6 +513,10 @@ class PVE2_API {
 	protected $cluster_node_list = null;
 
 	public function __construct ($hostname, $username, $realm, #[\SensitiveParameter] $password, $port = 8006, $verify_ssl = true) {
+		// Login is ticket-based (/access/ticket); "user@realm!tokenid" would silently become a bogus realm.
+		if (strpos((string) $username, '!') !== false) {
+			throw new PVE2_Exception("PVE2 API: Proxmox API tokens (user@realm!token) are not supported; enter a username (user@realm) and its password.", 9);
+		}
 		// "user@realm" in the WHMCS username field overrides the caller's default realm (e.g. whmcs@pve).
 		$at = strrpos((string) $username, '@');
 		if ($at !== false) {
