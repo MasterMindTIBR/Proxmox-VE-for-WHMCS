@@ -104,6 +104,38 @@ function pvewhmcs_cloud_init_user(): ?string {
 	return $value === '' ? null : $value;
 }
 
+/**
+ * Per-connection settings (mod_pvewhmcs_servers) of a WHMCS server, or null.
+ */
+function pvewhmcs_server_settings($serverId) {
+	return Capsule::table('mod_pvewhmcs_servers')->where('server_id', '=', (int) $serverId)->first();
+}
+
+/**
+ * Proxmox resource pool for new guests: the server's own pool, else the global
+ * Module Config pool. Blank sends no pool; a configured one keeps clones and
+ * direct creates inside the pool a limited API user manages.
+ */
+function pvewhmcs_pve_pool($serverId = 0): ?string {
+	$value = trim((string) (pvewhmcs_server_settings($serverId)->pve_pool ?? ''));
+	if ($value === '') {
+		$value = trim((string) Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('pve_pool'));
+	}
+
+	return $value === '' ? null : $value;
+}
+
+/**
+ * HA handling for a server: `off` never calls /cluster/ha (standalone PVE or no
+ * Sys.Audit/Sys.Console on /); `on` makes every new guest an HA resource;
+ * `auto` (unset, the pre-existing behaviour) only manages existing resources.
+ */
+function pvewhmcs_server_ha_mode($serverId): string {
+	$mode = (string) (pvewhmcs_server_settings($serverId)->ha_mode ?? '');
+
+	return in_array($mode, array('off', 'on'), true) ? $mode : 'auto';
+}
+
 function pvewhmcs_normalize_guest_dns_servers($servers, $label): string {
 	$addresses = preg_split('/[\s,]+/', trim((string) $servers), -1, PREG_SPLIT_NO_EMPTY);
 	if (empty($addresses)) {
@@ -249,6 +281,7 @@ function pvewhmcs_ensure_schema() {
 			'cloud_init_user' => 'varchar(32) DEFAULT NULL',
 			'guest_dns_ipv4' => "varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6'",
 			'guest_dns_ipv6' => "varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1'",
+			'pve_pool' => 'varchar(64) DEFAULT NULL',
 		) as $column => $definition) {
 			pvewhmcs_schema_add_missing_column('mod_pvewhmcs', $column, $definition);
 		}
@@ -499,9 +532,24 @@ class PVE2_API {
 
 	protected $login_ticket = null;
 	protected $login_ticket_timestamp = null;
+	// "user@realm!tokenid" when authenticating with an API token (secret in $password).
+	protected $token_id = null;
 	protected $cluster_node_list = null;
 
 	public function __construct ($hostname, $username, $realm, #[\SensitiveParameter] $password, $port = 8006, $verify_ssl = true) {
+		// "user@realm!tokenid" selects API token auth: the WHMCS password field holds the token secret.
+		if (strpos((string) $username, '!') !== false) {
+			if (!preg_match('/^[^@!\s]+@[A-Za-z][A-Za-z0-9.\-_]*![A-Za-z][A-Za-z0-9.\-_]*$/', (string) $username)) {
+				throw new PVE2_Exception("PVE2 API: API token usernames must look like user@realm!tokenid.", 9);
+			}
+			$this->token_id = (string) $username;
+		}
+		// "user@realm" in the WHMCS username field overrides the caller's default realm (e.g. whmcs@pve).
+		$at = strrpos((string) strtok((string) $username, '!'), '@');
+		if ($at !== false) {
+			$realm    = (string) strtok(substr($username, $at + 1), '!');
+			$username = substr($username, 0, $at);
+		}
 		if (empty($hostname) || empty($username) || empty($realm) || empty($password) || empty($port)) {
 			throw new PVE2_Exception("PVE2 API: Hostname/Username/Realm/Password/Port required for PVE2_API object constructor.", 1);
 		}
@@ -573,16 +621,21 @@ class PVE2_API {
 	public function login () {
 		$this->last_error = null;
 
-		$login_postfields_string = http_build_query(array(
-			'username' => $this->username,
-			'password' => $this->password,
-			'realm' => $this->realm,
-		));
+		if ($this->token_id !== null) {
+			// Tokens have no ticket; GET /version proves the token and secret.
+			$prox_ch = $this->init_curl('/version', array($this->token_header()));
+		} else {
+			$login_postfields_string = http_build_query(array(
+				'username' => $this->username,
+				'password' => $this->password,
+				'realm' => $this->realm,
+			));
 
-		$prox_ch = $this->init_curl('/access/ticket', array());
-		curl_setopt($prox_ch, CURLOPT_POST, true);
-		curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
-		unset($login_postfields_string);
+			$prox_ch = $this->init_curl('/access/ticket', array());
+			curl_setopt($prox_ch, CURLOPT_POST, true);
+			curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
+			unset($login_postfields_string);
+		}
 
 		$login_ticket = curl_exec($prox_ch);
 		$http_code = (int) curl_getinfo($prox_ch, CURLINFO_RESPONSE_CODE);
@@ -613,7 +666,10 @@ class PVE2_API {
 		}
 
 		$login_ticket_data = json_decode($login_ticket, true);
-		if ($http_code !== 200 || !is_array($login_ticket_data) || empty($login_ticket_data['data']['ticket'])) {
+		$login_ok = $this->token_id !== null
+			? !empty($login_ticket_data['data']['version'])
+			: !empty($login_ticket_data['data']['ticket']);
+		if ($http_code !== 200 || !is_array($login_ticket_data) || !$login_ok) {
 			$this->login_ticket = null;
 			$this->login_ticket_timestamp = null;
 			if ($this->verify_ssl && $ssl_verify_result !== 0) {
@@ -621,7 +677,9 @@ class PVE2_API {
 			}
 
 			if ($http_code === 401 || $http_code === 403) {
-				$this->last_error = 'Authentication failed. Check the Proxmox username, password, and authentication realm.';
+				$this->last_error = $this->token_id !== null
+					? 'Authentication failed. Check the API token ID (user@realm!tokenid) and its secret in the password field.'
+					: 'Authentication failed. Check the Proxmox username, password, and authentication realm.';
 			} elseif ($http_code >= 400) {
 				$this->last_error = "Proxmox rejected the login request with HTTP {$http_code}.";
 			} else {
@@ -632,15 +690,23 @@ class PVE2_API {
 		}
 
 		// Login success. get_node_list() loads the node list on first use.
-		$this->login_ticket = $login_ticket_data['data'];
+		// Token mode keeps a ticket-less marker so check_login_ticket() passes.
+		$this->login_ticket = $this->token_id !== null ? array('ticket' => null) : $login_ticket_data['data'];
 		$this->login_ticket_timestamp = time();
 		$this->cluster_node_list = null;
 		return true;
 	}
 
-	# Gets the PVE Access Ticket
+	/*
+	 * Authorization header for API token mode; the secret never goes to logs or URLs.
+	 */
+	private function token_header() {
+		return "Authorization: PVEAPIToken={$this->token_id}={$this->password}";
+	}
+
+	# Gets the PVE Access Ticket (none in API token mode)
 	public function getTicket() {
-		if ($this->login_ticket['ticket']) {
+		if (!empty($this->login_ticket['ticket'])) {
 			return $this->login_ticket['ticket'];
 		} else {
 			return false;
@@ -689,9 +755,14 @@ class PVE2_API {
 			throw new PVE2_Exception("PVE2 API: Not logged into Proxmox. No login Access Ticket found or Ticket expired.", 3);
 		}
 
-		$prox_ch = $this->init_curl($action_path, array("CSRFPreventionToken: {$this->login_ticket['CSRFPreventionToken']}"));
+		if ($this->token_id !== null) {
+			// API tokens are stateless: no cookie and no CSRF token.
+			$prox_ch = $this->init_curl($action_path, array($this->token_header()));
+		} else {
+			$prox_ch = $this->init_curl($action_path, array("CSRFPreventionToken: {$this->login_ticket['CSRFPreventionToken']}"));
+			curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
+		}
 		curl_setopt($prox_ch, CURLOPT_HEADER, true);
-		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
 
 		switch ($http_method) {
 			case "PUT":

@@ -19,7 +19,7 @@ A branch `fix/production-readiness` carrega a `1.3.7` (ainda não liberada): gar
 ## Deploy por webhook
 
 > [!NOTE]
-> O webhook foi **desativado no GitHub** (<webhook-id>) por decisão do dono: o endpoint permanece no código apenas para remoção posterior e **nada é deployado no push**. O deploy passou a ser pacote manual via SSH, conforme `PLAN.md`.
+> O webhook foi **desativado no GitHub** por decisão do dono: o endpoint permanece no código apenas para remoção posterior e **nada é deployado no push**. O deploy passou a ser pacote manual via SSH (`git archive` de um SHA de `master` + manifesto SHA-256).
 
 `modules/addons/pvewhmcs/github-webhook.php` recebe somente `push` HMAC-SHA256 assinado de `MasterMindTIBR/Proxmox-VE-for-WHMCS:master`. O receiver baixa o ZIP do SHA entregue, valida os caminhos e sincroniza somente os diretórios do addon e do provisioning module.
 
