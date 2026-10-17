@@ -507,8 +507,9 @@ function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 			$proxmox->post('/cluster/ha/resources', array('sid' => $sid, 'state' => 'started'));
 		}
 		$rule = trim((string) (pvewhmcs_server_settings($serverId)->ha_rule ?? ''));
-		// The rule update schema takes no `type`; `digest` makes a concurrent
-		// writer fail instead of being overwritten, so re-read and retry.
+		// PVE 9.2 selects the rule update schema by `type` (required; without it
+		// `resources` is rejected). `digest` makes a concurrent writer fail
+		// instead of being overwritten, so re-read and retry.
 		for ($attempt = 1; $rule !== ''; $attempt++) {
 			$current = (array) $proxmox->get('/cluster/ha/rules/' . rawurlencode($rule));
 			$resources = array_values(array_filter(array_map('trim', explode(',', (string) ($current['resources'] ?? '')))));
@@ -517,7 +518,7 @@ function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 			}
 			$resources[] = $sid;
 			try {
-				$proxmox->put('/cluster/ha/rules/' . rawurlencode($rule), array('resources' => implode(',', $resources), 'digest' => (string) ($current['digest'] ?? '')));
+				$proxmox->put('/cluster/ha/rules/' . rawurlencode($rule), array('type' => (string) ($current['type'] ?? ''), 'resources' => implode(',', $resources), 'digest' => (string) ($current['digest'] ?? '')));
 				break;
 			} catch (PVE2_Exception $e) {
 				if ($attempt >= 3) {
