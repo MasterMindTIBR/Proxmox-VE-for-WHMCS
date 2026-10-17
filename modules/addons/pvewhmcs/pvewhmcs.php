@@ -1348,6 +1348,15 @@ function pvewhmcs_output($vars) {
 		</td>
 	</tr>
 	<tr>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Proxmox Pool</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" maxlength="64" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="pve_pool" id="pve_pool" placeholder="No pool" value="' . htmlspecialchars((string) $config->pve_pool, ENT_QUOTES, 'UTF-8') . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Resource pool sent as <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">pool</code> on every new clone and direct LXC/QEMU create. Required when the WHMCS server user is a limited Proxmox user whose permissions are granted on <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">/pool/&lt;pool&gt;</code>. Leave blank to create guests outside any pool.</p>
+		</td>
+	</tr>
+	<tr>
 		<td style="padding:15px 0;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">Debug Mode</label>
 		</td>
@@ -1693,6 +1702,10 @@ function save_config() {
 		}
 		$guest_dns_ipv4 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv4'] ?? '', 'Guest IPv4 DNS Servers');
 		$guest_dns_ipv6 = pvewhmcs_normalize_guest_dns_servers($_POST['guest_dns_ipv6'] ?? '', 'Guest IPv6 DNS Servers');
+		$pve_pool = trim((string) ($_POST['pve_pool'] ?? ''));
+		if ($pve_pool !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/', $pve_pool) !== 1) {
+			throw new InvalidArgumentException('Proxmox Pool must be empty or a Proxmox pool ID up to 64 characters (letters, digits, _ . -).');
+		}
 
 		$update = [
 			'start_vmid' => $start_vmid,
@@ -1703,6 +1716,7 @@ function save_config() {
 			'cloud_init_user' => $cloud_init_user !== '' ? $cloud_init_user : null,
 			'guest_dns_ipv4' => $guest_dns_ipv4,
 			'guest_dns_ipv6' => $guest_dns_ipv6,
+			'pve_pool' => $pve_pool !== '' ? $pve_pool : null,
 		];
 
 		// Secrets are masked (blank) in the form; only overwrite the stored

@@ -1203,6 +1203,9 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			$settings['vmid'] = $vmid;
 			$settings[$guestType === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title);
 		}
+		if (($pool = pvewhmcs_pve_pool()) !== null) {
+			$settings['pool'] = $pool;
+		}
 		$path = $isClone
 			? '/nodes/' . $templateNode . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone'
 			: '/nodes/' . $templateNode . '/' . $guestType;

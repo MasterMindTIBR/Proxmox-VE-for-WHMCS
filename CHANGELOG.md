@@ -6,6 +6,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1.3.8 shape on every callback — existing installs self-heal without manual SQL (`schema_version` marker in `mod_pvewhmcs`). Deploy together with pvewhmcs-console-relay `4a5081f` or later (console tokens v2).
 
 ### 🚀 Feature
+- Connections: The WHMCS server username may be `user@realm` (e.g. `whmcs@pve`); the realm in the username overrides the built-in `pam` default on every login path (provisioning, client area, console, admin link, Nodes/Guests/Logs).
+- Provisioning: New **Proxmox Pool** in Module Config (`mod_pvewhmcs.pve_pool`, repaired automatically). When set, clones and direct LXC/QEMU creates send `pool=<pool>`, so a limited API user with permissions on `/pool/<pool>` keeps access to the guests it creates. Blank keeps the previous behaviour.
 - Provisioning: Recoverable CreateAccount — an irreversible allocation marker (VMID, node, IP, mode) is written before the Proxmox call; the returned task UPID is recorded and awaited; failed tasks keep the IP and VMID reserved as `failed`; an uncertain crash between marker and POST blocks the guest pending admin review; a retry resumes the recorded task instead of creating a second guest.
 - Provisioning: QEMU clone source must be a real template (`template=1`); the post-clone `PUT /config` is awaited when Proxmox returns a task, and the start task is awaited before finishing.
 - Provisioning: Module Config now controls IPv4/IPv6 DNS servers for new LXC and QEMU guests, plus the optional QEMU Cloud-Init user. Leaving the user blank preserves the template image default; a configured username is sent as `ciuser` with the provisioned password.
