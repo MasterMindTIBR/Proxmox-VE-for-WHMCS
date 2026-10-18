@@ -553,10 +553,11 @@ function pvewhmcs_nic_with_firewall($net) {
  * IP anti-spoofing: the guest's IPSet `ipfilter-net0` must hold exactly the
  * provisioned IPv4, then the guest firewall gets `enable` + `ipfilter`. A set
  * that already holds anything else (other addresses, networks, a `nomatch`
- * entry) is refused, never rewritten. Policies already set on the guest are
- * kept; a guest without one gets ACCEPT in/out (the enabled default would drop
- * inbound), so only foreign source IPs are dropped. Effective only while the
- * datacenter firewall is enabled. Idempotent.
+ * entry) is refused, never rewritten. A guest firewall that is already enabled
+ * keeps its policies, explicit or implicit (unset = DROP inbound); only a guest
+ * firewall being enabled here gets ACCEPT for the unset policies, so only
+ * foreign source IPs are dropped. Effective only while the datacenter firewall
+ * is enabled. Idempotent.
  */
 function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
 	$firewall = $guestPath . '/firewall';
@@ -575,7 +576,7 @@ function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
 	$options = (array) $proxmox->get($firewall . '/options');
 	$update = array('enable' => 1, 'ipfilter' => 1, 'digest' => (string) ($options['digest'] ?? ''));
 	foreach (array('policy_in', 'policy_out') as $policy) {
-		if (!isset($options[$policy])) {
+		if (empty($options['enable']) && !isset($options[$policy])) {
 			$update[$policy] = 'ACCEPT';
 		}
 	}
@@ -1084,7 +1085,7 @@ function pvewhmcs_ssh_public_keys($raw) {
 		return null;
 	}
 	foreach ($lines as $line) {
-		if (!preg_match('/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) ([A-Za-z0-9+\/]+={0,3})( [^\x00-\x1f]*)?$/', $line, $m)) {
+		if (!preg_match('/^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) ([A-Za-z0-9+\/]+={0,3})( [^\x00-\x1f]*)?$/', $line, $m)) {
 			return null;
 		}
 		// The blob (SSH wire format) must be complete: length-prefixed fields that
@@ -1098,14 +1099,45 @@ function pvewhmcs_ssh_public_keys($raw) {
 			}
 			$fields[] = substr($blob, $offset + 4, $length);
 		}
-		$expected = array('ssh-ed25519' => 2, 'ssh-rsa' => 3, 'ssh-dss' => 5, 'sk-ssh-ed25519@openssh.com' => 3, 'sk-ecdsa-sha2-nistp256@openssh.com' => 4);
-		if ($blob === false || ($fields[0] ?? null) !== $m[1] || count($fields) !== ($expected[$m[1]] ?? 3)
-			|| (in_array($m[1], array('ssh-ed25519', 'sk-ssh-ed25519@openssh.com'), true) && strlen($fields[1]) !== 32)) {
+		$expected = array('ssh-ed25519' => 2, 'ssh-rsa' => 3, 'sk-ssh-ed25519@openssh.com' => 3, 'sk-ecdsa-sha2-nistp256@openssh.com' => 4);
+		if ($blob === false || ($fields[0] ?? null) !== $m[1] || count($fields) !== ($expected[$m[1]] ?? 3) || !pvewhmcs_ssh_key_params_valid($m[1], $fields)) {
 			return null;
 		}
 	}
 
 	return implode("\n", $lines);
+}
+
+/**
+ * Key parameters of a parsed SSH public key blob (fields after the name), as
+ * ssh-keygen would check them: Ed25519 32-byte key; RSA positive odd exponent
+ * and a 1024–16384-bit modulus; ECDSA curve matching the type and a point that
+ * OpenSSL accepts on that curve.
+ */
+function pvewhmcs_ssh_key_params_valid($type, array $fields) {
+	if ($type === 'ssh-ed25519' || $type === 'sk-ssh-ed25519@openssh.com') {
+		return strlen($fields[1]) === 32;
+	}
+	if ($type === 'ssh-rsa') {
+		$e = ltrim($fields[1], "\0");
+		$n = ltrim($fields[2], "\0");
+		$bits = $n === '' ? 0 : (strlen($n) - 1) * 8 + strlen(decbin(ord($n[0])));
+		return $e !== '' && (ord(substr($e, -1)) & 1) === 1 && $bits >= 1024 && $bits <= 16384;
+	}
+	// ECDSA (plain or security key): fields[1] = curve name, fields[2] = uncompressed point.
+	$spki = array(
+		'nistp256' => array('3059301306072a8648ce3d020106082a8648ce3d030107034200', 65),
+		'nistp384' => array('3076301006072a8648ce3d020106052b81040022036200', 97),
+		'nistp521' => array('30819b301006072a8648ce3d020106052b8104002303818600', 133),
+	);
+	$curve = $fields[1];
+	$typeCurve = preg_match('/nistp(256|384|521)/', $type, $tm) ? 'nistp' . $tm[1] : null;
+	if ($curve !== $typeCurve || !isset($spki[$curve]) || strlen($fields[2]) !== $spki[$curve][1] || !function_exists('openssl_pkey_get_public')) {
+		return false;
+	}
+	$pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode(hex2bin($spki[$curve][0]) . $fields[2]), 64, "\n") . "-----END PUBLIC KEY-----\n";
+
+	return openssl_pkey_get_public($pem) !== false;
 }
 
 function pvewhmcs_create_custom_field_error(array $params, $plan) {
@@ -1856,6 +1888,10 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 		return 'Error: guest is marked CANCELADO (cancelled service); package change refused.';
 	}
 
+	if (!empty($plan->firewall) && !isset($config['net0'])) {
+		return "Error: the new plan '{$plan->title}' has Firewall on, but the guest has no net0 to protect; nothing was changed.";
+	}
+
 	$settings = array('memory' => $plan->memory, 'cores' => $plan->cores, 'cpulimit' => $plan->cpulimit, 'cpuunits' => $plan->cpuunits);
 	if ($guest->vtype === 'lxc') {
 		$settings['swap'] = $plan->swap;
@@ -1871,7 +1907,7 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 	}
 	// Moving to a plan with Firewall turns the NIC flag and the IP filter on;
 	// moving away keeps an existing filter (protection is never removed here).
-	if (!empty($plan->firewall) && isset($config['net0']) && !preg_match('/(^|,)firewall=1(,|$)/', (string) $config['net0'])) {
+	if (!empty($plan->firewall) && !preg_match('/(^|,)firewall=1(,|$)/', (string) $config['net0'])) {
 		$settings['net0'] = pvewhmcs_nic_with_firewall($config['net0']);
 	}
 	$response = $proxmox->put($guestPath . '/config', $settings);
