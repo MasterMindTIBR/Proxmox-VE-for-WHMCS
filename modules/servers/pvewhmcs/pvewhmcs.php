@@ -534,11 +534,36 @@ function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 }
 
 /**
+ * IP anti-spoofing for plans with Firewall enabled: the guest's IPSet
+ * `ipfilter-net0` holds its provisioned IPv4, and the guest firewall is enabled
+ * with `ipfilter` and ACCEPT in/out policies, so only packets with a foreign
+ * source IP are dropped (no inbound filtering). Effective only while the
+ * datacenter firewall is enabled. Idempotent (CreateAccount retries re-run it).
+ */
+function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
+	$firewall = $guestPath . '/firewall';
+	if (!in_array('ipfilter-net0', array_column((array) $proxmox->get($firewall . '/ipset'), 'name'), true)) {
+		$proxmox->post($firewall . '/ipset', array('name' => 'ipfilter-net0', 'comment' => 'pvewhmcs: provisioned IPv4'));
+	}
+	$cidrs = array_column((array) $proxmox->get($firewall . '/ipset/ipfilter-net0'), 'cidr');
+	if (!in_array($ipaddress, $cidrs, true) && !in_array($ipaddress . '/32', $cidrs, true)) {
+		$proxmox->post($firewall . '/ipset/ipfilter-net0', array('cidr' => $ipaddress));
+	}
+	$proxmox->put($firewall . '/options', array('enable' => 1, 'ipfilter' => 1, 'policy_in' => 'ACCEPT', 'policy_out' => 'ACCEPT'));
+}
+
+/**
  * Last provisioning stage. With HA mode On the guest stays `ha_pending` (lifecycle
  * blocked, CreateAccount resumes here) until the HA resource and rule exist;
  * only then is it `ready`.
  */
-function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId) {
+function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId, array $params) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first();
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
+	// shortcut: IPv6 plans skip the IP filter (SLAAC/DHCPv6 addresses are not known here); add them to the IPSet when IPv6 is sold.
+	if ($plan !== null && !empty($plan->firewall) && (empty($plan->ipv6) || $plan->ipv6 == '0')) {
+		pvewhmcs_apply_ip_filter($proxmox, pvewhmcs_guest_api_path(pvewhmcs_find_guest_node($proxmox, $guest) ?: $guest->provisioning_node, $guest), $guest->ipaddress);
+	}
 	if (pvewhmcs_server_ha_mode($serverId) === 'on') {
 		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_state' => 'ha_pending', 'provisioning_updated_at' => date('Y-m-d H:i:s')));
 		$error = pvewhmcs_register_guest_ha($proxmox, $serverId, Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first());
@@ -1076,7 +1101,7 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 		$settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 		$settings['bwlimit'] = $plan->diskio;
 		$settings['nameserver'] = $nameservers;
-		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
+		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate . ',firewall=' . (empty($plan->firewall) ? 0 : 1);
 		if ($ipv6Enabled) {
 			$settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
 			if ($plan->ipv6 === 'auto') {
@@ -1237,6 +1262,10 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	if ($plan->netmode === 'bridge') {
 		$config = $proxmox->get($guestPath . '/config');
 		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
+		if (!empty($plan->firewall)) {
+			// The NIC flag must be set before the first start (the IP filter needs it).
+			$tweaks['net0'] = preg_replace('/(^|,)firewall=[^,]*/', '', $tweaks['net0']) . ',firewall=1';
+		}
 		if ($ipv6Enabled) {
 			$tweaks['net1'] = pvewhmcs_replace_qemu_bridge($config['net1'] ?? $plan->netmodel, $network);
 		}
@@ -1319,7 +1348,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (!$proxmox->login()) {
 					return "Error: VMID {$existing->vmid} awaits its HA registration, but PVE login failed; retry CreateAccount.";
 				}
-				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 			}
 			if ($state !== 'pending' || !pvewhmcs_is_upid($existing->provisioning_upid ?? null)) {
 				return pvewhmcs_existing_provisioning_create_result($existing);
@@ -1332,7 +1361,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (($existing->provisioning_mode ?? null) === 'clone') {
 					pvewhmcs_resume_pending_clone($proxmox, $params, $existing);
 				}
-				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 			} catch (PVE2_Exception $e) {
 				return "Error: provisioning for VMID {$existing->vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 			} catch (RuntimeException $e) {
@@ -1424,7 +1453,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			if ($isClone) {
 				pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $templateNode, $vmid);
 			}
-			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 		} catch (PVE2_Exception $e) {
 			return "Error: provisioning for VMID {$vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 		} catch (RuntimeException $e) {
