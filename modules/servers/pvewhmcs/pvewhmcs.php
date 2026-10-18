@@ -992,8 +992,31 @@ function pvewhmcs_ConfigOptions() {
  * TPL_Node_QEMU/TPL_Node_LXC are checked against the cluster node list once logged in.
  * Returns an error string, or null when the fields used by this plan are valid.
  */
+/**
+ * Optional custom field SSHKey: OpenSSH public keys, one per line (max 10).
+ * Returns the normalized keys joined by "\n", '' when the field is blank, or
+ * null when any line is not a public key.
+ */
+function pvewhmcs_ssh_public_keys($raw) {
+	$lines = array_values(array_filter(array_map('trim', preg_split('/\R/', html_entity_decode(trim((string) $raw), ENT_QUOTES, 'UTF-8')))));
+	if (count($lines) > 10) {
+		return null;
+	}
+	foreach ($lines as $line) {
+		if (!preg_match('/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+\/]+={0,3}( [^\x00-\x1f]*)?$/', $line)) {
+			return null;
+		}
+	}
+
+	return implode("\n", $lines);
+}
+
 function pvewhmcs_create_custom_field_error(array $params, $plan) {
 	$fields = (array) ($params['customfields'] ?? array());
+
+	if (pvewhmcs_ssh_public_keys($fields['SSHKey'] ?? '') === null) {
+		return 'Error: Custom field SSHKey must contain OpenSSH public keys, one per line (for example ssh-ed25519 AAAA... user@host), at most 10.';
+	}
 
 	if (!empty($fields['KVMTemplate'])) {
 		if (!preg_match('/^\d+$/', (string) $fields['KVMTemplate'])) {
@@ -1071,6 +1094,9 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 		$settings['onboot'] = $plan->onboot;
 		$settings['unprivileged'] = $plan->unpriv;
 		$settings['password'] = $params['customfields']['Password'];
+		if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
+			$settings['ssh-public-keys'] = $sshKeys;
+		}
 	} else {
 		$settings['scsihw'] = 'virtio-scsi-single';
 		$settings['sockets'] = $plan->cpus;
@@ -1227,6 +1253,10 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	}
 	if (!empty($params['customfields']['Password'])) {
 		$tweaks['cipassword'] = $params['customfields']['Password'];
+	}
+	// Proxmox expects sshkeys URL-encoded inside the form value (%20, not '+').
+	if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
+		$tweaks['sshkeys'] = rawurlencode($sshKeys);
 	}
 
 	$response = $proxmox->put($guestPath . '/config', $tweaks);
