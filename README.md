@@ -173,7 +173,7 @@ Cancelling a WHMCS service keeps its VM/CT and `mod_pvewhmcs_vms` link for recov
 
 Suspending writes start-at-boot off and the `SUSPENSO` tag first. An HA resource in `started` is set to `stopped`, and `mod_pvewhmcs_vms.ha_suspended` records that the module made that change; any other guest is stopped directly (task awaited). Unsuspending removes the lifecycle tag and turns start-at-boot back on when the plan has On-boot enabled. HA goes back to `started` only when `ha_suspended` is set **and** the resource is still `stopped`; if an admin moved it to another state (for example `disabled` or `ignored`), Unsuspend returns an error and changes nothing. Without a module-made HA change, the guest is started directly (task awaited). Suspend and Unsuspend refuse guests tagged `CANCELADO`, and every action refuses a VMID linked to more than one WHMCS service.
 
-**Upgrade/downgrade (ChangePackage):** the new product's plan sets CPU (cores, sockets, type, limit, units) and memory, up or down. On QEMU the change stays pending in Proxmox until the guest is stopped and started (the client area **Reboot** button does that; a reboot from inside the guest does not); LXC applies it live. The root disk grows to the new plan's size (online; the guest's `growpart` expands the filesystem on the next boot) but is **never shrunk**: with a smaller plan disk, CPU/memory still change, the disk is left as is and the WHMCS Activity Log records `disk reduction refused`. A plan of the other guest type (QEMU↔LXC) or a `CANCELADO` guest is refused with nothing changed. Privileges: `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk` (already in `WHMCS-VPS`) and `Datastore.AllocateSpace` on the disk storage.
+**Upgrade/downgrade (ChangePackage):** the new product's plan sets CPU (cores, sockets, type, limit, units) and memory, up or down. On QEMU the change stays pending in Proxmox until the guest is stopped and started (the client area **Reboot** button does that; a reboot from inside the guest does not); LXC applies it live. The root disk grows to the new plan's size (online; the guest's `growpart` expands the filesystem on the next boot) but is **never shrunk**: with a smaller plan disk, CPU/memory still change, the disk is left as is and the WHMCS Activity Log records `disk reduction refused`. A plan of the other guest type (QEMU↔LXC) or a `CANCELADO` guest is refused with nothing changed. An empty CPU limit/units or swap in the new plan resets that option to the Proxmox default. Privileges: `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk` (already in `WHMCS-VPS`) and `Datastore.AllocateSpace` on the storage **where the disk currently lives** (changing the plan's storage does not move existing disks).
 
 Tag color is a Proxmox datacenter-wide display setting, not a per-guest API property. In **Datacenter → Options → Tag Style**, retain existing settings and add `CANCELADO:#dc2626:#ffffff` and `SUSPENSO:#7e22ce:#ffffff` to the `color-map`.
 
@@ -330,10 +330,15 @@ Take note that during the Guest Import process, there is no association ensured 
 
 With **Firewall** enabled in the plan, every creation path sets `firewall=1` on
 the NIC, creates the guest IPSet `ipfilter-net0` with the provisioned IPv4 and
-enables the guest firewall with `ipfilter` and **ACCEPT** in/out policies. Only
-packets whose source IP is not the provisioned one are dropped — a customer who
-changes the IP inside the guest cuts off only their own guest; inbound traffic
-is not filtered (the customer manages that inside the guest). Tunnels such as
+enables the guest firewall with `ipfilter` — on clones before the first start.
+Policies already set on the guest (e.g. from the template) are kept; a guest
+without one gets **ACCEPT** in/out, so only packets whose source IP is not the
+provisioned one are dropped — a customer who changes the IP inside the guest
+cuts off only their own guest; inbound traffic is not filtered (the customer
+manages that inside the guest). If `ipfilter-net0` already holds anything other
+than that IP (other addresses, networks or a `nomatch` entry, e.g. inherited
+from the template), provisioning stops in a retryable pending state with that
+error and nothing is enabled; fix the set and retry CreateAccount. Tunnels such as
 WireGuard keep working, since the outer packets use the provisioned IP.
 
 Proxmox applies guest firewalls only while the **datacenter firewall** is
@@ -342,8 +347,10 @@ enables each node's host firewall (default-drop input; GUI/SSH stay reachable
 only from the cluster's local network). If you do not want host filtering, first set **Node → Firewall → Options → Firewall: No** on
 every node (or add the management rules you need), then enable the datacenter
 option. The limited API user needs no new privilege (`VM.Config.Network` and
-`VM.Audit`, already in `WHMCS-VPS`). Plans with IPv6 enabled skip the filter for
-now. Guests created before enabling it are not changed.
+`VM.Audit`, already in `WHMCS-VPS`). Plans with IPv6 enabled skip the whole
+filter for now (their IPv4 is not filtered either). ChangePackage to a plan with
+Firewall turns the NIC flag and the filter on; moving to a plan without Firewall
+keeps an existing filter. Guests created before enabling it are not changed.
 
 ### IPv6: SLAAC default (via 2nd vNIC)
 
@@ -404,11 +411,13 @@ Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
 > does not create or attach the Cloud-Init drive itself.
 
 The clone's root disk (first disk of the boot order) is grown to the plan's disk
-size before the first start; keep templates small and let the guest's Cloud-Init
+size before the first start (root disk = first disk of `boot: order=`, or the
+legacy `bootdisk`); keep templates small and let the guest's Cloud-Init
 `growpart` expand the filesystem. A template disk larger than the plan is kept.
 
 Optional Custom Field `SSHKey` (text area, not required): OpenSSH public keys,
-one per line (max 10). Clones receive them as Cloud-Init `sshkeys`, direct LXC
+one per line (max 10); each key's blob is checked to be a complete key of the
+declared type, and `authorized_keys` options are refused. Clones receive them as Cloud-Init `sshkeys`, direct LXC
 creates as `ssh-public-keys`; the password keeps working. Invalid content stops
 CreateAccount before anything is created. ISO installs (VM Option 2) have no
 Cloud-Init and ignore it.

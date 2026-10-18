@@ -246,7 +246,8 @@ function pvewhmcs_guest_provisioning_error($guest) {
 
 	$vmid = (int) ($guest->vmid ?? 0);
 	if ($state === 'pending') {
-		return "Error: provisioning for VMID {$vmid} is pending; retry CreateAccount to finish the recorded Proxmox task.";
+		$last = trim((string) ($guest->provisioning_error ?? ''));
+		return "Error: provisioning for VMID {$vmid} is pending; retry CreateAccount to finish the recorded Proxmox task." . ($last !== '' ? " Last error: {$last}" : '');
 	}
 	if ($state === 'allocating') {
 		return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome; it is blocked pending administrative investigation.";
@@ -534,22 +535,67 @@ function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 }
 
 /**
- * IP anti-spoofing for plans with Firewall enabled: the guest's IPSet
- * `ipfilter-net0` holds its provisioned IPv4, and the guest firewall is enabled
- * with `ipfilter` and ACCEPT in/out policies, so only packets with a foreign
- * source IP are dropped (no inbound filtering). Effective only while the
- * datacenter firewall is enabled. Idempotent (CreateAccount retries re-run it).
+ * True when the plan asks for the IP filter: Firewall on and no IPv6.
+ */
+function pvewhmcs_plan_wants_ip_filter($plan) {
+	// shortcut: IPv6 plans skip the whole IP filter (SLAAC/DHCPv6 addresses are not known here), so their IPv4 is unfiltered too; add both to the IPSet when IPv6 is sold.
+	return $plan !== null && !empty($plan->firewall) && (empty($plan->ipv6) || $plan->ipv6 == '0');
+}
+
+/**
+ * NIC definition with `firewall=1` (any existing firewall= value replaced).
+ */
+function pvewhmcs_nic_with_firewall($net) {
+	return preg_replace('/(^|,)firewall=[^,]*/', '', (string) $net) . ',firewall=1';
+}
+
+/**
+ * IP anti-spoofing: the guest's IPSet `ipfilter-net0` must hold exactly the
+ * provisioned IPv4, then the guest firewall gets `enable` + `ipfilter`. A set
+ * that already holds anything else (other addresses, networks, a `nomatch`
+ * entry) is refused, never rewritten. Policies already set on the guest are
+ * kept; a guest without one gets ACCEPT in/out (the enabled default would drop
+ * inbound), so only foreign source IPs are dropped. Effective only while the
+ * datacenter firewall is enabled. Idempotent.
  */
 function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
 	$firewall = $guestPath . '/firewall';
 	if (!in_array('ipfilter-net0', array_column((array) $proxmox->get($firewall . '/ipset'), 'name'), true)) {
 		$proxmox->post($firewall . '/ipset', array('name' => 'ipfilter-net0', 'comment' => 'pvewhmcs: provisioned IPv4'));
 	}
-	$cidrs = array_column((array) $proxmox->get($firewall . '/ipset/ipfilter-net0'), 'cidr');
-	if (!in_array($ipaddress, $cidrs, true) && !in_array($ipaddress . '/32', $cidrs, true)) {
+	$entries = (array) $proxmox->get($firewall . '/ipset/ipfilter-net0');
+	foreach ($entries as $entry) {
+		if (!in_array($entry['cidr'] ?? '', array($ipaddress, $ipaddress . '/32'), true) || !empty($entry['nomatch'])) {
+			throw new RuntimeException("IPSet ipfilter-net0 at {$guestPath} already holds entries other than {$ipaddress} (or a nomatch entry); fix it in Proxmox and retry. The IP filter was not enabled.");
+		}
+	}
+	if (empty($entries)) {
 		$proxmox->post($firewall . '/ipset/ipfilter-net0', array('cidr' => $ipaddress));
 	}
-	$proxmox->put($firewall . '/options', array('enable' => 1, 'ipfilter' => 1, 'policy_in' => 'ACCEPT', 'policy_out' => 'ACCEPT'));
+	$options = (array) $proxmox->get($firewall . '/options');
+	$update = array('enable' => 1, 'ipfilter' => 1, 'digest' => (string) ($options['digest'] ?? ''));
+	foreach (array('policy_in', 'policy_out') as $policy) {
+		if (!isset($options[$policy])) {
+			$update[$policy] = 'ACCEPT';
+		}
+	}
+	$proxmox->put($firewall . '/options', $update);
+}
+
+/**
+ * Provisioning step of the IP filter. A failure is kept in provisioning_error
+ * (the guest stays pending, CreateAccount retries) and re-thrown.
+ */
+function pvewhmcs_provisioning_ip_filter(PVE2_API $proxmox, $serviceId, $plan, $guestPath, $ipaddress) {
+	if (!pvewhmcs_plan_wants_ip_filter($plan)) {
+		return;
+	}
+	try {
+		pvewhmcs_apply_ip_filter($proxmox, $guestPath, $ipaddress);
+	} catch (\Throwable $e) {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_error' => substr($e->getMessage(), 0, 65535), 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+		throw $e;
+	}
 }
 
 /**
@@ -560,9 +606,13 @@ function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
 function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId, array $params) {
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first();
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
-	// shortcut: IPv6 plans skip the IP filter (SLAAC/DHCPv6 addresses are not known here); add them to the IPSet when IPv6 is sold.
-	if ($plan !== null && !empty($plan->firewall) && (empty($plan->ipv6) || $plan->ipv6 == '0')) {
-		pvewhmcs_apply_ip_filter($proxmox, pvewhmcs_guest_api_path(pvewhmcs_find_guest_node($proxmox, $guest) ?: $guest->provisioning_node, $guest), $guest->ipaddress);
+	// Clones get the IP filter before their first start (clone post-configuration).
+	if (($guest->provisioning_mode ?? null) !== 'clone' && pvewhmcs_plan_wants_ip_filter($plan)) {
+		$node = pvewhmcs_find_guest_node($proxmox, $guest) ?: trim((string) ($guest->provisioning_node ?? ''));
+		if ($node === '') {
+			throw new RuntimeException("Cannot apply the IP filter: the node of VMID {$guest->vmid} is unknown.");
+		}
+		pvewhmcs_provisioning_ip_filter($proxmox, $serviceId, $plan, pvewhmcs_guest_api_path($node, $guest), $guest->ipaddress);
 	}
 	if (pvewhmcs_server_ha_mode($serverId) === 'on') {
 		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_state' => 'ha_pending', 'provisioning_updated_at' => date('Y-m-d H:i:s')));
@@ -1034,7 +1084,23 @@ function pvewhmcs_ssh_public_keys($raw) {
 		return null;
 	}
 	foreach ($lines as $line) {
-		if (!preg_match('/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+\/]+={0,3}( [^\x00-\x1f]*)?$/', $line)) {
+		if (!preg_match('/^(ssh-(rsa|ed25519|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) ([A-Za-z0-9+\/]+={0,3})( [^\x00-\x1f]*)?$/', $line, $m)) {
+			return null;
+		}
+		// The blob (SSH wire format) must be complete: length-prefixed fields that
+		// consume it exactly, the first being the algorithm name, with the field
+		// count of that algorithm (catches truncated or mislabeled keys).
+		$blob = base64_decode($m[5], true);
+		$fields = array();
+		for ($offset = 0; $blob !== false && $offset < strlen($blob); $offset += 4 + $length) {
+			if ($offset + 4 > strlen($blob) || ($length = unpack('N', substr($blob, $offset, 4))[1]) > strlen($blob) - $offset - 4) {
+				return null;
+			}
+			$fields[] = substr($blob, $offset + 4, $length);
+		}
+		$expected = array('ssh-ed25519' => 2, 'ssh-rsa' => 3, 'ssh-dss' => 5, 'sk-ssh-ed25519@openssh.com' => 3, 'sk-ecdsa-sha2-nistp256@openssh.com' => 4);
+		if ($blob === false || ($fields[0] ?? null) !== $m[1] || count($fields) !== ($expected[$m[1]] ?? 3)
+			|| (in_array($m[1], array('ssh-ed25519', 'sk-ssh-ed25519@openssh.com'), true) && strlen($fields[1]) !== 32)) {
 			return null;
 		}
 	}
@@ -1203,8 +1269,8 @@ function pvewhmcs_disk_size_bytes($diskConfig) {
 
 /**
  * Config key of the guest's root disk: `rootfs` for LXC; for QEMU the first
- * disk in the boot order, else the first of scsi0/virtio0/sata0/ide0 that is
- * not a CD-ROM. Null when none exists.
+ * disk in the boot order (`order=`, or the legacy `bootdisk`), else the first
+ * of scsi0/virtio0/sata0/ide0 that is not a CD-ROM. Null when none exists.
  */
 function pvewhmcs_root_disk_key(array $config, $vtype) {
 	if ($vtype === 'lxc') {
@@ -1213,6 +1279,8 @@ function pvewhmcs_root_disk_key(array $config, $vtype) {
 	$candidates = array();
 	if (preg_match('/(?:^|,)order=([^,]+)/', (string) ($config['boot'] ?? ''), $m)) {
 		$candidates = explode(';', $m[1]);
+	} elseif (!empty($config['bootdisk'])) {
+		$candidates = array((string) $config['bootdisk']);
 	}
 	foreach (array_merge($candidates, array('scsi0', 'virtio0', 'sata0', 'ide0')) as $key) {
 		if (preg_match('/^(scsi|virtio|sata|ide)\d+$/', $key) && isset($config[$key]) && strpos((string) $config[$key], 'media=cdrom') === false) {
@@ -1265,13 +1333,9 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		$tweaks['ciuser'] = $cloudInitUser;
 	}
 	$guestPath = '/nodes/' . $node . '/qemu/' . $vmid;
+	$config = ($plan->netmode === 'bridge' || !empty($plan->firewall)) ? (array) $proxmox->get($guestPath . '/config') : array();
 	if ($plan->netmode === 'bridge') {
-		$config = $proxmox->get($guestPath . '/config');
 		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
-		if (!empty($plan->firewall)) {
-			// The NIC flag must be set before the first start (the IP filter needs it).
-			$tweaks['net0'] = preg_replace('/(^|,)firewall=[^,]*/', '', $tweaks['net0']) . ',firewall=1';
-		}
 		if ($ipv6Enabled) {
 			$tweaks['net1'] = pvewhmcs_replace_qemu_bridge($config['net1'] ?? $plan->netmodel, $network);
 		}
@@ -1293,6 +1357,13 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
 		$tweaks['sshkeys'] = rawurlencode($sshKeys);
 	}
+	if (!empty($plan->firewall)) {
+		$nic = $tweaks['net0'] ?? ($config['net0'] ?? null);
+		if ($nic === null) {
+			throw new RuntimeException("The plan has Firewall on, but the clone VMID {$vmid} has no net0 to protect.");
+		}
+		$tweaks['net0'] = pvewhmcs_nic_with_firewall($nic);
+	}
 
 	$response = $proxmox->put($guestPath . '/config', $tweaks);
 	if (pvewhmcs_is_upid($response)) {
@@ -1302,6 +1373,8 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	// The clone keeps the template's disk size; grow it to the plan before the
 	// first boot so cloud-init's growpart expands the filesystem.
 	pvewhmcs_grow_root_disk($proxmox, $guestPath, 'qemu', $plan->disk);
+	// The NIC flag and the IP filter are in place before the first start.
+	pvewhmcs_provisioning_ip_filter($proxmox, $params['serviceid'], $plan, $guestPath, $ip->ipaddress);
 	if (!empty($plan->onboot)) {
 		$status = $proxmox->get($guestPath . '/status/current');
 		if (($status['status'] ?? null) !== 'running') {
@@ -1789,9 +1862,24 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 	} else {
 		$settings += array('sockets' => $plan->cpus, 'cpu' => $plan->cpuemu);
 	}
+	// An empty plan value resets the option to the Proxmox default instead of
+	// keeping the old plan's value (http_build_query drops nulls).
+	$reset = array_keys(array_filter($settings, function ($value) { return $value === null || $value === ''; }));
+	$settings = array_diff_key($settings, array_flip($reset));
+	if ($reset) {
+		$settings['delete'] = implode(',', $reset);
+	}
+	// Moving to a plan with Firewall turns the NIC flag and the IP filter on;
+	// moving away keeps an existing filter (protection is never removed here).
+	if (!empty($plan->firewall) && isset($config['net0']) && !preg_match('/(^|,)firewall=1(,|$)/', (string) $config['net0'])) {
+		$settings['net0'] = pvewhmcs_nic_with_firewall($config['net0']);
+	}
 	$response = $proxmox->put($guestPath . '/config', $settings);
 	if (pvewhmcs_is_upid($response)) {
 		pvewhmcs_wait_task($proxmox, $response, 60);
+	}
+	if (pvewhmcs_plan_wants_ip_filter($plan)) {
+		pvewhmcs_apply_ip_filter($proxmox, $guestPath, $guest->ipaddress);
 	}
 	$keptBytes = pvewhmcs_grow_root_disk($proxmox, $guestPath, $guest->vtype, $plan->disk);
 	if ($keptBytes !== null) {
