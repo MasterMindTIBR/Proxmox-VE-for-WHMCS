@@ -1119,6 +1119,10 @@ function pvewhmcs_ssh_key_params_valid($type, array $fields) {
 		return strlen($fields[1]) === 32;
 	}
 	if ($type === 'ssh-rsa') {
+		// mpints are two's complement: a leading byte with the high bit set is negative (OpenSSH refuses it).
+		if ((ord($fields[1][0] ?? "\0") & 0x80) || (ord($fields[2][0] ?? "\0") & 0x80)) {
+			return false;
+		}
 		$e = ltrim($fields[1], "\0");
 		$n = ltrim($fields[2], "\0");
 		$bits = $n === '' ? 0 : (strlen($n) - 1) * 8 + strlen(decbin(ord($n[0])));
