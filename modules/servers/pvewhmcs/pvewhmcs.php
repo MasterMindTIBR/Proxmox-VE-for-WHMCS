@@ -835,6 +835,12 @@ function pvewhmcs_TerminateAccount(array $params) {
 	});
 }
 
+function pvewhmcs_ChangePackage(array $params) {
+	return pvewhmcs_run_tracked_action('ChangePackage', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_ChangePackage_impl($params);
+	});
+}
+
 function pvewhmcs_vmStart($params) {
 	return pvewhmcs_run_tracked_action('vmStart', 'power', $params, function () use ($params) {
 		return pvewhmcs_vmStart_impl($params);
@@ -1733,6 +1739,70 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	if (pvewhmcs_debug_enabled()) {
 		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('ha_state' => $haState, 'direct_start' => $directStart, 'start' => $startTask, 'onboot_restored' => $planOnboot), $params);
+	}
+
+	return "success";
+}
+
+// PVE API FUNCTION, ADMIN: Upgrade/downgrade (WHMCS ChangePackage) to the plan
+// in configoption1. CPU and memory follow the new plan both ways (QEMU: pending
+// until the next stop/start or the panel Reboot; LXC: live). The root disk only
+// grows: a plan with a smaller disk is refused for the disk alone — CPU/memory
+// are still applied, the disk is not touched, and the WHMCS Activity Log says so.
+function pvewhmcs_ChangePackage_impl(array $params) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
+	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return $conflict;
+	}
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
+	if ($plan === null) {
+		return 'Error: the new product has no existing PVE plan; nothing was changed.';
+	}
+	if (($plan->vmtype === 'lxc') !== ($guest->vtype === 'lxc')) {
+		return "Error: the new plan '{$plan->title}' is for {$plan->vmtype} but the guest is {$guest->vtype}; nothing was changed.";
+	}
+
+	$proxmox = pvewhmcs_params_api($params);
+	if (!$proxmox->login()) {
+		return "Error changing package. Couldn't login to PVE.";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
+	if (empty($guest_node)) {
+		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+	}
+	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$config = (array) $proxmox->get($guestPath . '/config');
+	if (pvewhmcs_guest_has_tag($config['tags'] ?? '', 'CANCELADO')) {
+		return 'Error: guest is marked CANCELADO (cancelled service); package change refused.';
+	}
+
+	$settings = array('memory' => $plan->memory, 'cores' => $plan->cores, 'cpulimit' => $plan->cpulimit, 'cpuunits' => $plan->cpuunits);
+	if ($guest->vtype === 'lxc') {
+		$settings['swap'] = $plan->swap;
+	} else {
+		$settings += array('sockets' => $plan->cpus, 'cpu' => $plan->cpuemu);
+	}
+	$response = $proxmox->put($guestPath . '/config', $settings);
+	if (pvewhmcs_is_upid($response)) {
+		pvewhmcs_wait_task($proxmox, $response, 60);
+	}
+	$keptBytes = pvewhmcs_grow_root_disk($proxmox, $guestPath, $guest->vtype, $plan->disk);
+	if ($keptBytes !== null) {
+		logActivity(sprintf(
+			'PVEWHMCS ChangePackage: disk reduction refused for service #%d (VMID %d): the disk stays at %s GB, the new plan "%s" has %d GB and disks are never shrunk. CPU/memory were changed.',
+			$params['serviceid'], $guest->vmid, round($keptBytes / (1024 ** 3), 1), $plan->title, $plan->disk
+		), (int) ($params['userid'] ?? 0));
+	}
+
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('settings' => $settings, 'disk_kept_bytes' => $keptBytes), $params);
 	}
 
 	return "success";
