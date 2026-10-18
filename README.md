@@ -173,6 +173,8 @@ Cancelling a WHMCS service keeps its VM/CT and `mod_pvewhmcs_vms` link for recov
 
 Suspending writes start-at-boot off and the `SUSPENSO` tag first. An HA resource in `started` is set to `stopped`, and `mod_pvewhmcs_vms.ha_suspended` records that the module made that change; any other guest is stopped directly (task awaited). Unsuspending removes the lifecycle tag and turns start-at-boot back on when the plan has On-boot enabled. HA goes back to `started` only when `ha_suspended` is set **and** the resource is still `stopped`; if an admin moved it to another state (for example `disabled` or `ignored`), Unsuspend returns an error and changes nothing. Without a module-made HA change, the guest is started directly (task awaited). Suspend and Unsuspend refuse guests tagged `CANCELADO`, and every action refuses a VMID linked to more than one WHMCS service.
 
+**Upgrade/downgrade (ChangePackage):** the new product's plan sets CPU (cores, sockets, type, limit, units) and memory, up or down. On QEMU the change stays pending in Proxmox until the guest is stopped and started (the client area **Reboot** button does that; a reboot from inside the guest does not); LXC applies it live. The root disk grows to the new plan's size (online; the guest's `growpart` expands the filesystem on the next boot) but is **never shrunk**: with a smaller plan disk, CPU/memory still change, the disk is left as is and the WHMCS Activity Log records `disk reduction refused`. A plan of the other guest type (QEMU↔LXC) or a `CANCELADO` guest is refused with nothing changed. Privileges: `VM.Config.CPU`, `VM.Config.Memory`, `VM.Config.Disk` (already in `WHMCS-VPS`) and `Datastore.AllocateSpace` on the disk storage.
+
 Tag color is a Proxmox datacenter-wide display setting, not a per-guest API property. In **Datacenter → Options → Tag Style**, retain existing settings and add `CANCELADO:#dc2626:#ffffff` and `SUSPENSO:#7e22ce:#ffffff` to the `color-map`.
 
 If the WHMCS server uses an account other than `root@pam`, the lifecycle actions need these Proxmox privileges: `VM.Audit` (read config and status), `VM.Config.Options` (start-at-boot and tags) and `VM.PowerMgmt` (start/stop) on the guests, plus `Sys.Audit` on `/` to read HA resources and `Sys.Console` on `/` to change them. Tags listed in the datacenter's registered tags also need `Sys.Modify` on `/`.
@@ -324,6 +326,25 @@ PVE hosts may use private IPs. Only WHMCS and the Console Relay connect to Proxm
 
 Take note that during the Guest Import process, there is no association ensured to an IP Pool, rather we take your inputs and use them verbatim due to existing/current nature of the Guest's configuration.
 
+### IPv4 anti-spoofing (plan Firewall)
+
+With **Firewall** enabled in the plan, every creation path sets `firewall=1` on
+the NIC, creates the guest IPSet `ipfilter-net0` with the provisioned IPv4 and
+enables the guest firewall with `ipfilter` and **ACCEPT** in/out policies. Only
+packets whose source IP is not the provisioned one are dropped — a customer who
+changes the IP inside the guest cuts off only their own guest; inbound traffic
+is not filtered (the customer manages that inside the guest). Tunnels such as
+WireGuard keep working, since the outer packets use the provisioned IP.
+
+Proxmox applies guest firewalls only while the **datacenter firewall** is
+enabled (Datacenter → Firewall → Options → Firewall: Yes). Enabling it also
+enables each node's host firewall (default-drop input; GUI/SSH stay reachable
+only from the cluster's local network). If you do not want host filtering, first set **Node → Firewall → Options → Firewall: No** on
+every node (or add the management rules you need), then enable the datacenter
+option. The limited API user needs no new privilege (`VM.Config.Network` and
+`VM.Audit`, already in `WHMCS-VPS`). Plans with IPv6 enabled skip the filter for
+now. Guests created before enabling it are not changed.
+
 ### IPv6: SLAAC default (via 2nd vNIC)
 
 Available options: 
@@ -358,6 +379,12 @@ accepts a `dns-name`, so every character other than letters, digits, `-` and
 name is capped at 63 characters: `web_01.example..com` on order 55 becomes
 `55-web-01.example.com`.
 
+**Hostname = the ordered hostname:** for Cloud-Init QEMU clones Proxmox derives
+the guest hostname from the VM name (first label = hostname, whole name = FQDN).
+Set the product's **VM Name Pattern** to `{hostname}` so an order for
+`vps1.example.com` boots with hostname `vps1` and FQDN `vps1.example.com`; any
+prefix in the pattern (e.g. `VPS-{clientid}-{hostname}`) ends up in the hostname.
+
 <img alt="Custom Fields for the Service/Product set the ISO/Template/etc." src="_images/zProductISOetc.png">
 
 ### VM Option 1: QEMU, PVE Template VM Clone
@@ -375,6 +402,16 @@ Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
 > to the source template and use a Cloud-Init-capable guest image. The module
 > sets `ipconfig0`, DNS, the VM name, and optionally `ciuser`/`cipassword`; it
 > does not create or attach the Cloud-Init drive itself.
+
+The clone's root disk (first disk of the boot order) is grown to the plan's disk
+size before the first start; keep templates small and let the guest's Cloud-Init
+`growpart` expand the filesystem. A template disk larger than the plan is kept.
+
+Optional Custom Field `SSHKey` (text area, not required): OpenSSH public keys,
+one per line (max 10). Clones receive them as Cloud-Init `sshkeys`, direct LXC
+creates as `ssh-public-keys`; the password keeps working. Invalid content stops
+CreateAccount before anything is created. ISO installs (VM Option 2) have no
+Cloud-Init and ignore it.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
