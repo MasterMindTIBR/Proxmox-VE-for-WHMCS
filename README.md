@@ -90,7 +90,7 @@ The module does not need `root@pam`. A limited user works when every guest it cr
 | --- | --- | --- | --- |
 | `/pool/<pool>` | `WHMCS-VPS`: `VM.Allocate`, `VM.Audit`, `VM.PowerMgmt`, `VM.Config.CDROM`, `VM.Config.CPU`, `VM.Config.Cloudinit`, `VM.Config.Disk`, `VM.Config.HWType`, `VM.Config.Memory`, `VM.Config.Network`, `VM.Config.Options` | yes | create/clone into the pool, lifecycle, power, tags |
 | `/vms/<template-vmid>` (each clone template, kept **outside** the pool) | `WHMCS-Template`: `VM.Audit`, `VM.Clone` | no | clone source; outside the pool so it does not inherit write access |
-| `/storage/<disk storage>` (e.g. `san-raw`) | `WHMCS-Datastore`: `Datastore.AllocateSpace`, `Datastore.Audit` | no | plan disks |
+| `/storage/<disk storage>` (e.g. `san-raw`) | `WHMCS-Datastore`: `Datastore.AllocateSpace`, `Datastore.Audit` | no | plan disks (clones too: they are written to the plan's storage, so the template's own storage needs no ACL) |
 | `/storage/local` | `WHMCS-ISORead`: `Datastore.Audit` | no | ISO plans: the module always attaches `local:iso/<file>`, which Proxmox only allows with read access to `local` (otherwise `403 Permission check failed (/storage/local, Datastore.AllocateSpace\|Datastore.Audit)`) |
 | `/sdn/zones/<zone>/<vnet>` | `WHMCS-SDN`: `SDN.Use` | yes | plan bridge/VNet |
 | `/nodes/<node>` | `WHMCS-SysAudit`: `Sys.Audit` | no | node stats/RRD |
@@ -406,6 +406,10 @@ Secondly, use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 > **Note**: `Name` is what will be displayed to your Clients in WHMCS.
 
 Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
+
+The clone is a full clone written to the **plan's Storage** (any storage the
+template node reaches; the template can live on another one), so one template
+serves plans on different storages.
 
 > **Cloud-Init required for in-guest configuration:** attach a Cloud-Init drive
 > to the source template and use a Cloud-Init-capable guest image. The module
