@@ -22,6 +22,7 @@ Schema change with automatic repair: `pvewhmcs_ensure_schema()` guarantees the 1
 - Addon: The update checker reads this fork's `version` file with 3 s/5 s timeouts, a 12-hour cache and `version_compare()`.
 
 ### 🐛 Bug Fix
+- Provisioning (QEMU clone): the cloned root disk is grown to the plan's disk size before the first boot (it kept the template's size, e.g. 3 GB instead of 100 GB). The disk is found from the boot order; a disk already larger than the plan is never shrunk.
 - Provisioning (HA On): the guest stays `ha_pending` until its HA resource and optional HA rule exist; CreateAccount resumes that stage instead of reporting the service as already linked, and lifecycle actions are refused meanwhile.
 - Provisioning (HA On): the HA rule update sends the rule's `type` (required by PVE 9.2) with `resources` and `digest`, re-reading and retrying on a concurrent change.
 - Provisioning (HA): Suspend, Unsuspend and Terminate change the HA state before the guest config, so an HA failure (e.g. no `Sys.Console`) leaves the guest untouched; a retry after a later failure resumes. Suspend no longer sends a direct stop to an HA guest.
