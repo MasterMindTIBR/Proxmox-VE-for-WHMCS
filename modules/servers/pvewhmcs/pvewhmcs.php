@@ -1535,7 +1535,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		}
 		$ip = $marker['ip'];
 		$settings = $isClone
-			? array('newid' => $vmid, 'name' => pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title), 'full' => true, 'target' => $templateNode)
+			? array('newid' => $vmid, 'name' => pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title), 'full' => true, 'target' => $templateNode, 'storage' => $plan->storage)
 			: pvewhmcs_create_direct_settings($params, $plan, $ip, $network, $guestType);
 		if (!$isClone) {
 			$settings['vmid'] = $vmid;
