@@ -1132,6 +1132,69 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 	return $settings;
 }
 
+/**
+ * Bytes of a Proxmox disk definition's `size=` (e.g. 3G, 3584M, 1T); 0 when absent.
+ */
+function pvewhmcs_disk_size_bytes($diskConfig) {
+	if (!preg_match('/(?:^|,)size=(\d+(?:\.\d+)?)([KMGT]?)(?:,|$)/', (string) $diskConfig, $m)) {
+		return 0;
+	}
+	$exponent = array('' => 0, 'K' => 1, 'M' => 2, 'G' => 3, 'T' => 4)[$m[2]];
+
+	return (int) round((float) $m[1] * (1024 ** $exponent));
+}
+
+/**
+ * Config key of the guest's root disk: `rootfs` for LXC; for QEMU the first
+ * disk in the boot order, else the first of scsi0/virtio0/sata0/ide0 that is
+ * not a CD-ROM. Null when none exists.
+ */
+function pvewhmcs_root_disk_key(array $config, $vtype) {
+	if ($vtype === 'lxc') {
+		return isset($config['rootfs']) ? 'rootfs' : null;
+	}
+	$candidates = array();
+	if (preg_match('/(?:^|,)order=([^,]+)/', (string) ($config['boot'] ?? ''), $m)) {
+		$candidates = explode(';', $m[1]);
+	}
+	foreach (array_merge($candidates, array('scsi0', 'virtio0', 'sata0', 'ide0')) as $key) {
+		if (preg_match('/^(scsi|virtio|sata|ide)\d+$/', $key) && isset($config[$key]) && strpos((string) $config[$key], 'media=cdrom') === false) {
+			return $key;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Grows the guest's root disk to $planDiskGb GiB. Disks are never shrunk:
+ * when the disk is already larger it is left untouched and its size in bytes
+ * is returned; otherwise (grown or already equal) returns null. Idempotent.
+ */
+function pvewhmcs_grow_root_disk(PVE2_API $proxmox, $guestPath, $vtype, $planDiskGb) {
+	$target = (int) $planDiskGb * (1024 ** 3);
+	if ($target <= 0) {
+		return null;
+	}
+	$config = (array) $proxmox->get($guestPath . '/config');
+	$key = pvewhmcs_root_disk_key($config, $vtype);
+	if ($key === null) {
+		throw new RuntimeException("No root disk found at {$guestPath} to resize to {$planDiskGb} GB.");
+	}
+	$current = pvewhmcs_disk_size_bytes($config[$key]);
+	if ($current > $target) {
+		return $current;
+	}
+	if ($current < $target) {
+		$response = $proxmox->put($guestPath . '/resize', array('disk' => $key, 'size' => (int) $planDiskGb . 'G'));
+		if (pvewhmcs_is_upid($response)) {
+			pvewhmcs_wait_task($proxmox, $response, 300);
+		}
+	}
+
+	return null;
+}
+
 function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $plan, $ip, $network, $node, $vmid) {
 	$ipv6Enabled = !empty($plan->ipv6) && $plan->ipv6 != '0';
 	$tweaks = array(
@@ -1171,6 +1234,9 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		pvewhmcs_provisioning_set_pending($params['serviceid'], $response);
 		pvewhmcs_wait_recorded_provisioning_task($proxmox, $params['serviceid'], $response);
 	}
+	// The clone keeps the template's disk size; grow it to the plan before the
+	// first boot so cloud-init's growpart expands the filesystem.
+	pvewhmcs_grow_root_disk($proxmox, $guestPath, 'qemu', $plan->disk);
 	if (!empty($plan->onboot)) {
 		$status = $proxmox->get($guestPath . '/status/current');
 		if (($status['status'] ?? null) !== 'running') {
