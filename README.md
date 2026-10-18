@@ -331,8 +331,9 @@ Take note that during the Guest Import process, there is no association ensured 
 With **Firewall** enabled in the plan, every creation path sets `firewall=1` on
 the NIC, creates the guest IPSet `ipfilter-net0` with the provisioned IPv4 and
 enables the guest firewall with `ipfilter` — on clones before the first start.
-Policies already set on the guest (e.g. from the template) are kept; a guest
-without one gets **ACCEPT** in/out, so only packets whose source IP is not the
+A guest firewall that is already enabled (e.g. from the template) keeps its
+policies, explicit or implicit (unset inbound = DROP); a guest firewall that the
+module enables gets **ACCEPT** for any unset policy, so only packets whose source IP is not the
 provisioned one are dropped — a customer who changes the IP inside the guest
 cuts off only their own guest; inbound traffic is not filtered (the customer
 manages that inside the guest). If `ipfilter-net0` already holds anything other
@@ -349,7 +350,8 @@ every node (or add the management rules you need), then enable the datacenter
 option. The limited API user needs no new privilege (`VM.Config.Network` and
 `VM.Audit`, already in `WHMCS-VPS`). Plans with IPv6 enabled skip the whole
 filter for now (their IPv4 is not filtered either). ChangePackage to a plan with
-Firewall turns the NIC flag and the filter on; moving to a plan without Firewall
+Firewall turns the NIC flag and the filter on (a guest without `net0` is refused
+with nothing changed); moving to a plan without Firewall
 keeps an existing filter. Guests created before enabling it are not changed.
 
 ### IPv6: SLAAC default (via 2nd vNIC)
@@ -416,8 +418,10 @@ legacy `bootdisk`); keep templates small and let the guest's Cloud-Init
 `growpart` expand the filesystem. A template disk larger than the plan is kept.
 
 Optional Custom Field `SSHKey` (text area, not required): OpenSSH public keys,
-one per line (max 10); each key's blob is checked to be a complete key of the
-declared type, and `authorized_keys` options are refused. Clones receive them as Cloud-Init `sshkeys`, direct LXC
+one per line (max 10): `ssh-ed25519`, `ssh-rsa` (≥ 1024 bits), `ecdsa-sha2-nistp256/384/521`
+and the `sk-` security-key variants; each key's parameters are checked (ECDSA
+points through PHP OpenSSL) and `authorized_keys` options are refused; DSA is
+not accepted. Clones receive them as Cloud-Init `sshkeys`, direct LXC
 creates as `ssh-public-keys`; the password keeps working. Invalid content stops
 CreateAccount before anything is created. ISO installs (VM Option 2) have no
 Cloud-Init and ignore it.
