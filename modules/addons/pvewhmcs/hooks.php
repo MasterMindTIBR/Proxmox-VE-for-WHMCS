@@ -88,9 +88,12 @@ function pvewhmcs_hook_pending_cancellation($serviceId) {
 // longer Cancelled or was touched after that log line is not reopened.
 function pvewhmcs_hook_request_invoices($serviceId, $request) {
 	$at = strtotime((string) $request->date);
+	// Same HTTP request as the cancellation (seconds apart), and never before an earlier withdrawal.
+	$after = (int) Capsule::table('tblactivitylog')->where('description', 'like', 'Client withdrew the cancellation request % - Service ID: ' . (int) $serviceId)->max('id');
 	$logs = Capsule::table('tblactivitylog')
+		->where('id', '>', $after)
 		->where('description', 'like', 'Cancelled Outstanding Product Renewal Invoice - Invoice ID: % - Service ID: ' . (int) $serviceId)
-		->whereBetween('date', array(date('Y-m-d H:i:s', $at - 60), date('Y-m-d H:i:s', $at + 60)))
+		->whereBetween('date', array(date('Y-m-d H:i:s', $at - 5), date('Y-m-d H:i:s', $at + 10)))
 		->orderBy('id')->get(array('id', 'description'));
 	$reopen = array();
 	$review = array();
