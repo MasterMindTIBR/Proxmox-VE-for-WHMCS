@@ -156,5 +156,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_servers` (
   `pve_pool` varchar(64) DEFAULT NULL,
   `ha_mode` varchar(8) DEFAULT NULL,
   `ha_rule` varchar(64) DEFAULT NULL,
+  `vnc_user` varchar(64) DEFAULT NULL,
+  `vnc_secret` text DEFAULT NULL,
   PRIMARY KEY (`server_id`)
 );

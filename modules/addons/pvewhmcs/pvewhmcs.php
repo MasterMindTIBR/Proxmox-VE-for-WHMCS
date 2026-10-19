@@ -1773,18 +1773,19 @@ function pvewhmcs_server_settings_form() {
 			. '<td style="padding:8px;"><input type="text" maxlength="64" name="servers[' . $id . '][pve_pool]" value="' . $e($s->pve_pool ?? '') . '" placeholder="' . $e($globalPool !== '' ? 'Global: ' . $globalPool : 'No pool') . '" style="width:180px;"></td>'
 			. '<td style="padding:8px;"><select name="servers[' . $id . '][ha_mode]">' . $options . '</select></td>'
 			. '<td style="padding:8px;"><input type="text" maxlength="64" name="servers[' . $id . '][ha_rule]" value="' . $e($s->ha_rule ?? '') . '" placeholder="Optional HA rule" style="width:160px;"></td>'
+			. '<td style="padding:8px;"><input type="text" maxlength="64" name="servers[' . $id . '][vnc_user]" value="' . $e($s->vnc_user ?? '') . '" placeholder="Global: vnc@pve" style="width:150px;"><br><input type="password" autocomplete="new-password" name="servers[' . $id . '][vnc_secret]" value="" placeholder="' . (!empty($s->vnc_secret) ? 'Unchanged (set)' : 'Password') . '" style="width:150px;margin-top:4px;"></td>'
 			. '</tr>';
 	}
 	if ($rows === '') {
-		$rows = '<tr><td colspan="5" style="padding:8px;">No WHMCS server of module type pvewhmcs was found.</td></tr>';
+		$rows = '<tr><td colspan="6" style="padding:8px;">No WHMCS server of module type pvewhmcs was found.</td></tr>';
 	}
 
 	return '<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:25px;margin:20px 0;">
 	<h3 style="margin:0 0 10px 0;color:#5c3d7a;">Per-server settings</h3>
-	<p style="font-size:13px;color:#666;">Each WHMCS server (Proxmox connection) can override the global pool and choose how HA is handled. <b>Auth</b> follows the server username: <code>user@realm</code> + password, or an API token <code>user@realm!tokenid</code> with the token secret in the server password field. <b>HA Off</b> never reads or changes <code>/cluster/ha</code> (standalone PVE, no <code>Sys.Audit</code>/<code>Sys.Console</code> on <code>/</code>). <b>HA On</b> registers every new guest as an HA resource (<code>started</code>), optionally in the named HA rule; Suspend/Unsuspend/Terminate then switch it to <code>stopped</code>/<code>started</code>/<code>disabled</code>. Deleting such a guest later requires removing its HA resource first. <b style="color:#b91c1c;">HA On needs <code>Sys.Console</code> on <code>/</code>, which lets this API user change, stop, remove or migrate the HA of every guest in the cluster, including guests outside its pool; use it only on a cluster dedicated to this WHMCS.</b> Switching On to Off does not remove existing HA resources.</p>
+	<p style="font-size:13px;color:#666;">Each WHMCS server (Proxmox connection) can override the global pool and choose how HA is handled. <b>Auth</b> follows the server username: <code>user@realm</code> + password, or an API token <code>user@realm!tokenid</code> with the token secret in the server password field. <b>HA Off</b> never reads or changes <code>/cluster/ha</code> (standalone PVE, no <code>Sys.Audit</code>/<code>Sys.Console</code> on <code>/</code>). <b>HA On</b> registers every new guest as an HA resource (<code>started</code>), optionally in the named HA rule; Suspend/Unsuspend/Terminate then switch it to <code>stopped</code>/<code>started</code>/<code>disabled</code>. Deleting such a guest later requires removing its HA resource first. <b style="color:#b91c1c;">HA On needs <code>Sys.Console</code> on <code>/</code>, which lets this API user change, stop, remove or migrate the HA of every guest in the cluster, including guests outside its pool; use it only on a cluster dedicated to this WHMCS.</b> Switching On to Off does not remove existing HA resources. <b>Console (VNC) user</b>: the Proxmox <code>user@realm</code> that opens the console (<code>vncproxy</code>) for guests of this server, with only <code>VM.Console</code> on the server pool; blank uses the global <code>vnc@pve</code> and the Module Config VNC Secret. The password is stored encrypted; leave it blank to keep the saved one.</p>
 	<form method="post">' . pvewhmcs_csrf_field() . '
 	<table style="width:100%;border-collapse:collapse;font-size:13px;">
-	<tr style="text-align:left;border-bottom:1px solid #eee;"><th style="padding:8px;">Server</th><th style="padding:8px;">Auth</th><th style="padding:8px;">Proxmox Pool</th><th style="padding:8px;">HA mode</th><th style="padding:8px;">HA rule</th></tr>
+	<tr style="text-align:left;border-bottom:1px solid #eee;"><th style="padding:8px;">Server</th><th style="padding:8px;">Auth</th><th style="padding:8px;">Proxmox Pool</th><th style="padding:8px;">HA mode</th><th style="padding:8px;">HA rule</th><th style="padding:8px;">Console (VNC) user</th></tr>
 	' . $rows . '
 	</table>
 	<div style="margin-top:15px;"><input type="submit" style="background:#5c3d7a;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;cursor:pointer;" value="Save server settings" name="save_server_settings"></div>
@@ -1819,11 +1820,30 @@ function pvewhmcs_save_server_settings() {
 			if ($haRule !== '' && $haMode !== 'on') {
 				throw new InvalidArgumentException("Server #{$serverId}: an HA rule only applies when HA mode is On.");
 			}
-			$rows[$serverId] = array('pve_pool' => $pool !== '' ? $pool : null, 'ha_mode' => $haMode !== '' ? $haMode : null, 'ha_rule' => $haRule !== '' ? $haRule : null);
+			$vncUser = trim((string) ($values['vnc_user'] ?? ''));
+			$vncSecret = (string) ($values['vnc_secret'] ?? '');
+			if ($vncUser !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}@[A-Za-z0-9][A-Za-z0-9_.-]{0,30}$/', $vncUser) !== 1) {
+				throw new InvalidArgumentException("Server #{$serverId}: Console (VNC) user must be empty or a Proxmox user@realm.");
+			}
+			$savedSecret = pvewhmcs_server_settings($serverId)->vnc_secret ?? null;
+			if ($vncUser === '') {
+				$vncSecret = null; // the global vnc@pve and its Module Config secret apply
+			} elseif ($vncSecret !== '') {
+				if (strlen($vncSecret) < 15) {
+					throw new InvalidArgumentException("Server #{$serverId}: Console (VNC) password must be at least 15 characters.");
+				}
+				$vncSecret = encrypt($vncSecret);
+			} elseif (!empty($savedSecret)) {
+				$vncSecret = $savedSecret;
+			} else {
+				throw new InvalidArgumentException("Server #{$serverId}: a Console (VNC) user needs its password.");
+			}
+			$rows[$serverId] = array('pve_pool' => $pool !== '' ? $pool : null, 'ha_mode' => $haMode !== '' ? $haMode : null, 'ha_rule' => $haRule !== '' ? $haRule : null,
+				'vnc_user' => $vncUser !== '' ? $vncUser : null, 'vnc_secret' => $vncSecret);
 		}
 		Capsule::connection()->transaction(function () use ($rows) {
 			foreach ($rows as $serverId => $row) {
-				if ($row['pve_pool'] === null && $row['ha_mode'] === null && $row['ha_rule'] === null) {
+				if ($row['pve_pool'] === null && $row['ha_mode'] === null && $row['ha_rule'] === null && $row['vnc_user'] === null) {
 					Capsule::table('mod_pvewhmcs_servers')->where('server_id', $serverId)->delete();
 				} else {
 					Capsule::table('mod_pvewhmcs_servers')->updateOrInsert(array('server_id' => $serverId), $row);
@@ -1831,7 +1851,7 @@ function pvewhmcs_save_server_settings() {
 			}
 		});
 		$_SESSION['pvewhmcs']['infomsg']['title'] = 'Server settings saved.';
-		$_SESSION['pvewhmcs']['infomsg']['message'] = 'Per-server pool and HA settings have been saved.';
+		$_SESSION['pvewhmcs']['infomsg']['message'] = 'Per-server pool, HA and console settings have been saved.';
 		header("Location: " . pvewhmcs_BASEURL . "&tab=config");
 	} catch (\Throwable $e) {
 		echo '<div class="alert alert-danger">Server settings were not saved: ' . htmlspecialchars($e->getMessage()) . '</div>';
