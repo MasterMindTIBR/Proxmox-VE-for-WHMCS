@@ -1364,6 +1364,8 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		'kvm' => $plan->kvm, 'onboot' => $plan->onboot,
 		'nameserver' => pvewhmcs_guest_nameservers($ipv6Enabled),
 		'ipconfig0' => 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway,
+		// A protected template passes protection=1 to its clones; a sold guest must stay removable by the admin.
+		'protection' => 0,
 	);
 	if (($cloudInitUser = pvewhmcs_cloud_init_user()) !== null) {
 		$tweaks['ciuser'] = $cloudInitUser;
@@ -1707,6 +1709,13 @@ function pvewhmcs_TestConnection(array $params) {
 /**
  * PVE2_API for callbacks that receive the WHMCS server credentials in $params.
  */
+// Why login() failed (host/port/HTTP status only, never credentials), for the admin-facing error.
+function pvewhmcs_login_reason($proxmox) {
+	$reason = $proxmox->get_last_error();
+
+	return $reason ? ' ' . $reason : '';
+}
+
 function pvewhmcs_params_api(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
@@ -1735,7 +1744,7 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error suspending account. Couldn't login to PVE.";
+		return "Error suspending account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1804,7 +1813,7 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error unsuspending account. Couldn't login to PVE.";
+		return "Error unsuspending account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1880,7 +1889,7 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error changing package. Couldn't login to PVE.";
+		return "Error changing package. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1953,7 +1962,7 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	}
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error cancelling account. Couldn't login to PVE.";
+		return "Error cancelling account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
@@ -2291,8 +2300,9 @@ function pvewhmcs_prepare_noVNC($params) {
 	pvewhmcs_ensure_schema();
 	global $CONFIG;
 
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
-		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	list($vncUser, $vncRealm, $vncpassword) = pvewhmcs_vnc_credentials(pvewhmcs_service_server_id($params));
+	if (strlen($vncpassword) < 15) {
+		throw new Exception("PVEWHMCS Error: VNC Secret (per-server VNC user or Module Config) either not set or not long enough. Recommend 20+ characters for security.");
 	}
 
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
@@ -2311,7 +2321,7 @@ function pvewhmcs_prepare_noVNC($params) {
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox_server->login()) {
-		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
+		throw new Exception('Failed to prepare noVNC. Unable to connect to server.' . pvewhmcs_login_reason($proxmox_server));
 	}
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest);
@@ -2319,8 +2329,7 @@ function pvewhmcs_prepare_noVNC($params) {
 		throw new Exception('Failed to prepare noVNC. Unable to determine node.');
 	}
 
-	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, 'vnc', 'pve', $vncpassword, $serverport, pvewhmcs_verify_tls($params));
+	$proxmox = new PVE2_API($serverip, $vncUser, $vncRealm, $vncpassword, $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox->login()) {
 		throw new Exception('Failed to prepare noVNC. Please contact Technical Support.');
 	}
@@ -2439,7 +2448,7 @@ function pvewhmcs_power_target(array $params) {
 
 	list($proxmox, $serverpassword) = pvewhmcs_service_server_api($params);
 	if (!$proxmox->login()) {
-		return "Error performing action. Couldn't login to PVE.";
+		return "Error performing action. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
