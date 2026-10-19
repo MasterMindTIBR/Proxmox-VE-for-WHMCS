@@ -319,7 +319,12 @@ function pvewhmcs_ensure_schema() {
 		}
 		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_plans', 'vmbr', 64);
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'vmbr', 'varchar(64) NULL DEFAULT NULL', 'varchar(64)', true, null);
-		// Proxmox storage IDs and network names are longer than the original varchar(20); widening never loses data.
+		// Proxmox storage IDs and network names are longer than the original varchar(20); widening never loses data,
+		// and the length check refuses to narrow a column that already holds longer values.
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_plans', 'storage', 64);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_plans', 'bridge', 64);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_iso', 'storage', 64);
+		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_templates', 'storage', 64);
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'storage', "varchar(64) DEFAULT 'local'", 'varchar(64)', true, 'local');
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'bridge', "varchar(64) NOT NULL DEFAULT 'vmbr'", 'varchar(64)', false, 'vmbr');
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs_iso', 'storage', "varchar(64) NOT NULL DEFAULT 'local'", 'varchar(64)', false, 'local');
