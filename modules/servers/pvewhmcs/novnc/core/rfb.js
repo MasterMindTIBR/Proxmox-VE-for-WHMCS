@@ -651,6 +651,8 @@ export default class RFB extends EventTargetMixin {
 
     _socketClose(e) {
         Log.Debug("WebSocket on-close event");
+        // pvewhmcs: keep the close code so the UI can explain a relay session timeout (4408). Re-apply on noVNC bumps.
+        this._pvewhmcsCloseCode = e.code;
         let msg = "";
         if (e.code) {
             msg = "(code: " + e.code;

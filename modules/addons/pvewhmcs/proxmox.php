@@ -112,6 +112,23 @@ function pvewhmcs_server_settings($serverId) {
 }
 
 /**
+ * Proxmox login used only for the console (vncproxy): the server's own VNC user
+ * (user@realm, secret stored with WHMCS encrypt()), else the global vnc@pve and
+ * the Module Config VNC Secret. Returns [user, realm, password].
+ */
+function pvewhmcs_vnc_credentials($serverId): array {
+	$settings = pvewhmcs_server_settings($serverId);
+	$user = trim((string) ($settings->vnc_user ?? ''));
+	if ($user !== '') {
+		$at = strrpos($user, '@');
+
+		return array(substr($user, 0, $at), substr($user, $at + 1), (string) decrypt((string) ($settings->vnc_secret ?? '')));
+	}
+
+	return array('vnc', 'pve', (string) Capsule::table('mod_pvewhmcs')->where('id', '=', 1)->value('vnc_secret'));
+}
+
+/**
  * Proxmox resource pool for new guests: the server's own pool, else the global
  * Module Config pool. Blank sends no pool; a configured one keeps clones and
  * direct creates inside the pool a limited API user manages.
@@ -288,6 +305,10 @@ function pvewhmcs_ensure_schema() {
 		Capsule::statement("INSERT IGNORE INTO `mod_pvewhmcs` (`id`, `config`, `vnc_secret`, `debug_mode`) VALUES (1, NULL, NULL, 0)");
 		pvewhmcs_schema_assert_max_length('mod_pvewhmcs', 'schema_version', 20);
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs', 'schema_version', "varchar(20) NOT NULL DEFAULT ''", 'varchar(20)', false, '', "''");
+
+		foreach (array('vnc_user' => 'varchar(64) DEFAULT NULL', 'vnc_secret' => 'text DEFAULT NULL') as $column => $definition) {
+			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_servers', $column, $definition);
+		}
 
 		foreach (array(
 			'title' => 'varchar(255) NOT NULL', 'gateway' => 'varchar(100) DEFAULT NULL',
