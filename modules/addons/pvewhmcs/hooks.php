@@ -82,28 +82,68 @@ function pvewhmcs_hook_pending_cancellation($serviceId) {
 	return $request === null ? null : array($service, $request);
 }
 
-// "Undo cancellation": drops the pending request and reopens the renewal invoice that
-// CancelInvoiceOnCancellation cancelled when the request was made, so billing resumes.
+// Invoices this request cancelled: WHMCS (CancelInvoiceOnCancellation) logs
+// "Cancelled Outstanding Product Renewal Invoice - Invoice ID: N - Service ID: S" when the
+// request is made. Returns array(reopen ids, ids left for the admin): an invoice that is no
+// longer Cancelled or was touched after that log line is not reopened.
+function pvewhmcs_hook_request_invoices($serviceId, $request) {
+	$at = strtotime((string) $request->date);
+	$logs = Capsule::table('tblactivitylog')
+		->where('description', 'like', 'Cancelled Outstanding Product Renewal Invoice - Invoice ID: % - Service ID: ' . (int) $serviceId)
+		->whereBetween('date', array(date('Y-m-d H:i:s', $at - 60), date('Y-m-d H:i:s', $at + 60)))
+		->orderBy('id')->get(array('id', 'description'));
+	$reopen = array();
+	$review = array();
+	foreach ($logs as $log) {
+		if (!preg_match('/Invoice ID: (\d+) - Service ID: /', $log->description, $m)) {
+			continue;
+		}
+		$invoiceId = (int) $m[1];
+		$touched = Capsule::table('tblactivitylog')->where('id', '>', $log->id)->where('description', 'like', '%Invoice ID: ' . $invoiceId . '%')->pluck('description')->all();
+		$touched = preg_grep('/Invoice ID: ' . $invoiceId . '\b/', $touched);
+		$status = Capsule::table('tblinvoices')->where('id', $invoiceId)->lock('for update')->value('status');
+		if ($status === 'Cancelled' && empty($touched)) {
+			$reopen[] = $invoiceId;
+		} else {
+			$review[] = $invoiceId;
+		}
+	}
+
+	return array($reopen, $review);
+}
+
+// "Undo cancellation": drops the pending request and reopens only the invoices that request
+// cancelled, so billing resumes. All or nothing: on any failure the request stays.
 add_hook('ClientAreaPageProductDetails', 1, function ($vars) {
 	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || empty($_POST['pvewhmcs_undo_cancellation'])) {
 		return;
 	}
 	check_token();
 	$serviceId = (int) ($_GET['id'] ?? 0);
-	$pending = pvewhmcs_hook_pending_cancellation($serviceId);
-	if ($pending !== null) {
-		list($service, $request) = $pending;
-		Capsule::table('tblcancelrequests')->where('relid', $serviceId)->delete();
-		$invoiceIds = Capsule::table('tblinvoices as i')
-			->join('tblinvoiceitems as t', 't.invoiceid', '=', 'i.id')
-			->where('t.type', 'Hosting')->where('t.relid', $serviceId)
-			->where('i.userid', (int) $service->userid)->where('i.status', 'Cancelled')
-			->where('i.date_cancelled', '>=', $request->date)
-			->distinct()->pluck('i.id')->all();
-		foreach ($invoiceIds as $invoiceId) {
-			localAPI('UpdateInvoice', array('invoiceid' => (int) $invoiceId, 'status' => 'Unpaid'));
-		}
-		logActivity('Client withdrew the cancellation request (End of Billing Period, ' . $request->date . ')' . ($invoiceIds ? '; invoice(s) #' . implode(', #', $invoiceIds) . ' reopened' : '') . ' - Service ID: ' . $serviceId, (int) $service->userid);
+	try {
+		Capsule::connection()->transaction(function () use ($serviceId) {
+			// Locking the service row serialises this with the cancellation cron.
+			Capsule::table('tblhosting')->where('id', $serviceId)->lock('for update')->value('id');
+			$pending = pvewhmcs_hook_pending_cancellation($serviceId);
+			if ($pending === null) {
+				return;
+			}
+			list($service, $request) = $pending;
+			list($reopen, $review) = pvewhmcs_hook_request_invoices($serviceId, $request);
+			foreach ($reopen as $invoiceId) {
+				$result = localAPI('UpdateInvoice', array('invoiceid' => $invoiceId, 'status' => 'Unpaid'));
+				if (($result['result'] ?? '') !== 'success') {
+					throw new RuntimeException('invoice #' . $invoiceId . ' not reopened: ' . ($result['message'] ?? 'unknown error'));
+				}
+			}
+			Capsule::table('tblcancelrequests')->where('relid', $serviceId)->delete();
+			logActivity('Client withdrew the cancellation request (End of Billing Period, ' . $request->date . ')'
+				. ($reopen ? '; invoice(s) #' . implode(', #', $reopen) . ' reopened' : '')
+				. ($review ? '; invoice(s) #' . implode(', #', $review) . ' changed after the request, NOT reopened: check billing' : '')
+				. ' - Service ID: ' . $serviceId, (int) $service->userid);
+		});
+	} catch (\Throwable $e) {
+		logActivity('Cancellation withdrawal failed, request kept (' . $e->getMessage() . ') - Service ID: ' . $serviceId);
 	}
 	header('Location: clientarea.php?action=productdetails&id=' . $serviceId);
 	exit;
