@@ -246,7 +246,8 @@ function pvewhmcs_guest_provisioning_error($guest) {
 
 	$vmid = (int) ($guest->vmid ?? 0);
 	if ($state === 'pending') {
-		return "Error: provisioning for VMID {$vmid} is pending; retry CreateAccount to finish the recorded Proxmox task.";
+		$last = trim((string) ($guest->provisioning_error ?? ''));
+		return "Error: provisioning for VMID {$vmid} is pending; retry CreateAccount to finish the recorded Proxmox task." . ($last !== '' ? " Last error: {$last}" : '');
 	}
 	if ($state === 'allocating') {
 		return "Error: provisioning for VMID {$vmid} has an uncertain allocation outcome; it is blocked pending administrative investigation.";
@@ -534,11 +535,86 @@ function pvewhmcs_register_guest_ha(PVE2_API $proxmox, $serverId, $guest) {
 }
 
 /**
+ * True when the plan asks for the IP filter: Firewall on and no IPv6.
+ */
+function pvewhmcs_plan_wants_ip_filter($plan) {
+	// shortcut: IPv6 plans skip the whole IP filter (SLAAC/DHCPv6 addresses are not known here), so their IPv4 is unfiltered too; add both to the IPSet when IPv6 is sold.
+	return $plan !== null && !empty($plan->firewall) && (empty($plan->ipv6) || $plan->ipv6 == '0');
+}
+
+/**
+ * NIC definition with `firewall=1` (any existing firewall= value replaced).
+ */
+function pvewhmcs_nic_with_firewall($net) {
+	return preg_replace('/(^|,)firewall=[^,]*/', '', (string) $net) . ',firewall=1';
+}
+
+/**
+ * IP anti-spoofing: the guest's IPSet `ipfilter-net0` must hold exactly the
+ * provisioned IPv4, then the guest firewall gets `enable` + `ipfilter`. A set
+ * that already holds anything else (other addresses, networks, a `nomatch`
+ * entry) is refused, never rewritten. A guest firewall that is already enabled
+ * keeps its policies, explicit or implicit (unset = DROP inbound); only a guest
+ * firewall being enabled here gets ACCEPT for the unset policies, so only
+ * foreign source IPs are dropped. Effective only while the datacenter firewall
+ * is enabled. Idempotent.
+ */
+function pvewhmcs_apply_ip_filter(PVE2_API $proxmox, $guestPath, $ipaddress) {
+	$firewall = $guestPath . '/firewall';
+	if (!in_array('ipfilter-net0', array_column((array) $proxmox->get($firewall . '/ipset'), 'name'), true)) {
+		$proxmox->post($firewall . '/ipset', array('name' => 'ipfilter-net0', 'comment' => 'pvewhmcs: provisioned IPv4'));
+	}
+	$entries = (array) $proxmox->get($firewall . '/ipset/ipfilter-net0');
+	foreach ($entries as $entry) {
+		if (!in_array($entry['cidr'] ?? '', array($ipaddress, $ipaddress . '/32'), true) || !empty($entry['nomatch'])) {
+			throw new RuntimeException("IPSet ipfilter-net0 at {$guestPath} already holds entries other than {$ipaddress} (or a nomatch entry); fix it in Proxmox and retry. The IP filter was not enabled.");
+		}
+	}
+	if (empty($entries)) {
+		$proxmox->post($firewall . '/ipset/ipfilter-net0', array('cidr' => $ipaddress));
+	}
+	$options = (array) $proxmox->get($firewall . '/options');
+	$update = array('enable' => 1, 'ipfilter' => 1, 'digest' => (string) ($options['digest'] ?? ''));
+	foreach (array('policy_in', 'policy_out') as $policy) {
+		if (empty($options['enable']) && !isset($options[$policy])) {
+			$update[$policy] = 'ACCEPT';
+		}
+	}
+	$proxmox->put($firewall . '/options', $update);
+}
+
+/**
+ * Provisioning step of the IP filter. A failure is kept in provisioning_error
+ * (the guest stays pending, CreateAccount retries) and re-thrown.
+ */
+function pvewhmcs_provisioning_ip_filter(PVE2_API $proxmox, $serviceId, $plan, $guestPath, $ipaddress) {
+	if (!pvewhmcs_plan_wants_ip_filter($plan)) {
+		return;
+	}
+	try {
+		pvewhmcs_apply_ip_filter($proxmox, $guestPath, $ipaddress);
+	} catch (\Throwable $e) {
+		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_error' => substr($e->getMessage(), 0, 65535), 'provisioning_updated_at' => date('Y-m-d H:i:s')));
+		throw $e;
+	}
+}
+
+/**
  * Last provisioning stage. With HA mode On the guest stays `ha_pending` (lifecycle
  * blocked, CreateAccount resumes here) until the HA resource and rule exist;
  * only then is it `ready`.
  */
-function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId) {
+function pvewhmcs_finish_provisioning(PVE2_API $proxmox, $serverId, $serviceId, array $params) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first();
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
+	// Clones get the IP filter before their first start (clone post-configuration).
+	if (($guest->provisioning_mode ?? null) !== 'clone' && pvewhmcs_plan_wants_ip_filter($plan)) {
+		$node = pvewhmcs_find_guest_node($proxmox, $guest) ?: trim((string) ($guest->provisioning_node ?? ''));
+		if ($node === '') {
+			throw new RuntimeException("Cannot apply the IP filter: the node of VMID {$guest->vmid} is unknown.");
+		}
+		pvewhmcs_provisioning_ip_filter($proxmox, $serviceId, $plan, pvewhmcs_guest_api_path($node, $guest), $guest->ipaddress);
+	}
 	if (pvewhmcs_server_ha_mode($serverId) === 'on') {
 		Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('provisioning_state' => 'ha_pending', 'provisioning_updated_at' => date('Y-m-d H:i:s')));
 		$error = pvewhmcs_register_guest_ha($proxmox, $serverId, Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first());
@@ -810,6 +886,12 @@ function pvewhmcs_TerminateAccount(array $params) {
 	});
 }
 
+function pvewhmcs_ChangePackage(array $params) {
+	return pvewhmcs_run_tracked_action('ChangePackage', 'lifecycle', $params, function () use ($params) {
+		return pvewhmcs_ChangePackage_impl($params);
+	});
+}
+
 function pvewhmcs_vmStart($params) {
 	return pvewhmcs_run_tracked_action('vmStart', 'power', $params, function () use ($params) {
 		return pvewhmcs_vmStart_impl($params);
@@ -992,8 +1074,82 @@ function pvewhmcs_ConfigOptions() {
  * TPL_Node_QEMU/TPL_Node_LXC are checked against the cluster node list once logged in.
  * Returns an error string, or null when the fields used by this plan are valid.
  */
+/**
+ * Optional custom field SSHKey: OpenSSH public keys, one per line (max 10).
+ * Returns the normalized keys joined by "\n", '' when the field is blank, or
+ * null when any line is not a public key.
+ */
+function pvewhmcs_ssh_public_keys($raw) {
+	$lines = array_values(array_filter(array_map('trim', preg_split('/\R/', html_entity_decode(trim((string) $raw), ENT_QUOTES, 'UTF-8')))));
+	if (count($lines) > 10) {
+		return null;
+	}
+	foreach ($lines as $line) {
+		if (!preg_match('/^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) ([A-Za-z0-9+\/]+={0,3})( [^\x00-\x1f]*)?$/', $line, $m)) {
+			return null;
+		}
+		// The blob (SSH wire format) must be complete: length-prefixed fields that
+		// consume it exactly, the first being the algorithm name, with the field
+		// count of that algorithm (catches truncated or mislabeled keys).
+		$blob = base64_decode($m[5], true);
+		$fields = array();
+		for ($offset = 0; $blob !== false && $offset < strlen($blob); $offset += 4 + $length) {
+			if ($offset + 4 > strlen($blob) || ($length = unpack('N', substr($blob, $offset, 4))[1]) > strlen($blob) - $offset - 4) {
+				return null;
+			}
+			$fields[] = substr($blob, $offset + 4, $length);
+		}
+		$expected = array('ssh-ed25519' => 2, 'ssh-rsa' => 3, 'sk-ssh-ed25519@openssh.com' => 3, 'sk-ecdsa-sha2-nistp256@openssh.com' => 4);
+		if ($blob === false || ($fields[0] ?? null) !== $m[1] || count($fields) !== ($expected[$m[1]] ?? 3) || !pvewhmcs_ssh_key_params_valid($m[1], $fields)) {
+			return null;
+		}
+	}
+
+	return implode("\n", $lines);
+}
+
+/**
+ * Key parameters of a parsed SSH public key blob (fields after the name), as
+ * ssh-keygen would check them: Ed25519 32-byte key; RSA positive odd exponent
+ * and a 1024–16384-bit modulus; ECDSA curve matching the type and a point that
+ * OpenSSL accepts on that curve.
+ */
+function pvewhmcs_ssh_key_params_valid($type, array $fields) {
+	if ($type === 'ssh-ed25519' || $type === 'sk-ssh-ed25519@openssh.com') {
+		return strlen($fields[1]) === 32;
+	}
+	if ($type === 'ssh-rsa') {
+		// mpints are two's complement: a leading byte with the high bit set is negative (OpenSSH refuses it).
+		if ((ord($fields[1][0] ?? "\0") & 0x80) || (ord($fields[2][0] ?? "\0") & 0x80)) {
+			return false;
+		}
+		$e = ltrim($fields[1], "\0");
+		$n = ltrim($fields[2], "\0");
+		$bits = $n === '' ? 0 : (strlen($n) - 1) * 8 + strlen(decbin(ord($n[0])));
+		return $e !== '' && (ord(substr($e, -1)) & 1) === 1 && $bits >= 1024 && $bits <= 16384;
+	}
+	// ECDSA (plain or security key): fields[1] = curve name, fields[2] = uncompressed point.
+	$spki = array(
+		'nistp256' => array('3059301306072a8648ce3d020106082a8648ce3d030107034200', 65),
+		'nistp384' => array('3076301006072a8648ce3d020106052b81040022036200', 97),
+		'nistp521' => array('30819b301006072a8648ce3d020106052b8104002303818600', 133),
+	);
+	$curve = $fields[1];
+	$typeCurve = preg_match('/nistp(256|384|521)/', $type, $tm) ? 'nistp' . $tm[1] : null;
+	if ($curve !== $typeCurve || !isset($spki[$curve]) || strlen($fields[2]) !== $spki[$curve][1] || !function_exists('openssl_pkey_get_public')) {
+		return false;
+	}
+	$pem = "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode(hex2bin($spki[$curve][0]) . $fields[2]), 64, "\n") . "-----END PUBLIC KEY-----\n";
+
+	return openssl_pkey_get_public($pem) !== false;
+}
+
 function pvewhmcs_create_custom_field_error(array $params, $plan) {
 	$fields = (array) ($params['customfields'] ?? array());
+
+	if (pvewhmcs_ssh_public_keys($fields['SSHKey'] ?? '') === null) {
+		return 'Error: Custom field SSHKey must contain OpenSSH public keys, one per line (for example ssh-ed25519 AAAA... user@host), at most 10.';
+	}
 
 	if (!empty($fields['KVMTemplate'])) {
 		if (!preg_match('/^\d+$/', (string) $fields['KVMTemplate'])) {
@@ -1053,7 +1209,7 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 		$settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 		$settings['bwlimit'] = $plan->diskio;
 		$settings['nameserver'] = $nameservers;
-		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
+		$settings['net0'] = 'name=eth0,bridge=' . $network . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate . ',firewall=' . (empty($plan->firewall) ? 0 : 1);
 		if ($ipv6Enabled) {
 			$settings['net1'] = 'name=eth1,bridge=' . $network . ',rate=' . $plan->netrate;
 			if ($plan->ipv6 === 'auto') {
@@ -1071,6 +1227,9 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 		$settings['onboot'] = $plan->onboot;
 		$settings['unprivileged'] = $plan->unpriv;
 		$settings['password'] = $params['customfields']['Password'];
+		if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
+			$settings['ssh-public-keys'] = $sshKeys;
+		}
 	} else {
 		$settings['scsihw'] = 'virtio-scsi-single';
 		$settings['sockets'] = $plan->cpus;
@@ -1132,6 +1291,71 @@ function pvewhmcs_create_direct_settings(array $params, $plan, $ip, $network, $g
 	return $settings;
 }
 
+/**
+ * Bytes of a Proxmox disk definition's `size=` (e.g. 3G, 3584M, 1T); 0 when absent.
+ */
+function pvewhmcs_disk_size_bytes($diskConfig) {
+	if (!preg_match('/(?:^|,)size=(\d+(?:\.\d+)?)([KMGT]?)(?:,|$)/', (string) $diskConfig, $m)) {
+		return 0;
+	}
+	$exponent = array('' => 0, 'K' => 1, 'M' => 2, 'G' => 3, 'T' => 4)[$m[2]];
+
+	return (int) round((float) $m[1] * (1024 ** $exponent));
+}
+
+/**
+ * Config key of the guest's root disk: `rootfs` for LXC; for QEMU the first
+ * disk in the boot order (`order=`, or the legacy `bootdisk`), else the first
+ * of scsi0/virtio0/sata0/ide0 that is not a CD-ROM. Null when none exists.
+ */
+function pvewhmcs_root_disk_key(array $config, $vtype) {
+	if ($vtype === 'lxc') {
+		return isset($config['rootfs']) ? 'rootfs' : null;
+	}
+	$candidates = array();
+	if (preg_match('/(?:^|,)order=([^,]+)/', (string) ($config['boot'] ?? ''), $m)) {
+		$candidates = explode(';', $m[1]);
+	} elseif (!empty($config['bootdisk'])) {
+		$candidates = array((string) $config['bootdisk']);
+	}
+	foreach (array_merge($candidates, array('scsi0', 'virtio0', 'sata0', 'ide0')) as $key) {
+		if (preg_match('/^(scsi|virtio|sata|ide)\d+$/', $key) && isset($config[$key]) && strpos((string) $config[$key], 'media=cdrom') === false) {
+			return $key;
+		}
+	}
+
+	return null;
+}
+
+/**
+ * Grows the guest's root disk to $planDiskGb GiB. Disks are never shrunk:
+ * when the disk is already larger it is left untouched and its size in bytes
+ * is returned; otherwise (grown or already equal) returns null. Idempotent.
+ */
+function pvewhmcs_grow_root_disk(PVE2_API $proxmox, $guestPath, $vtype, $planDiskGb) {
+	$target = (int) $planDiskGb * (1024 ** 3);
+	if ($target <= 0) {
+		return null;
+	}
+	$config = (array) $proxmox->get($guestPath . '/config');
+	$key = pvewhmcs_root_disk_key($config, $vtype);
+	if ($key === null) {
+		throw new RuntimeException("No root disk found at {$guestPath} to resize to {$planDiskGb} GB.");
+	}
+	$current = pvewhmcs_disk_size_bytes($config[$key]);
+	if ($current > $target) {
+		return $current;
+	}
+	if ($current < $target) {
+		$response = $proxmox->put($guestPath . '/resize', array('disk' => $key, 'size' => (int) $planDiskGb . 'G'));
+		if (pvewhmcs_is_upid($response)) {
+			pvewhmcs_wait_task($proxmox, $response, 300);
+		}
+	}
+
+	return null;
+}
+
 function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $plan, $ip, $network, $node, $vmid) {
 	$ipv6Enabled = !empty($plan->ipv6) && $plan->ipv6 != '0';
 	$tweaks = array(
@@ -1145,8 +1369,8 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		$tweaks['ciuser'] = $cloudInitUser;
 	}
 	$guestPath = '/nodes/' . $node . '/qemu/' . $vmid;
+	$config = ($plan->netmode === 'bridge' || !empty($plan->firewall)) ? (array) $proxmox->get($guestPath . '/config') : array();
 	if ($plan->netmode === 'bridge') {
-		$config = $proxmox->get($guestPath . '/config');
 		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
 		if ($ipv6Enabled) {
 			$tweaks['net1'] = pvewhmcs_replace_qemu_bridge($config['net1'] ?? $plan->netmodel, $network);
@@ -1165,12 +1389,28 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	if (!empty($params['customfields']['Password'])) {
 		$tweaks['cipassword'] = $params['customfields']['Password'];
 	}
+	// Proxmox expects sshkeys URL-encoded inside the form value (%20, not '+').
+	if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
+		$tweaks['sshkeys'] = rawurlencode($sshKeys);
+	}
+	if (!empty($plan->firewall)) {
+		$nic = $tweaks['net0'] ?? ($config['net0'] ?? null);
+		if ($nic === null) {
+			throw new RuntimeException("The plan has Firewall on, but the clone VMID {$vmid} has no net0 to protect.");
+		}
+		$tweaks['net0'] = pvewhmcs_nic_with_firewall($nic);
+	}
 
 	$response = $proxmox->put($guestPath . '/config', $tweaks);
 	if (pvewhmcs_is_upid($response)) {
 		pvewhmcs_provisioning_set_pending($params['serviceid'], $response);
 		pvewhmcs_wait_recorded_provisioning_task($proxmox, $params['serviceid'], $response);
 	}
+	// The clone keeps the template's disk size; grow it to the plan before the
+	// first boot so cloud-init's growpart expands the filesystem.
+	pvewhmcs_grow_root_disk($proxmox, $guestPath, 'qemu', $plan->disk);
+	// The NIC flag and the IP filter are in place before the first start.
+	pvewhmcs_provisioning_ip_filter($proxmox, $params['serviceid'], $plan, $guestPath, $ip->ipaddress);
 	if (!empty($plan->onboot)) {
 		$status = $proxmox->get($guestPath . '/status/current');
 		if (($status['status'] ?? null) !== 'running') {
@@ -1223,7 +1463,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (!$proxmox->login()) {
 					return "Error: VMID {$existing->vmid} awaits its HA registration, but PVE login failed; retry CreateAccount.";
 				}
-				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 			}
 			if ($state !== 'pending' || !pvewhmcs_is_upid($existing->provisioning_upid ?? null)) {
 				return pvewhmcs_existing_provisioning_create_result($existing);
@@ -1236,7 +1476,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 				if (($existing->provisioning_mode ?? null) === 'clone') {
 					pvewhmcs_resume_pending_clone($proxmox, $params, $existing);
 				}
-				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+				return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 			} catch (PVE2_Exception $e) {
 				return "Error: provisioning for VMID {$existing->vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 			} catch (RuntimeException $e) {
@@ -1295,7 +1535,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		}
 		$ip = $marker['ip'];
 		$settings = $isClone
-			? array('newid' => $vmid, 'name' => pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title), 'full' => true, 'target' => $templateNode)
+			? array('newid' => $vmid, 'name' => pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title), 'full' => true, 'target' => $templateNode, 'storage' => $plan->storage)
 			: pvewhmcs_create_direct_settings($params, $plan, $ip, $network, $guestType);
 		if (!$isClone) {
 			$settings['vmid'] = $vmid;
@@ -1328,7 +1568,7 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 			if ($isClone) {
 				pvewhmcs_clone_post_configuration($proxmox, $params, $plan, $ip, $network, $templateNode, $vmid);
 			}
-			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId);
+			return pvewhmcs_finish_provisioning($proxmox, $serverId, $serviceId, $params);
 		} catch (PVE2_Exception $e) {
 			return "Error: provisioning for VMID {$vmid} remains pending because its recorded task could not be checked: {$e->getMessage()}";
 		} catch (RuntimeException $e) {
@@ -1608,6 +1848,89 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	if (pvewhmcs_debug_enabled()) {
 		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('ha_state' => $haState, 'direct_start' => $directStart, 'start' => $startTask, 'onboot_restored' => $planOnboot), $params);
+	}
+
+	return "success";
+}
+
+// PVE API FUNCTION, ADMIN: Upgrade/downgrade (WHMCS ChangePackage) to the plan
+// in configoption1. CPU and memory follow the new plan both ways (QEMU: pending
+// until the next stop/start or the panel Reboot; LXC: live). The root disk only
+// grows: a plan with a smaller disk is refused for the disk alone — CPU/memory
+// are still applied, the disk is not touched, and the WHMCS Activity Log says so.
+function pvewhmcs_ChangePackage_impl(array $params) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return $provisioningError;
+	}
+	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
+	if ($conflict !== null) {
+		return $conflict;
+	}
+	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', $params['configoption1'] ?? 0)->first();
+	if ($plan === null) {
+		return 'Error: the new product has no existing PVE plan; nothing was changed.';
+	}
+	if (($plan->vmtype === 'lxc') !== ($guest->vtype === 'lxc')) {
+		return "Error: the new plan '{$plan->title}' is for {$plan->vmtype} but the guest is {$guest->vtype}; nothing was changed.";
+	}
+
+	$proxmox = pvewhmcs_params_api($params);
+	if (!$proxmox->login()) {
+		return "Error changing package. Couldn't login to PVE.";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
+	if (empty($guest_node)) {
+		return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+	}
+	$guestPath = pvewhmcs_guest_api_path($guest_node, $guest);
+	$config = (array) $proxmox->get($guestPath . '/config');
+	if (pvewhmcs_guest_has_tag($config['tags'] ?? '', 'CANCELADO')) {
+		return 'Error: guest is marked CANCELADO (cancelled service); package change refused.';
+	}
+
+	if (!empty($plan->firewall) && !isset($config['net0'])) {
+		return "Error: the new plan '{$plan->title}' has Firewall on, but the guest has no net0 to protect; nothing was changed.";
+	}
+
+	$settings = array('memory' => $plan->memory, 'cores' => $plan->cores, 'cpulimit' => $plan->cpulimit, 'cpuunits' => $plan->cpuunits);
+	if ($guest->vtype === 'lxc') {
+		$settings['swap'] = $plan->swap;
+	} else {
+		$settings += array('sockets' => $plan->cpus, 'cpu' => $plan->cpuemu);
+	}
+	// An empty plan value resets the option to the Proxmox default instead of
+	// keeping the old plan's value (http_build_query drops nulls).
+	$reset = array_keys(array_filter($settings, function ($value) { return $value === null || $value === ''; }));
+	$settings = array_diff_key($settings, array_flip($reset));
+	if ($reset) {
+		$settings['delete'] = implode(',', $reset);
+	}
+	// Moving to a plan with Firewall turns the NIC flag and the IP filter on;
+	// moving away keeps an existing filter (protection is never removed here).
+	if (!empty($plan->firewall) && !preg_match('/(^|,)firewall=1(,|$)/', (string) $config['net0'])) {
+		$settings['net0'] = pvewhmcs_nic_with_firewall($config['net0']);
+	}
+	$response = $proxmox->put($guestPath . '/config', $settings);
+	if (pvewhmcs_is_upid($response)) {
+		pvewhmcs_wait_task($proxmox, $response, 60);
+	}
+	if (pvewhmcs_plan_wants_ip_filter($plan)) {
+		pvewhmcs_apply_ip_filter($proxmox, $guestPath, $guest->ipaddress);
+	}
+	$keptBytes = pvewhmcs_grow_root_disk($proxmox, $guestPath, $guest->vtype, $plan->disk);
+	if ($keptBytes !== null) {
+		logActivity(sprintf(
+			'PVEWHMCS ChangePackage: disk reduction refused for service #%d (VMID %d): the disk stays at %s GB, the new plan "%s" has %d GB and disks are never shrunk. CPU/memory were changed.',
+			$params['serviceid'], $guest->vmid, round($keptBytes / (1024 ** 3), 1), $plan->title, $plan->disk
+		), (int) ($params['userid'] ?? 0));
+	}
+
+	if (pvewhmcs_debug_enabled()) {
+		pvewhmcs_log_module_call(__FUNCTION__, $guestPath, array('settings' => $settings, 'disk_kept_bytes' => $keptBytes), $params);
 	}
 
 	return "success";
