@@ -377,9 +377,9 @@ function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmi
 				throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
 			}
 
-			// Revalidate this exact locked address. A terminated service reserves it
-			// only when it still has a guest row identified by the service ID; the
-			// guest's historical vms.ipaddress is never used for this decision.
+			// Revalidate this exact locked address. A terminated or cancelled service
+			// reserves it only when it still has a guest row identified by the service
+			// ID; the guest's historical vms.ipaddress is never used for this decision.
 			$addressServices = Capsule::table('tblhosting')
 				->where('dedicatedip', '=', $ip->ipaddress)
 				->orderBy('id')
@@ -402,7 +402,7 @@ function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmi
 			$guestServiceIds = array_flip(array_map('intval', $guestServiceIds));
 			$reserved = false;
 			foreach ($addressServices as $addressService) {
-				if ($addressService->domainstatus === 'Terminated' && isset($guestServiceIds[(int) $addressService->id])) {
+				if (in_array($addressService->domainstatus, array('Terminated', 'Cancelled'), true) && isset($guestServiceIds[(int) $addressService->id])) {
 					$reserved = true;
 				}
 			}
@@ -727,6 +727,16 @@ function pvewhmcs_compact_trace(\Throwable $e) {
  */
 function pvewhmcs_client_service_inactive(array $params) {
 	return empty($_SESSION['adminid']) && ($params['status'] ?? '') !== 'Active';
+}
+
+// The client-facing refusal for a custom function on a service that is not Active, or null.
+function pvewhmcs_client_inactive_error(array $params) {
+	if (!pvewhmcs_client_service_inactive($params)) {
+		return null;
+	}
+	$lang = pvewhmcs_load_client_lang($params);
+
+	return $lang['service_not_active'] ?? 'Service is not active.';
 }
 
 /**
@@ -2089,7 +2099,11 @@ function pvewhmcs_load_client_lang(array $params = array()) {
 }
 
 // MODULE BUTTONS: Client Interface button regos
-function pvewhmcs_ClientAreaCustomButtonArray() {
+function pvewhmcs_ClientAreaCustomButtonArray($params = array()) {
+	// No power/console/statistics buttons for a service that is not Active.
+	if (!empty($params) && pvewhmcs_client_service_inactive($params)) {
+		return array();
+	}
 	$lang = pvewhmcs_load_client_lang();
 	$buttonarray = array(
 		"<i class='fa fa-2x fa-flag-checkered'></i> " . ($lang['btn_start'] ?? 'Start') => "vmStart",
@@ -2265,7 +2279,7 @@ function pvewhmcs_ClientArea($params) {
 	// pvewhmcs_fetch_rrd_stat() tolerates missing RRD data.
 	// ----------------------------------------------------------------
 	$vm_statistics = array();
-	$show_statistics = (($_REQUEST['a'] ?? '') === 'vmStat');
+	$show_statistics = (($_REQUEST['a'] ?? '') === 'vmStat') && !pvewhmcs_client_service_inactive($params);
 	if ($show_statistics) {
 		$rrd_sources = array('cpu' => 'cpu', 'mem' => 'mem', 'netinout' => 'netin,netout', 'diskrw' => 'diskread,diskwrite');
 		foreach ($rrd_sources as $key => $ds) {
@@ -2297,7 +2311,7 @@ function pvewhmcs_ClientArea($params) {
 
 // OUTPUT: VM Statistics/Graphs render to Client Area
 function pvewhmcs_vmStat($params) {
-	return true;
+	return pvewhmcs_client_inactive_error($params) ?? true;
 }
 
 // VNC: Console access to VM/CT via noVNC
@@ -2617,7 +2631,7 @@ function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest) {
 
 // CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
 function pvewhmcs_vmCheck($params) {
-	return "success";
+	return pvewhmcs_client_inactive_error($params) ?? "success";
 }
 
 // NETWORKING FUNCTION: Convert subnet mask to CIDR

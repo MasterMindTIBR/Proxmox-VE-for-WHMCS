@@ -2982,6 +2982,12 @@ function pvewhmcs_ip_busy_statuses() {
 	return array('Active', 'Suspended', 'Completed', 'Pending');
 }
 
+// Statuses that keep the service's IPv4 reserved while its guest link remains:
+// WHMCS ends a client cancellation request as Cancelled, an admin Terminate as Terminated.
+function pvewhmcs_ip_reserved_statuses() {
+	return array('Terminated', 'Cancelled');
+}
+
 // The service holding an IPv4 address, or null when the address is free.
 function pvewhmcs_ip_service($ipaddress) {
 	return Capsule::table('tblhosting')
@@ -2996,7 +3002,7 @@ function pvewhmcs_ip_reservation_service($ipaddress) {
 	return Capsule::table('tblhosting as h')
 		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
 		->where('h.dedicatedip', '=', $ipaddress)
-		->where('h.domainstatus', '=', 'Terminated')
+		->whereIn('h.domainstatus', pvewhmcs_ip_reserved_statuses())
 		->select('h.id', 'h.userid', 'h.dedicatedip', 'v.vmid')
 		->first();
 }
@@ -3034,7 +3040,7 @@ function pvewhmcs_locked_ip_blockers(array $addresses) {
 	foreach ($services as $service) {
 		if (in_array($service->domainstatus, pvewhmcs_ip_busy_statuses(), true)) {
 			$blockers[(string) $service->dedicatedip] = array('type' => 'in_use', 'service' => $service);
-		} elseif ($service->domainstatus === 'Terminated' && isset($guestIds[(int) $service->id])) {
+		} elseif (in_array($service->domainstatus, pvewhmcs_ip_reserved_statuses(), true) && isset($guestIds[(int) $service->id])) {
 			$blockers[(string) $service->dedicatedip] = array('type' => 'reservation', 'service' => $service);
 		}
 	}
@@ -3240,7 +3246,7 @@ function list_reserved_ips() {
 		})
 		->join('mod_pvewhmcs_vms as v', 'v.id', '=', 'h.id')
 		->leftJoin('tblclients as c', 'c.id', '=', 'h.userid')
-		->where('h.domainstatus', '=', 'Terminated')
+		->whereIn('h.domainstatus', pvewhmcs_ip_reserved_statuses())
 		->orderBy('i.ipaddress')
 		->select(
 			'i.id as address_id', 'i.pool_id', 'i.ipaddress', 'p.title as pool_title',
@@ -3300,7 +3306,7 @@ function pvewhmcs_release_ipv4_reservation(array $post) {
 			}
 
 			$service = Capsule::table('tblhosting')->where('id', '=', $serviceId)->lock('for update')->first();
-			if ($service === null || $service->domainstatus !== 'Terminated' || (string) $service->dedicatedip !== $ipaddress) {
+			if ($service === null || !in_array($service->domainstatus, pvewhmcs_ip_reserved_statuses(), true) || (string) $service->dedicatedip !== $ipaddress) {
 				throw new RuntimeException('The service is no longer a cancelled reservation for this address.');
 			}
 			$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceId)->lock('for update')->first();
