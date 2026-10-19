@@ -842,6 +842,11 @@ function pvewhmcs_run_tracked_action($action, $type, array $params, callable $ha
 			'action' => $action,
 			'response' => is_string($result) ? $result : 'Unexpected handler result: ' . json_encode($result),
 		));
+		// A client's power button gets no login reason (internal host/port); the history above keeps it.
+		$loginFailed = "Couldn't login to PVE.";
+		if ($failed && $type === 'power' && empty($_SESSION['adminid']) && is_string($result) && ($cut = strpos($result, $loginFailed)) !== false) {
+			return substr($result, 0, $cut + strlen($loginFailed));
+		}
 
 		return $result;
 	} catch (\Throwable $e) {
