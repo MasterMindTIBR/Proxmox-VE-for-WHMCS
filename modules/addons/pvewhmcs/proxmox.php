@@ -308,8 +308,8 @@ function pvewhmcs_ensure_schema() {
 			'cpus' => 'smallint(4) unsigned DEFAULT NULL', 'cpuemu' => 'varchar(30) DEFAULT NULL', 'cores' => 'smallint(4) unsigned DEFAULT NULL',
 			'cpulimit' => 'smallint(5) unsigned DEFAULT NULL', 'cpuunits' => 'smallint(5) unsigned DEFAULT NULL', 'memory' => 'int(10) unsigned NOT NULL',
 			'swap' => 'int(10) unsigned DEFAULT NULL', 'disk' => 'int(10) unsigned DEFAULT NULL', 'diskformat' => 'varchar(10) DEFAULT NULL',
-			'diskcache' => 'varchar(20) DEFAULT NULL', 'disktype' => 'varchar(20) DEFAULT NULL', 'storage' => "varchar(20) DEFAULT 'local'",
-			'diskio' => "varchar(20) DEFAULT '0'", 'netmode' => 'varchar(10) DEFAULT NULL', 'bridge' => "varchar(20) NOT NULL DEFAULT 'vmbr'",
+			'diskcache' => 'varchar(20) DEFAULT NULL', 'disktype' => 'varchar(20) DEFAULT NULL', 'storage' => "varchar(64) DEFAULT 'local'",
+			'diskio' => "varchar(20) DEFAULT '0'", 'netmode' => 'varchar(10) DEFAULT NULL', 'bridge' => "varchar(64) NOT NULL DEFAULT 'vmbr'",
 			'netmodel' => 'varchar(10) DEFAULT NULL', 'netrate' => "int(10) DEFAULT '0'", 'firewall' => 'tinyint(1) unsigned NOT NULL DEFAULT 0',
 			'bw' => 'int(10) unsigned DEFAULT 0', 'kvm' => 'tinyint(1) unsigned DEFAULT 0', 'onboot' => 'tinyint(1) unsigned DEFAULT 0',
 			'vlanid' => 'int(10) DEFAULT NULL', 'ipv6' => "varchar(10) DEFAULT 'auto'", 'balloon' => "int(10) DEFAULT '0'",
@@ -319,6 +319,11 @@ function pvewhmcs_ensure_schema() {
 		}
 		pvewhmcs_schema_assert_max_length('mod_pvewhmcs_plans', 'vmbr', 64);
 		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'vmbr', 'varchar(64) NULL DEFAULT NULL', 'varchar(64)', true, null);
+		// Proxmox storage IDs and network names are longer than the original varchar(20); widening never loses data.
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'storage', "varchar(64) DEFAULT 'local'", 'varchar(64)', true, 'local');
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_plans', 'bridge', "varchar(64) NOT NULL DEFAULT 'vmbr'", 'varchar(64)', false, 'vmbr');
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_iso', 'storage', "varchar(64) NOT NULL DEFAULT 'local'", 'varchar(64)', false, 'local');
+		pvewhmcs_schema_normalize_column('mod_pvewhmcs_templates', 'storage', "varchar(64) DEFAULT 'local'", 'varchar(64)', true, 'local');
 
 		foreach (array(
 			'vmid' => 'int(10) unsigned DEFAULT NULL', 'node_id' => 'int(10) unsigned DEFAULT NULL', 'user_id' => 'int(10) unsigned NOT NULL',

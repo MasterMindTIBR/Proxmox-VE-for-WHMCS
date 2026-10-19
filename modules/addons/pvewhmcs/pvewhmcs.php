@@ -2790,7 +2790,7 @@ function pvewhmcs_plan_input($vmtype) {
 		throw new InvalidArgumentException('Plan Title is required (up to 255 characters).');
 	}
 	$storage = trim((string) ($_POST['storage'] ?? ''));
-	if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,18}[A-Za-z0-9]$/', $storage)) {
+	if (!preg_match('/^[A-Za-z][A-Za-z0-9_.-]{0,62}[A-Za-z0-9]$/', $storage)) {
 		throw new InvalidArgumentException('Storage must be a Proxmox storage ID such as local or local-lvm.');
 	}
 
