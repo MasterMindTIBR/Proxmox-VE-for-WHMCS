@@ -1822,8 +1822,8 @@ function pvewhmcs_save_server_settings() {
 			}
 			$vncUser = trim((string) ($values['vnc_user'] ?? ''));
 			$vncSecret = (string) ($values['vnc_secret'] ?? '');
-			if ($vncUser !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}@[A-Za-z0-9][A-Za-z0-9_.-]{0,30}$/', $vncUser) !== 1) {
-				throw new InvalidArgumentException("Server #{$serverId}: Console (VNC) user must be empty or a Proxmox user@realm.");
+			if (strlen($vncUser) > 64 || ($vncUser !== '' && preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]{0,59}@[A-Za-z0-9][A-Za-z0-9_.-]{0,30}$/', $vncUser) !== 1)) {
+				throw new InvalidArgumentException("Server #{$serverId}: Console (VNC) user must be empty or a Proxmox user@realm of up to 64 characters.");
 			}
 			$savedSecret = pvewhmcs_server_settings($serverId)->vnc_secret ?? null;
 			if ($vncUser === '') {
