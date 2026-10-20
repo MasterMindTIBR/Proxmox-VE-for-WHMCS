@@ -111,11 +111,7 @@ function pvewhmcs_server_settings($serverId) {
 	return Capsule::table('mod_pvewhmcs_servers')->where('server_id', '=', (int) $serverId)->first();
 }
 
-/**
- * Proxmox login used only for the console (vncproxy): the server's own VNC user
- * (user@realm, secret stored with WHMCS encrypt()), else the global vnc@pve and
- * the Module Config VNC Secret. Returns [user, realm, password].
- */
+// Returns [user, realm, password]; a server without its own VNC user falls back to the global vnc@pve.
 function pvewhmcs_vnc_credentials($serverId): array {
 	$settings = pvewhmcs_server_settings($serverId);
 	$user = trim((string) ($settings->vnc_user ?? ''));
