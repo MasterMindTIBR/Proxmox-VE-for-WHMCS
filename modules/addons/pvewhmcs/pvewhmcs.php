@@ -2982,8 +2982,7 @@ function pvewhmcs_ip_busy_statuses() {
 	return array('Active', 'Suspended', 'Completed', 'Pending');
 }
 
-// Statuses that keep the service's IPv4 reserved while its guest link remains:
-// WHMCS ends a client cancellation request as Cancelled, an admin Terminate as Terminated.
+// A client cancellation ends as Cancelled, an admin Terminate as Terminated; both keep the IP.
 function pvewhmcs_ip_reserved_statuses() {
 	return array('Terminated', 'Cancelled');
 }
