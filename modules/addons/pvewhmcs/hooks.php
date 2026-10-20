@@ -28,8 +28,7 @@ if (!defined("WHMCS"))
 
 use WHMCS\Database\Capsule;
 
-// Cancellation policy (all products, not only pvewhmcs): a client cancels only at the
-// end of the paid period, because nothing is refunded. Admins may still cancel at once.
+// Cancellation policy (all products): _docs/POLITICA-CANCELAMENTO.md
 
 function pvewhmcs_hook_is_pt() {
 	$lang = (string) ($_SESSION['Language'] ?? '');
@@ -43,8 +42,7 @@ function pvewhmcs_hook_is_pt() {
 	return stripos($lang, 'portuguese') === 0;
 }
 
-// Server-side rule: a client request (or a hand-made POST) for "Immediate" is stored as
-// "End of Billing Period". Safe because WHMCS only executes requests in the daily cron.
+// Rewriting the request is safe: WHMCS only executes cancellations in the daily cron.
 add_hook('CancellationRequest', 1, function ($vars) {
 	if (!empty($_SESSION['adminid']) || ($vars['type'] ?? '') === 'End of Billing Period') {
 		return;
@@ -58,7 +56,6 @@ add_hook('CancellationRequest', 1, function ($vars) {
 	logActivity('Cancellation request changed from Immediate to End of Billing Period (client cancellations are end of period only) - Service ID: ' . $serviceId, (int) ($vars['userid'] ?? 0));
 });
 
-// Client form: only "End of Billing Period" is offered.
 add_hook('ClientAreaFooterOutput', 1, function ($vars) {
 	if (($vars['templatefile'] ?? '') !== 'clientareacancelrequest') {
 		return '';
@@ -67,7 +64,6 @@ add_hook('ClientAreaFooterOutput', 1, function ($vars) {
 	return '<script>document.querySelectorAll(\'select[name="type"] option[value="Immediate"]\').forEach(function (o) { var s = o.parentNode; o.remove(); s.value = "End of Billing Period"; });</script>';
 });
 
-// The client's own service with a pending end-of-period request, or null.
 function pvewhmcs_hook_pending_cancellation($serviceId) {
 	$clientId = (int) ($_SESSION['uid'] ?? 0);
 	if ($clientId < 1 || $serviceId < 1) {
@@ -82,10 +78,7 @@ function pvewhmcs_hook_pending_cancellation($serviceId) {
 	return $request === null ? null : array($service, $request);
 }
 
-// Invoices this request cancelled: WHMCS (CancelInvoiceOnCancellation) logs
-// "Cancelled Outstanding Product Renewal Invoice - Invoice ID: N - Service ID: S" when the
-// request is made. Returns array(reopen ids, ids left for the admin): an invoice that is no
-// longer Cancelled or was touched after that log line is not reopened.
+// The WHMCS log line is the only link between a request and the invoice it cancelled.
 function pvewhmcs_hook_request_invoices($serviceId, $request) {
 	$at = strtotime((string) $request->date);
 	// Same HTTP request as the cancellation (seconds apart), and never before an earlier withdrawal.
@@ -115,8 +108,6 @@ function pvewhmcs_hook_request_invoices($serviceId, $request) {
 	return array($reopen, $review);
 }
 
-// "Undo cancellation": drops the pending request and reopens only the invoices that request
-// cancelled, so billing resumes. All or nothing: on any failure the request stays.
 add_hook('ClientAreaPageProductDetails', 1, function ($vars) {
 	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || empty($_POST['pvewhmcs_undo_cancellation'])) {
 		return;

@@ -377,9 +377,8 @@ function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmi
 				throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
 			}
 
-			// Revalidate this exact locked address. A terminated or cancelled service
-			// reserves it only when it still has a guest row identified by the service
-			// ID; the guest's historical vms.ipaddress is never used for this decision.
+			// Terminated/Cancelled reserve the address only while their guest row exists;
+			// the guest's historical vms.ipaddress is never used for this decision.
 			$addressServices = Capsule::table('tblhosting')
 				->where('dedicatedip', '=', $ip->ipaddress)
 				->orderBy('id')
@@ -729,7 +728,6 @@ function pvewhmcs_client_service_inactive(array $params) {
 	return empty($_SESSION['adminid']) && ($params['status'] ?? '') !== 'Active';
 }
 
-// The client-facing refusal for a custom function on a service that is not Active, or null.
 function pvewhmcs_client_inactive_error(array $params) {
 	if (!pvewhmcs_client_service_inactive($params)) {
 		return null;
@@ -2100,7 +2098,6 @@ function pvewhmcs_load_client_lang(array $params = array()) {
 
 // MODULE BUTTONS: Client Interface button regos
 function pvewhmcs_ClientAreaCustomButtonArray($params = array()) {
-	// No power/console/statistics buttons for a service that is not Active.
 	if (!empty($params) && pvewhmcs_client_service_inactive($params)) {
 		return array();
 	}
