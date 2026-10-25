@@ -1132,8 +1132,8 @@ function pvewhmcs_output($vars) {
 	if (($_POST['pvewhmcs_action'] ?? '') === 'removeippool') {
 		removeIpPool((int) $_POST['id']);
 	}
-	if (($_POST['pvewhmcs_action'] ?? '') === 'release_ipv4_reservation') {
-		pvewhmcs_release_ipv4_reservation($_POST);
+	if (($_POST['pvewhmcs_action'] ?? '') === 'release_ipv4_reservations') {
+		pvewhmcs_release_ipv4_reservations($_POST);
 	}
 	if ($ip_action == 'list_ips') {
 		list_ips();
@@ -3263,6 +3263,7 @@ function list_ips() {
 // IP POOL FORM: List retained IPv4 reservations for cancelled guests.
 function list_reserved_ips() {
 	$adminUrl = 'clientsservices.php';
+	$onlyMissing = !empty($_GET['only_missing']);
 	$reservations = Capsule::table('mod_pvewhmcs_ip_addresses as i')
 		->join('mod_pvewhmcs_ip_pools as p', 'p.id', '=', 'i.pool_id')
 		// tblhosting.dedicatedip inherits WHMCS's utf8mb3_unicode_ci, while older
@@ -3277,80 +3278,135 @@ function list_reserved_ips() {
 		->orderBy('i.ipaddress')
 		->select(
 			'i.id as address_id', 'i.pool_id', 'i.ipaddress', 'p.title as pool_title',
-			'h.id as service_id', 'h.userid', 'v.vmid', 'c.firstname', 'c.lastname', 'c.companyname'
+			'h.id as service_id', 'h.userid', 'h.domainstatus', 'h.termination_date', 'h.server', 'v.vmid',
+			'c.firstname', 'c.lastname', 'c.companyname'
 		)
 		->get();
+	$guests = pvewhmcs_reserved_guest_vmids($reservations->pluck('server')->unique()->all());
 
-	echo '<table class="datatable"><tr><th>IPv4</th><th>Pool</th><th>Service</th><th>VMID</th><th>Client</th><th>Action</th></tr>';
+	$filterUrl = pvewhmcs_BASEURL . '&tab=ippools&action=reserved_ips' . ($onlyMissing ? '' : '&only_missing=1');
+	echo '<p><a class="btn btn-default btn-sm" href="' . htmlspecialchars($filterUrl, ENT_QUOTES, 'UTF-8') . '">' . ($onlyMissing ? 'Show all reservations' : 'Only reservations without a guest') . '</a></p>';
+	echo '<form method="post">'
+		. '<input type="hidden" name="pvewhmcs_action" value="release_ipv4_reservations">'
+		. pvewhmcs_csrf_field()
+		. '<table class="datatable"><tr><th></th><th>IPv4</th><th>Pool</th><th>Service</th><th>Status</th><th>Since</th><th>VMID</th><th>Guest exists?</th><th>Client</th></tr>';
+	$shown = 0;
 	foreach ($reservations as $reservation) {
+		$servers = $guests[(int) $reservation->server] ?? null;
+		$exists = $servers === null ? null : isset($servers[(int) $reservation->vmid]);
+		if ($onlyMissing && $exists !== false) {
+			continue;
+		}
+		$shown++;
 		$ipaddress = (string) $reservation->ipaddress;
-		$poolTitle = (string) $reservation->pool_title;
 		$serviceUrl = $adminUrl . '?userid=' . (int) $reservation->userid . '&id=' . (int) $reservation->service_id;
 		$client = trim((string) $reservation->firstname . ' ' . (string) $reservation->lastname);
 		if ($client === '') {
 			$client = (string) $reservation->companyname;
 		}
+		$since = (string) $reservation->termination_date;
+		$value = (int) $reservation->address_id . ':' . (int) $reservation->pool_id . ':' . (int) $reservation->service_id . ':' . $ipaddress;
 		echo '<tr>'
+			. '<td><input type="checkbox" name="reservations[]" value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '"></td>'
 			. '<td>' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '</td>'
-			. '<td>' . htmlspecialchars($poolTitle, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td>' . htmlspecialchars((string) $reservation->pool_title, ENT_QUOTES, 'UTF-8') . '</td>'
 			. '<td><a href="' . htmlspecialchars($serviceUrl, ENT_QUOTES, 'UTF-8') . '">Service #' . (int) $reservation->service_id . '</a></td>'
+			. '<td>' . htmlspecialchars((string) $reservation->domainstatus, ENT_QUOTES, 'UTF-8') . '</td>'
+			. '<td>' . htmlspecialchars($since !== '' && $since !== '0000-00-00' ? $since : '-', ENT_QUOTES, 'UTF-8') . '</td>'
 			. '<td>' . (int) $reservation->vmid . '</td>'
+			. '<td>' . ($exists === null ? '<span class="label label-warning">unknown (server unreachable)</span>' : ($exists ? 'yes' : '<span class="label label-danger">no</span>')) . '</td>'
 			. '<td>' . htmlspecialchars($client, ENT_QUOTES, 'UTF-8') . '</td>'
-			. '<td><form method="post">'
-			. '<input type="hidden" name="pvewhmcs_action" value="release_ipv4_reservation">'
-			. '<input type="hidden" name="address_id" value="' . (int) $reservation->address_id . '">'
-			. '<input type="hidden" name="pool_id" value="' . (int) $reservation->pool_id . '">'
-			. '<input type="hidden" name="service_id" value="' . (int) $reservation->service_id . '">'
-			. '<input type="hidden" name="ipaddress" value="' . htmlspecialchars($ipaddress, ENT_QUOTES, 'UTF-8') . '">'
-			. pvewhmcs_csrf_field()
-			. '<label><input type="checkbox" name="release_confirmation" value="1" required> I confirm this retained CANCELADO guest cannot return to the network using this IPv4 after release.</label> '
-			. '<button type="submit" class="btn btn-danger btn-sm">Release reservation</button>'
-			. '</form></td>'
 			. '</tr>';
 	}
-	echo '</table>';
+	if ($shown === 0) {
+		echo '<tr><td colspan="9">No reservations.</td></tr>';
+	}
+	echo '</table>'
+		. '<p><label><input type="checkbox" name="release_confirmation" value="1" required> I confirm the selected cancelled guests cannot return to the network using these IPv4 addresses after release.</label></p>'
+		. '<button type="submit" class="btn btn-danger btn-sm">Release selected reservations</button>'
+		. '</form>';
 }
 
-function pvewhmcs_release_ipv4_reservation(array $post) {
-	$addressId = (int) ($post['address_id'] ?? 0);
-	$poolId = (int) ($post['pool_id'] ?? 0);
-	$serviceId = (int) ($post['service_id'] ?? 0);
-	$ipaddress = trim((string) ($post['ipaddress'] ?? ''));
-	if (($post['release_confirmation'] ?? '') !== '1' || $addressId < 1 || $poolId < 1 || $serviceId < 1 || !filter_var($ipaddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-		echo '<div class="alert alert-danger">Reservation was not released: confirm the cancelled-guest warning and submit the unchanged reservation details.</div>';
+// VMIDs per WHMCS server, or no entry when the server cannot be read (shown as unknown, never as "no").
+function pvewhmcs_reserved_guest_vmids(array $serverIds) {
+	$result = array();
+	foreach (Capsule::table('tblservers')->whereIn('id', array_map('intval', $serverIds))->where('type', 'pvewhmcs')->get() as $pve) {
+		try {
+			$password = localAPI('DecryptPassword', array('password2' => $pve->password));
+			$proxmox = new PVE2_API(pvewhmcs_connection_host($pve->hostname ?? '', $pve->ipaddress ?? ''), $pve->username, 'pam', html_entity_decode($password['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'), pvewhmcs_connection_port($pve->port ?? ''), pvewhmcs_verify_server_tls($pve->secure ?? null));
+			if (!$proxmox->login()) {
+				continue;
+			}
+			$vmids = array();
+			foreach ((array) $proxmox->get('/cluster/resources?type=vm') as $resource) {
+				$vmids[(int) ($resource['vmid'] ?? 0)] = true;
+			}
+			$result[(int) $pve->id] = $vmids;
+		} catch (\Throwable $e) {
+			continue;
+		}
+	}
+
+	return $result;
+}
+
+function pvewhmcs_release_ipv4_reservations(array $post) {
+	$items = array_values(array_unique(array_map('strval', (array) ($post['reservations'] ?? array()))));
+	if (($post['release_confirmation'] ?? '') !== '1' || !$items) {
+		echo '<div class="alert alert-danger">Nothing was released: select at least one reservation and confirm the cancelled-guest warning.</div>';
+		return;
+	}
+	$released = array();
+	$failed = array();
+	foreach ($items as $item) {
+		$parts = explode(':', $item, 4);
+		$ipaddress = trim((string) ($parts[3] ?? ''));
+		try {
+			if (count($parts) !== 4 || !filter_var($ipaddress, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+				throw new RuntimeException('Invalid reservation details.');
+			}
+			pvewhmcs_release_ipv4_reservation_one((int) $parts[0], (int) $parts[1], (int) $parts[2], $ipaddress);
+			$released[] = $ipaddress;
+			logActivity('PVEWHMCS: IPv4 reservation ' . $ipaddress . ' released from service #' . (int) $parts[2]);
+		} catch (\Throwable $e) {
+			$failed[] = $ipaddress . ': ' . $e->getMessage();
+		}
+	}
+	if ($failed) {
+		echo '<div class="alert alert-danger">Not released: ' . htmlspecialchars(implode('; ', $failed), ENT_QUOTES, 'UTF-8') . ($released ? '<br>Released: ' . htmlspecialchars(implode(', ', $released), ENT_QUOTES, 'UTF-8') : '') . '</div>';
 		return;
 	}
 
-	try {
-		Capsule::connection()->transaction(function () use ($addressId, $poolId, $serviceId, $ipaddress) {
-			$address = Capsule::table('mod_pvewhmcs_ip_addresses')
-				->where('id', '=', $addressId)
-				->where('pool_id', '=', $poolId)
-				->lock('for update')
-				->first();
-			if ($address === null || (string) $address->ipaddress !== $ipaddress) {
-				throw new RuntimeException('The requested pool address no longer matches this reservation.');
-			}
-
-			$service = Capsule::table('tblhosting')->where('id', '=', $serviceId)->lock('for update')->first();
-			if ($service === null || !in_array($service->domainstatus, pvewhmcs_ip_reserved_statuses(), true) || (string) $service->dedicatedip !== $ipaddress) {
-				throw new RuntimeException('The service is no longer a cancelled reservation for this address.');
-			}
-			$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceId)->lock('for update')->first();
-			if ($guest === null) {
-				throw new RuntimeException('The retained guest link no longer exists for this service.');
-			}
-
-			Capsule::table('tblhosting')->where('id', '=', $serviceId)->update(array('dedicatedip' => ''));
-		});
-	} catch (\Throwable $e) {
-		echo '<div class="alert alert-danger">Reservation was not released: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</div>';
-		return;
-	}
-
-	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 reservation released.';
-	$_SESSION['pvewhmcs']['infomsg']['message'] = 'The cancelled service no longer reserves this IPv4 address. Its guest record and historical address were retained.';
+	$_SESSION['pvewhmcs']['infomsg']['title'] = count($released) . ' IPv4 reservation(s) released.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Released: ' . implode(', ', $released) . '. The guest records and historical addresses were retained.';
 	header('Location: ' . pvewhmcs_BASEURL . '&tab=ippools&action=reserved_ips');
+}
+
+function pvewhmcs_release_ipv4_reservation_one($addressId, $poolId, $serviceId, $ipaddress) {
+	if ($addressId < 1 || $poolId < 1 || $serviceId < 1) {
+		throw new RuntimeException('Invalid reservation details.');
+	}
+	Capsule::connection()->transaction(function () use ($addressId, $poolId, $serviceId, $ipaddress) {
+		$address = Capsule::table('mod_pvewhmcs_ip_addresses')
+			->where('id', '=', $addressId)
+			->where('pool_id', '=', $poolId)
+			->lock('for update')
+			->first();
+		if ($address === null || (string) $address->ipaddress !== $ipaddress) {
+			throw new RuntimeException('The requested pool address no longer matches this reservation.');
+		}
+
+		$service = Capsule::table('tblhosting')->where('id', '=', $serviceId)->lock('for update')->first();
+		if ($service === null || !in_array($service->domainstatus, pvewhmcs_ip_reserved_statuses(), true) || (string) $service->dedicatedip !== $ipaddress) {
+			throw new RuntimeException('The service is no longer a cancelled reservation for this address.');
+		}
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceId)->lock('for update')->first();
+		if ($guest === null) {
+			throw new RuntimeException('The retained guest link no longer exists for this service.');
+		}
+
+		Capsule::table('tblhosting')->where('id', '=', $serviceId)->update(array('dedicatedip' => ''));
+	});
 }
 
 // IP POOL FORM ACTION: Remove a single IP from Pool (same checks as the bulk path)
