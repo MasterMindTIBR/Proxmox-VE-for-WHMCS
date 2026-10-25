@@ -172,8 +172,11 @@ function pvewhmcs_guest_has_tag($existingTags, $tag) {
  * `onboot` untouched. Proxmox rejects a PUT without options, so nothing is sent
  * when there is nothing to change.
  */
-function pvewhmcs_update_guest_lifecycle_config(PVE2_API $proxmox, $guestPath, array $config, $lifecycleTag, $onboot = null) {
+function pvewhmcs_update_guest_lifecycle_config(PVE2_API $proxmox, $guestPath, array $config, $lifecycleTag, $onboot = null, $historyEvent = null) {
 	$changes = array();
+	if ($historyEvent !== null) {
+		$changes['description'] = pvewhmcs_notes_append_history($config['description'] ?? '', $historyEvent);
+	}
 	if ($onboot !== null) {
 		$changes['onboot'] = (int) $onboot;
 	}
@@ -191,6 +194,161 @@ function pvewhmcs_update_guest_lifecycle_config(PVE2_API $proxmox, $guestPath, a
 	}
 
 	return $proxmox->put($guestPath . '/config', $changes);
+}
+
+function pvewhmcs_origin_settings(): array {
+	$row = Capsule::table('mod_pvewhmcs')->where('id', 1)->first();
+
+	return array(
+		'prefix' => trim((string) ($row->vm_prefix ?? '')),
+		'tag' => trim((string) ($row->origin_tag ?? '')),
+		'label' => trim((string) ($row->origin_label ?? '')),
+	);
+}
+
+function pvewhmcs_tag_slug($value, $max = 40): string {
+	$value = (string) $value;
+	if (function_exists('transliterator_transliterate')) {
+		$value = (string) transliterator_transliterate('Any-Latin; Latin-ASCII', $value);
+	} elseif (function_exists('iconv')) {
+		$value = (string) @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+	}
+	$value = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
+
+	return trim(substr($value, 0, $max), '-');
+}
+
+function pvewhmcs_client_tag($clientId, $firstName, $lastName): string {
+	$slug = pvewhmcs_tag_slug(trim($firstName . ' ' . $lastName), 40);
+
+	return 'c' . (int) $clientId . ($slug !== '' ? '-' . $slug : '');
+}
+
+// Short enough to read in the Proxmox tag column: "VPS-1 Standard Linux" becomes "vps1-std".
+function pvewhmcs_plan_tag($productName): string {
+	$slug = preg_replace('/\bvps-(\d+)\b/', 'vps$1', pvewhmcs_tag_slug($productName, 64));
+	$words = array();
+	foreach (explode('-', $slug) as $word) {
+		$map = array('standard' => 'std', 'performance' => 'perf', 'windows' => 'win', 'linux' => '');
+		$word = array_key_exists($word, $map) ? $map[$word] : $word;
+		if ($word !== '') {
+			$words[] = $word;
+		}
+	}
+
+	return substr(implode('-', $words), 0, 40);
+}
+
+function pvewhmcs_identity_tags($serviceId): array {
+	$service = Capsule::table('tblhosting as h')->join('tblclients as c', 'c.id', '=', 'h.userid')->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+		->where('h.id', (int) $serviceId)->first(array('h.userid', 'c.firstname', 'c.lastname', 'p.name as product'));
+	if ($service === null) {
+		return array();
+	}
+	$origin = pvewhmcs_origin_settings()['tag'];
+
+	return array_values(array_filter(array($origin, pvewhmcs_client_tag($service->userid, $service->firstname, $service->lastname), pvewhmcs_plan_tag($service->product))));
+}
+
+// Only the tags this module set are replaced, so lifecycle and admin tags survive.
+function pvewhmcs_merge_identity_tags($existingTags, array $previous, array $current): string {
+	$drop = array_flip(array_map('strtolower', $previous));
+	$tags = array();
+	foreach (explode(';', (string) $existingTags) as $tag) {
+		$tag = trim($tag);
+		if ($tag !== '' && !isset($drop[strtolower($tag)])) {
+			$tags[strtolower($tag)] = $tag;
+		}
+	}
+	foreach ($current as $tag) {
+		$tags[strtolower($tag)] = $tag;
+	}
+
+	return implode(';', array_values($tags));
+}
+
+function pvewhmcs_managed_tags($serviceId): array {
+	return array_values(array_filter(explode(';', (string) Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->value('managed_tags'))));
+}
+
+function pvewhmcs_service_os_label($serviceId): string {
+	$value = (string) Capsule::table('tblcustomfieldsvalues as v')->join('tblcustomfields as f', 'f.id', '=', 'v.fieldid')
+		->where('f.type', 'product')->where('v.relid', (int) $serviceId)->where('f.fieldname', 'like', 'KVMTemplate%')->value('v.value');
+	$parts = explode('|', $value, 2);
+
+	return trim($parts[1] ?? $parts[0]);
+}
+
+function pvewhmcs_admin_service_url($serviceId): string {
+	$base = class_exists('\App') && method_exists('\App', 'getSystemURL') ? (string) \App::getSystemURL() : '';
+	$folder = class_exists('\App') && method_exists('\App', 'get_admin_folder_name') ? (string) \App::get_admin_folder_name() : 'admin';
+
+	return rtrim($base, '/') . '/' . trim($folder, '/') . '/clientsservices.php?id=' . (int) $serviceId;
+}
+
+function pvewhmcs_notes_client_line($firstName, $lastName, $company, $email): string {
+	$name = trim($firstName . ' ' . $lastName);
+	$company = trim((string) $company);
+
+	return 'Cliente: ' . $name . ($company !== '' ? ' (' . $company . ')' : '') . ' · ' . trim((string) $email);
+}
+
+function pvewhmcs_guest_notes($serviceId, $ipAddress): string {
+	$s = Capsule::table('tblhosting as h')->join('tblclients as c', 'c.id', '=', 'h.userid')->join('tblproducts as p', 'p.id', '=', 'h.packageid')
+		->leftJoin('tblorders as o', 'o.id', '=', 'h.orderid')->where('h.id', (int) $serviceId)
+		->first(array('h.id', 'h.userid', 'h.orderid', 'c.firstname', 'c.lastname', 'c.companyname', 'c.email', 'p.name as product', 'o.date as orderdate'));
+	if ($s === null) {
+		return '';
+	}
+	$label = pvewhmcs_origin_settings()['label'];
+	$os = pvewhmcs_service_os_label($serviceId);
+	$orderDate = $s->orderdate ? date('d/m/Y', strtotime($s->orderdate)) : date('d/m/Y');
+
+	return implode("\n", array(
+		pvewhmcs_notes_client_line($s->firstname, $s->lastname, $s->companyname, $s->email),
+		trim('VPS ' . $label) . ' · cliente #' . (int) $s->userid . ' · serviço #' . (int) $s->id . ' · pedido #' . (int) $s->orderid,
+		'Plano: ' . $s->product . ($os !== '' ? ' · ' . $os : ''),
+		'Pedido: ' . $orderDate . ' · IP: ' . $ipAddress,
+		'Admin: ' . pvewhmcs_admin_service_url($serviceId),
+		'Histórico:',
+		'- ' . date('d/m/Y H:i') . ' criada',
+	));
+}
+
+function pvewhmcs_refresh_client_identity($serviceId) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->first();
+	if ($guest === null || ($guest->provisioning_state ?? 'ready') !== 'ready') {
+		return;
+	}
+	list($proxmox) = pvewhmcs_service_server_api(array('serviceid' => (int) $serviceId));
+	if (!$proxmox->login()) {
+		throw new RuntimeException("Couldn't login to PVE." . pvewhmcs_login_reason($proxmox));
+	}
+	$node = pvewhmcs_find_guest_node($proxmox, $guest);
+	if (empty($node)) {
+		throw new RuntimeException("Unable to determine node for VMID {$guest->vmid}.");
+	}
+	$guestPath = pvewhmcs_guest_api_path($node, $guest);
+	$config = (array) $proxmox->get($guestPath . '/config');
+	$identityTags = pvewhmcs_identity_tags($serviceId);
+	$changes = array();
+	if (($tags = pvewhmcs_merge_identity_tags($config['tags'] ?? '', pvewhmcs_managed_tags($serviceId), $identityTags)) !== '') {
+		$changes['tags'] = $tags;
+	}
+	$client = Capsule::table('tblhosting as h')->join('tblclients as c', 'c.id', '=', 'h.userid')->where('h.id', (int) $serviceId)->first(array('c.firstname', 'c.lastname', 'c.companyname', 'c.email'));
+	$description = (string) ($config['description'] ?? '');
+	if ($client !== null && preg_match('/^Cliente: .*$/m', $description)) {
+		$line = pvewhmcs_notes_client_line($client->firstname, $client->lastname, $client->companyname, $client->email);
+		$changes['description'] = preg_replace('/^Cliente: .*$/m', addcslashes($line, '\\$'), $description, 1);
+	}
+	if ($changes) {
+		$proxmox->put($guestPath . '/config', $changes);
+	}
+	Capsule::table('mod_pvewhmcs_vms')->where('id', (int) $serviceId)->update(array('managed_tags' => implode(';', $identityTags)));
+}
+
+function pvewhmcs_notes_append_history($description, $event): string {
+	return rtrim((string) $description) . "\n- " . date('d/m/Y H:i') . ' ' . $event;
 }
 
 /**
@@ -744,6 +902,7 @@ function pvewhmcs_client_inactive_error(array $params) {
  *   3. Legacy hardcoded `<orderid-or-serviceid>-<hostname>` layout, when both (1) and (2) are blank.
  *
  * Supported pattern tokens:
+ *   {prefix}      VM Name Prefix from Module Config (origin, e.g. inst).
  *   {vmid}        Proxmox VMID allocated for this guest (pass once known; see $vmid param).
  *   {node}        Proxmox node selected for creation (pass once known; see $node param).
  *   {serviceid}   WHMCS service ID (tblhosting.id).
@@ -782,6 +941,7 @@ function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = n
 		);
 
 		$tokens = array(
+			'{prefix}' => pvewhmcs_dns_name_sanitize(pvewhmcs_origin_settings()['prefix']),
 			'{vmid}' => $vmid !== null ? (string) $vmid : '',
 			'{node}' => $node !== null ? pvewhmcs_dns_name_sanitize($node) : '',
 			'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
@@ -1069,7 +1229,7 @@ function pvewhmcs_ConfigOptions() {
 			"Size" => "60",
 			"Description" => "Optional. Leave blank to use the Module Config tab's global default; leave both "
 				. "blank to keep the legacy '&lt;order/service id&gt;-&lt;hostname&gt;' name. "
-				. "Tokens: {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
+				. "Tokens: {prefix} {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
 				. "Example: vm{vmid}-{clientname}-{hostname}"
 		),
 	);
@@ -1384,7 +1544,13 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		$tweaks['ciuser'] = $cloudInitUser;
 	}
 	$guestPath = '/nodes/' . $node . '/qemu/' . $vmid;
-	$config = ($plan->netmode === 'bridge' || !empty($plan->firewall)) ? (array) $proxmox->get($guestPath . '/config') : array();
+	$config = (array) $proxmox->get($guestPath . '/config');
+	$identityTags = pvewhmcs_identity_tags($params['serviceid']);
+	if (($tags = pvewhmcs_merge_identity_tags($config['tags'] ?? '', array(), $identityTags)) !== '') {
+		$tweaks['tags'] = $tags;
+	}
+	// The clone carries the template's notes; the service's own notes replace them.
+	$tweaks['description'] = pvewhmcs_guest_notes($params['serviceid'], $ip->ipaddress);
 	if ($plan->netmode === 'bridge') {
 		$tweaks['net0'] = pvewhmcs_replace_qemu_bridge($config['net0'] ?? $plan->netmodel, $network);
 		if ($ipv6Enabled) {
@@ -1421,6 +1587,7 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		pvewhmcs_provisioning_set_pending($params['serviceid'], $response);
 		pvewhmcs_wait_recorded_provisioning_task($proxmox, $params['serviceid'], $response);
 	}
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(array('managed_tags' => implode(';', $identityTags)));
 	// The clone keeps the template's disk size; grow it to the plan before the
 	// first boot so cloud-init's growpart expands the filesystem.
 	pvewhmcs_grow_root_disk($proxmox, $guestPath, 'qemu', $plan->disk);
@@ -1555,6 +1722,12 @@ function pvewhmcs_CreateAccount_recoverable_impl($params) {
 		if (!$isClone) {
 			$settings['vmid'] = $vmid;
 			$settings[$guestType === 'lxc' ? 'hostname' : 'name'] = pvewhmcs_guest_name($params, $vmid, $templateNode, $plan->title);
+			$identityTags = pvewhmcs_identity_tags($serviceId);
+			if ($identityTags) {
+				$settings['tags'] = implode(';', $identityTags);
+			}
+			$settings['description'] = pvewhmcs_guest_notes($serviceId, $ip->ipaddress);
+			Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceId)->update(array('managed_tags' => implode(';', $identityTags)));
 		}
 		if (($pool = pvewhmcs_pve_pool($serverId)) !== null) {
 			$settings['pool'] = $pool;
@@ -1785,7 +1958,7 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 	}
 	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(['ha_suspended' => $haSuspended]);
 
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0);
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'SUSPENSO', 0, 'suspensa');
 
 	// An HA-managed guest is stopped by the CRM; a direct stop would be a
 	// queued CRM command that can override a later Unsuspend.
@@ -1858,7 +2031,7 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 	if ($haRestore) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'started');
 	}
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null);
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, null, $planOnboot ? 1 : null, 'reativada');
 	$startTask = null;
 	if ($directStart) {
 		$status = $proxmox->get($guestPath . '/status/current');
@@ -1936,7 +2109,14 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 	if (!empty($plan->firewall) && !preg_match('/(^|,)firewall=1(,|$)/', (string) $config['net0'])) {
 		$settings['net0'] = pvewhmcs_nic_with_firewall($config['net0']);
 	}
+	$identityTags = pvewhmcs_identity_tags($params['serviceid']);
+	if (($tags = pvewhmcs_merge_identity_tags($config['tags'] ?? '', pvewhmcs_managed_tags($params['serviceid']), $identityTags)) !== '') {
+		$settings['tags'] = $tags;
+	}
+	$productName = (string) Capsule::table('tblhosting as h')->join('tblproducts as p', 'p.id', '=', 'h.packageid')->where('h.id', $params['serviceid'])->value('p.name');
+	$settings['description'] = pvewhmcs_notes_append_history($config['description'] ?? '', 'plano alterado para ' . $productName);
 	$response = $proxmox->put($guestPath . '/config', $settings);
+	Capsule::table('mod_pvewhmcs_vms')->where('id', $params['serviceid'])->update(array('managed_tags' => implode(';', $identityTags)));
 	if (pvewhmcs_is_upid($response)) {
 		pvewhmcs_wait_task($proxmox, $response, 60);
 	}
@@ -2005,7 +2185,7 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	if ($haState !== null) {
 		pvewhmcs_set_guest_ha_state($proxmox, $guest, 'disabled');
 	}
-	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0);
+	pvewhmcs_update_guest_lifecycle_config($proxmox, $guestPath, $config, 'CANCELADO', 0, 'cancelada');
 
 	$stopTask = null;
 	if ($haState === null) {
@@ -2062,6 +2242,13 @@ function pvewhmcs_client_lang_code(array $params = array()) {
 		$code = $dbLangCache[$clientId] ?: null;
 	}
 
+	if ($code === null && empty($_SESSION['Language'])) {
+		try {
+			$code = Capsule::table('tblconfiguration')->where('setting', 'Language')->value('value') ?: null;
+		} catch (\Throwable $e) {
+			$code = null;
+		}
+	}
 	$code = $code
 		?? ($_SESSION['Language'] ?? null)
 		?? 'english';
@@ -2101,17 +2288,15 @@ function pvewhmcs_ClientAreaCustomButtonArray($params = array()) {
 	if (!empty($params) && pvewhmcs_client_service_inactive($params)) {
 		return array();
 	}
-	$lang = pvewhmcs_load_client_lang();
-	$buttonarray = array(
-		"<i class='fa fa-2x fa-flag-checkered'></i> " . ($lang['btn_start'] ?? 'Start') => "vmStart",
-		"<i class='fa fa-2x fa-sync'></i> " . ($lang['btn_reboot'] ?? 'Reboot') => "vmReboot",
-		"<i class='fa fa-2x fa-power-off'></i> " . ($lang['btn_poweroff'] ?? 'Power Off') => "vmShutdown",
-		"<i class='fa fa-2x fa-stop'></i>  " . ($lang['btn_hardstop'] ?? 'Hard Stop') => "vmStop",
-		"<i class='fa fa-2x fa-chart-bar'></i>  " . ($lang['btn_statistics'] ?? 'Statistics') => "vmStat",
-		"<i class='fa fa-2x fa-search'></i>  " . ($lang['btn_checkstatus'] ?? 'Check Status') => "vmCheck",
-		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> " . ($lang['btn_console'] ?? 'Console (HTML5)') => "noVNC",
+	$lang = pvewhmcs_load_client_lang($params);
+	// Plain labels: the icons come from the theme (ClientAreaPrimarySidebar hook in the addon).
+	return array(
+		$lang['btn_start'] ?? 'Start' => 'vmStart',
+		$lang['btn_reboot'] ?? 'Reboot' => 'vmReboot',
+		$lang['btn_poweroff'] ?? 'Power Off' => 'vmShutdown',
+		$lang['btn_hardstop'] ?? 'Hard Stop' => 'vmStop',
+		$lang['btn_console'] ?? 'Console' => 'noVNC',
 	);
-	return $buttonarray;
 }
 
 /**

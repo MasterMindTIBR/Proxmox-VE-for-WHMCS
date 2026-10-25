@@ -19,9 +19,7 @@ $_PVEWHMCS_LANG['btn_start'] = 'Start';
 $_PVEWHMCS_LANG['btn_reboot'] = 'Reboot';
 $_PVEWHMCS_LANG['btn_poweroff'] = 'Power Off';
 $_PVEWHMCS_LANG['btn_hardstop'] = 'Hard Stop';
-$_PVEWHMCS_LANG['btn_statistics'] = 'Statistics';
-$_PVEWHMCS_LANG['btn_checkstatus'] = 'Check Status';
-$_PVEWHMCS_LANG['btn_console'] = 'Console (HTML5)';
+$_PVEWHMCS_LANG['btn_console'] = 'Console';
 
 $_PVEWHMCS_LANG['uptime_prefix'] = 'Up';
 $_PVEWHMCS_LANG['memory'] = 'Memory';
