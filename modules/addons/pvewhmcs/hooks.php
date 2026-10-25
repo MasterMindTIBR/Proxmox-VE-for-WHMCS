@@ -232,3 +232,22 @@ add_hook('ClientAreaFooterOutput', 2, function ($vars) {
 })();</script>';
 });
 
+
+// Nameserver prefixes of WHMCS server products mean nothing for a VPS; the theme hides them when hideNSFields is set.
+function pvewhmcs_hook_is_vps_product($pid) {
+	return (string) Capsule::table('tblproducts')->where('id', (int) $pid)->value('servertype') === 'pvewhmcs';
+}
+
+add_hook('ClientAreaPageProductDetails', 2, function ($vars) {
+	$pid = Capsule::table('tblhosting')->where('id', (int) ($vars['serviceid'] ?? $_GET['id'] ?? 0))->value('packageid');
+
+	return pvewhmcs_hook_is_vps_product($pid) ? array('hideNSFields' => true) : array();
+});
+
+add_hook('ClientAreaPageCart', 1, function ($vars) {
+	if (($vars['templatefile'] ?? '') !== 'configureproduct') {
+		return array();
+	}
+
+	return pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0) ? array('hideNSFields' => true) : array();
+});
