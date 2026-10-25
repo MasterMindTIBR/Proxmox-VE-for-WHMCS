@@ -16,10 +16,8 @@ if (!defined('WHMCS')) {
 $_PVEWHMCS_LANG['btn_start'] = 'Ligar';
 $_PVEWHMCS_LANG['btn_reboot'] = 'Reiniciar';
 $_PVEWHMCS_LANG['btn_poweroff'] = 'Desligar';
-$_PVEWHMCS_LANG['btn_hardstop'] = 'Forçar Parada';
-$_PVEWHMCS_LANG['btn_statistics'] = 'Estatísticas';
-$_PVEWHMCS_LANG['btn_checkstatus'] = 'Verificar Status';
-$_PVEWHMCS_LANG['btn_console'] = 'Console (HTML5)';
+$_PVEWHMCS_LANG['btn_hardstop'] = 'Forçar desligamento';
+$_PVEWHMCS_LANG['btn_console'] = 'Console';
 
 $_PVEWHMCS_LANG['uptime_prefix'] = 'Ativo há';
 $_PVEWHMCS_LANG['memory'] = 'Memória';

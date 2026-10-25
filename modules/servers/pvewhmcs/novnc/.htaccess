@@ -1,0 +1,6 @@
+# pvewhmcs: revalidate on every load so a module update is never hidden by the browser cache (304 when unchanged).
+<IfModule mod_headers.c>
+	<FilesMatch "\.(html|js|mjs|css)$">
+		Header set Cache-Control "no-cache"
+	</FilesMatch>
+</IfModule>

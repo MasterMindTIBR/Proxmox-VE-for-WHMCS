@@ -164,3 +164,97 @@ add_hook('ClientAreaProductDetailsOutput', 1, function ($vars) {
 		. '<button type="submit" class="btn btn-default btn-sm">' . htmlspecialchars($button, ENT_QUOTES, 'UTF-8') . '</button>'
 		. '</form></div>';
 });
+
+// Proxmox shows the client by tag and Notes, so a renamed client is rewritten there too.
+add_hook('ClientEdit', 1, function ($vars) {
+	$old = (array) ($vars['olddata'] ?? array());
+	$changed = false;
+	foreach (array('firstname', 'lastname', 'companyname', 'email') as $field) {
+		$changed = $changed || (string) ($old[$field] ?? '') !== (string) ($vars[$field] ?? '');
+	}
+	$clientId = (int) ($vars['userid'] ?? 0);
+	if (!$changed || $clientId <= 0) {
+		return;
+	}
+	$serviceIds = Capsule::table('mod_pvewhmcs_vms as v')->join('tblhosting as h', 'h.id', '=', 'v.id')->where('h.userid', $clientId)->pluck('v.id')->all();
+	if (!$serviceIds) {
+		return;
+	}
+	$server = new \WHMCS\Module\Server();
+	if (!$server->load('pvewhmcs') || !function_exists('pvewhmcs_refresh_client_identity')) {
+		return;
+	}
+	foreach ($serviceIds as $serviceId) {
+		try {
+			pvewhmcs_refresh_client_identity($serviceId);
+		} catch (\Throwable $e) {
+			logActivity('PVEWHMCS ClientEdit: Proxmox tag/notes not updated for service #' . (int) $serviceId . ': ' . $e->getMessage(), $clientId);
+		}
+	}
+});
+
+add_hook('ClientAreaPrimarySidebar', 1, function ($sidebar) {
+	$actions = $sidebar->getChild('Service Details Actions');
+	if ($actions === null) {
+		return;
+	}
+	// Lagom draws its own "ls" glyph and hides the Font Awesome one; other themes show Font Awesome.
+	$icons = array(
+		'vmStart' => 'fas fa-play ls ls-arrow-play',
+		'vmReboot' => 'fas fa-sync ls ls-refresh',
+		'vmShutdown' => 'fas fa-power-off ls ls-sign-out',
+		'vmStop' => 'fas fa-stop ls ls-close',
+		'noVNC' => 'fas fa-terminal ls ls-input-code',
+	);
+	foreach ($actions->getChildren() as $item) {
+		if (preg_match('/[?&]modop=custom&a=(\w+)/', (string) $item->getUri(), $m) && isset($icons[$m[1]])) {
+			$item->setIcon($icons[$m[1]]);
+		}
+	}
+});
+
+add_hook('ClientAreaFooterOutput', 2, function ($vars) {
+	if (($vars['templatefile'] ?? '') !== 'clientareaproductdetails') {
+		return '';
+	}
+	$ask = pvewhmcs_hook_is_pt()
+		? array('vmShutdown' => 'Desligar a VPS? O sistema operacional recebe o pedido de desligamento.', 'vmStop' => 'Forçar o desligamento? A VPS é cortada na hora, como tirar da tomada; dados não salvos podem se perder.')
+		: array('vmShutdown' => 'Power off the VPS? The operating system is asked to shut down.', 'vmStop' => 'Hard stop the VPS? It is cut off at once, like pulling the plug; unsaved data may be lost.');
+
+	// WHMCS client.js later swaps these hrefs for "#" and posts on click (honouring target), so the confirmation
+	// listens in the capture phase and stops that handler when the client cancels.
+	return '<script>(function () {
+	var ask = ' . json_encode($ask, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';
+	document.querySelectorAll(\'a[href*="modop=custom"]\').forEach(function (link) {
+		var m = link.href.match(/[?&]a=(\w+)/);
+		if (!m) { return; }
+		link.setAttribute("data-pvewhmcs-action", m[1]);
+		if (m[1] === "noVNC") { link.target = "_blank"; link.rel = "noopener"; }
+	});
+	document.addEventListener("click", function (e) {
+		var link = e.target.closest && e.target.closest("a[data-pvewhmcs-action]");
+		var question = link && ask[link.getAttribute("data-pvewhmcs-action")];
+		if (question && !window.confirm(question)) { e.preventDefault(); e.stopImmediatePropagation(); }
+	}, true);
+})();</script>';
+});
+
+
+// Nameserver prefixes of WHMCS server products mean nothing for a VPS; the theme hides them when hideNSFields is set.
+function pvewhmcs_hook_is_vps_product($pid) {
+	return (string) Capsule::table('tblproducts')->where('id', (int) $pid)->value('servertype') === 'pvewhmcs';
+}
+
+add_hook('ClientAreaPageProductDetails', 2, function ($vars) {
+	$pid = Capsule::table('tblhosting')->where('id', (int) ($vars['serviceid'] ?? $_GET['id'] ?? 0))->value('packageid');
+
+	return pvewhmcs_hook_is_vps_product($pid) ? array('hideNSFields' => true) : array();
+});
+
+add_hook('ClientAreaPageCart', 1, function ($vars) {
+	if (($vars['templatefile'] ?? '') !== 'configureproduct') {
+		return array();
+	}
+
+	return pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0) ? array('hideNSFields' => true) : array();
+});
