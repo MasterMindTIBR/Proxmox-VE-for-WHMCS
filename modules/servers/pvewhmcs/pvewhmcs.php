@@ -279,7 +279,8 @@ function pvewhmcs_service_os_label($serviceId): string {
 }
 
 function pvewhmcs_admin_service_url($serviceId): string {
-	$base = class_exists('\App') && method_exists('\App', 'getSystemURL') ? (string) \App::getSystemURL() : '';
+	// Read from the settings: getSystemURL() is empty when provisioning runs from the cron or the API.
+	$base = (string) Capsule::table('tblconfiguration')->where('setting', 'SystemURL')->value('value');
 	$folder = class_exists('\App') && method_exists('\App', 'get_admin_folder_name') ? (string) \App::get_admin_folder_name() : 'admin';
 
 	return rtrim($base, '/') . '/' . trim($folder, '/') . '/clientsservices.php?id=' . (int) $serviceId;
