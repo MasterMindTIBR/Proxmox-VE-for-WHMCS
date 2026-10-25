@@ -2982,7 +2982,7 @@ function pvewhmcs_ip_busy_statuses() {
 	return array('Active', 'Suspended', 'Completed', 'Pending');
 }
 
-// A client cancellation ends as Cancelled, an admin Terminate as Terminated; both keep the IP.
+// Two statuses because WHMCS ends a cancellation request as Cancelled and an admin Terminate as Terminated.
 function pvewhmcs_ip_reserved_statuses() {
 	return array('Terminated', 'Cancelled');
 }

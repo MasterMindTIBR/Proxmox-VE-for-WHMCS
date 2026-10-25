@@ -111,7 +111,6 @@ function pvewhmcs_server_settings($serverId) {
 	return Capsule::table('mod_pvewhmcs_servers')->where('server_id', '=', (int) $serverId)->first();
 }
 
-// Returns [user, realm, password]; a server without its own VNC user falls back to the global vnc@pve.
 function pvewhmcs_vnc_credentials($serverId): array {
 	$settings = pvewhmcs_server_settings($serverId);
 	$user = trim((string) ($settings->vnc_user ?? ''));
