@@ -17,6 +17,7 @@ import keysyms from "../core/input/keysymdef.js";
 import Keyboard from "../core/input/keyboard.js";
 import RFB from "../core/rfb.js";
 import * as WebUtil from "./webutil.js";
+import * as Pvewhmcs from "./pvewhmcs.js"; // pvewhmcs: re-apply on noVNC bumps
 
 const PAGE_TITLE = "noVNC";
 
@@ -47,6 +48,7 @@ const UI = {
     reconnectPassword: null,
 
     async start(options={}) {
+        Pvewhmcs.init(); // pvewhmcs
         UI.customSettings = options.settings || {};
         if (UI.customSettings.defaults === undefined) {
             UI.customSettings.defaults = {};
@@ -1144,6 +1146,7 @@ const UI = {
     connectFinished(e) {
         UI.connected = true;
         UI.inhibitReconnect = false;
+        Pvewhmcs.connected(); // pvewhmcs
 
         let msg;
         if (UI.getSetting('encrypt')) {
@@ -1169,12 +1172,9 @@ const UI = {
         // UI.disconnect() won't be used in those cases.
         UI.connected = false;
 
-        // pvewhmcs: the console relay closes an expired session with 4408; its token is single-use, so "Connect" cannot resume it. Re-apply on noVNC bumps.
-        if (UI.rfb && UI.rfb._pvewhmcsCloseCode === 4408) {
-            UI.showStatus(/^pt/i.test(navigator.language)
-                ? "A sessão do console expirou. Feche esta aba e abra o console de novo pela área do cliente."
-                : "The console session has expired. Close this tab and open the console again from the client area.", 'error');
-        }
+        // pvewhmcs: the relay token is single-use, so noVNC's own reconnect cannot resume; ask WHMCS for a new console instead. Re-apply on noVNC bumps.
+        const pvewhmcsExpired = UI.rfb && UI.rfb._pvewhmcsCloseCode === 4408;
+        const pvewhmcsByUser = UI.inhibitReconnect && wasConnected;
 
         UI.rfb = undefined;
 
@@ -1201,10 +1201,14 @@ const UI = {
 
         UI.updateBeforeUnload();
 
-        document.title = PAGE_TITLE;
+        document.title = Pvewhmcs.title() || PAGE_TITLE; // pvewhmcs
 
         UI.openControlbar();
         UI.openConnectPanel();
+
+        if (!pvewhmcsByUser) { // pvewhmcs
+            Pvewhmcs.lost(pvewhmcsExpired ? 'expired' : (wasConnected ? 'lost' : 'failed'));
+        }
     },
 
     securityFailed(e) {
@@ -1797,7 +1801,7 @@ const UI = {
     updateDesktopName(e) {
         UI.desktopName = e.detail.name;
         // Display the desktop name in the document title
-        document.title = e.detail.name + " - " + PAGE_TITLE;
+        document.title = Pvewhmcs.title() || (e.detail.name + " - " + PAGE_TITLE); // pvewhmcs
     },
 
     bell(e) {
