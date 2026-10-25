@@ -2567,11 +2567,11 @@ function pvewhmcs_prepare_noVNC($params) {
 		. '&path=' . urlencode($relay_path)
 		. '&password=' . urlencode($vncstream_password)
 		. '&encrypt=true&autoconnect=true'
-		. '&pvewhmcs_title=' . urlencode(trim(($params['domain'] ?? '') . ' - Console', ' -'))
+		. '&pvewhmcs_title=' . rawurlencode(trim(($params['domain'] ?? '') . ' - Console', ' -'))
 		. '&pvewhmcs_lang=' . (stripos(pvewhmcs_client_lang_code($params), 'portuguese') === 0 ? 'pt' : 'en');
 	// WHMCS has no favicon setting; the convention is a favicon.ico at its root.
 	if (defined('ROOTDIR') && is_file(ROOTDIR . '/favicon.ico')) {
-		$url .= '&pvewhmcs_icon=' . urlencode($whmcs_base . '/favicon.ico');
+		$url .= '&pvewhmcs_icon=' . rawurlencode($whmcs_base . '/favicon.ico');
 	}
 
 	return array(

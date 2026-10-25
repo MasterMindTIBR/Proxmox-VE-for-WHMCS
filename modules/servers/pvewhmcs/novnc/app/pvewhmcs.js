@@ -22,6 +22,9 @@ const AUTO_KEY = 'pvewhmcs_auto_reconnect';
 
 // Same-origin only: the fragment can be edited, and the button must not navigate elsewhere.
 function sameOrigin(value) {
+    if (!value) {
+        return null;
+    }
     try {
         const url = new URL(value, window.location.href);
         return url.origin === window.location.origin ? url.href : null;
