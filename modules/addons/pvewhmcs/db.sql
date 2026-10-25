@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs` (
   `guest_dns_ipv4` varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6',
   `guest_dns_ipv6` varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1',
   `pve_pool` varchar(64) DEFAULT NULL,
+  `vm_prefix` varchar(16) DEFAULT NULL,
+  `origin_tag` varchar(64) DEFAULT NULL,
+  `origin_label` varchar(64) DEFAULT NULL,
   `schema_version` varchar(20) NOT NULL DEFAULT '',
   PRIMARY KEY (`id`)
 );
@@ -142,6 +145,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `created` datetime DEFAULT NULL,
   `v6prefix` varchar(128) DEFAULT NULL,
   `ha_suspended` tinyint(1) unsigned NOT NULL DEFAULT '0',
+  `managed_tags` varchar(255) DEFAULT NULL,
   `provisioning_state` varchar(16) NOT NULL DEFAULT 'ready',
   `provisioning_upid` varchar(255) DEFAULT NULL,
   `provisioning_node` varchar(255) DEFAULT NULL,

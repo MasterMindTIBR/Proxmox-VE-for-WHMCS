@@ -73,7 +73,7 @@ function pvewhmcs_rrd_image_bytes($image) {
 		: utf8_decode($image);
 }
 
-const PVEWHMCS_SCHEMA_VERSION = '1.3.8';
+const PVEWHMCS_SCHEMA_VERSION = '1.3.9';
 
 const PVEWHMCS_DEFAULT_GUEST_DNS_IPV4 = '208.67.222.222 64.6.64.6';
 const PVEWHMCS_DEFAULT_GUEST_DNS_IPV6 = '2620:119:35::35 2620:74:1b::1:1';
@@ -294,6 +294,9 @@ function pvewhmcs_ensure_schema() {
 			'guest_dns_ipv4' => "varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6'",
 			'guest_dns_ipv6' => "varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1'",
 			'pve_pool' => 'varchar(64) DEFAULT NULL',
+			'vm_prefix' => 'varchar(16) DEFAULT NULL',
+			'origin_tag' => 'varchar(64) DEFAULT NULL',
+			'origin_label' => 'varchar(64) DEFAULT NULL',
 		) as $column => $definition) {
 			pvewhmcs_schema_add_missing_column('mod_pvewhmcs', $column, $definition);
 		}
@@ -351,6 +354,7 @@ function pvewhmcs_ensure_schema() {
 			'vtype' => 'varchar(255) NOT NULL', 'ipaddress' => 'varchar(255) NOT NULL', 'subnetmask' => 'varchar(255) NOT NULL',
 			'gateway' => 'varchar(255) NOT NULL', 'created' => 'datetime DEFAULT NULL', 'v6prefix' => 'varchar(128) DEFAULT NULL',
 			'ha_suspended' => "tinyint(1) unsigned NOT NULL DEFAULT '0'",
+			'managed_tags' => 'varchar(255) DEFAULT NULL',
 		) as $column => $definition) {
 			pvewhmcs_schema_add_missing_column('mod_pvewhmcs_vms', $column, $definition);
 		}
