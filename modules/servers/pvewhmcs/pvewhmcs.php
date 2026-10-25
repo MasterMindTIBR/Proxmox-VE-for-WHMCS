@@ -200,6 +200,8 @@ function pvewhmcs_origin_settings(): array {
 	$row = Capsule::table('mod_pvewhmcs')->where('id', 1)->first();
 
 	return array(
+		'prefix' => trim((string) ($row->vm_prefix ?? '')),
+		'snippet' => trim((string) ($row->hostname_snippet ?? '')),
 		'tag' => trim((string) ($row->origin_tag ?? '')),
 		'label' => trim((string) ($row->origin_label ?? '')),
 	);
@@ -903,6 +905,7 @@ function pvewhmcs_client_inactive_error(array $params) {
  *   3. Legacy hardcoded `<orderid-or-serviceid>-<hostname>` layout, when both (1) and (2) are blank.
  *
  * Supported pattern tokens:
+ *   {prefix}      VM Name Prefix from Module Config (origin, e.g. inst).
  *   {vmid}        Proxmox VMID allocated for this guest (pass once known; see $vmid param).
  *   {node}        Proxmox node selected for creation (pass once known; see $node param).
  *   {serviceid}   WHMCS service ID (tblhosting.id).
@@ -941,6 +944,7 @@ function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = n
 		);
 
 		$tokens = array(
+			'{prefix}' => pvewhmcs_dns_name_sanitize(pvewhmcs_origin_settings()['prefix']),
 			'{vmid}' => $vmid !== null ? (string) $vmid : '',
 			'{node}' => $node !== null ? pvewhmcs_dns_name_sanitize($node) : '',
 			'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
@@ -1228,7 +1232,7 @@ function pvewhmcs_ConfigOptions() {
 			"Size" => "60",
 			"Description" => "Optional. Leave blank to use the Module Config tab's global default; leave both "
 				. "blank to keep the legacy '&lt;order/service id&gt;-&lt;hostname&gt;' name. "
-				. "Tokens: {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
+				. "Tokens: {prefix} {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
 				. "Example: vm{vmid}-{clientname}-{hostname}"
 		),
 	);
@@ -1528,6 +1532,38 @@ function pvewhmcs_grow_root_disk(PVE2_API $proxmox, $guestPath, $vtype, $planDis
 	return null;
 }
 
+/**
+ * Returns the clone's smbios1 with `sku` set to $sku, keeping the uuid (a new
+ * one would look like other hardware to the guest) and the other fields, all
+ * stored base64 so any value is accepted.
+ */
+function pvewhmcs_smbios1_with_sku($smbios1, $sku) {
+	$fields = array();
+	$isBase64 = false;
+	foreach (array_filter(explode(',', (string) $smbios1)) as $pair) {
+		[$key, $value] = array_pad(explode('=', $pair, 2), 2, '');
+		if ($key === 'base64') {
+			$isBase64 = $value === '1';
+		} else {
+			$fields[$key] = $value;
+		}
+	}
+	foreach ($fields as $key => $value) {
+		if (!in_array($key, array('uuid', 'sku'), true) && !$isBase64) {
+			$fields[$key] = base64_encode($value);
+		}
+	}
+	$fields['sku'] = base64_encode($sku);
+	$out = isset($fields['uuid']) ? array('uuid=' . $fields['uuid']) : array();
+	unset($fields['uuid']);
+	$out[] = 'base64=1';
+	foreach ($fields as $key => $value) {
+		$out[] = $key . '=' . $value;
+	}
+
+	return implode(',', $out);
+}
+
 function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $plan, $ip, $network, $node, $vmid) {
 	$ipv6Enabled = !empty($plan->ipv6) && $plan->ipv6 != '0';
 	$tweaks = array(
@@ -1572,6 +1608,11 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 	// Proxmox expects sshkeys URL-encoded inside the form value (%20, not '+').
 	if ($sshKeys = pvewhmcs_ssh_public_keys($params['customfields']['SSHKey'] ?? '')) {
 		$tweaks['sshkeys'] = rawurlencode($sshKeys);
+	}
+	// The VM name follows the pattern; the vendor-data snippet reads the client's hostname from smbios1 sku.
+	if (($snippet = pvewhmcs_origin_settings()['snippet']) !== '' && ($hostname = strtolower(pvewhmcs_dns_name_sanitize($params['domain'] ?? ''))) !== '') {
+		$tweaks['cicustom'] = 'vendor=' . $snippet;
+		$tweaks['smbios1'] = pvewhmcs_smbios1_with_sku($config['smbios1'] ?? '', $hostname);
 	}
 	if (!empty($plan->firewall)) {
 		$nic = $tweaks['net0'] ?? ($config['net0'] ?? null);
