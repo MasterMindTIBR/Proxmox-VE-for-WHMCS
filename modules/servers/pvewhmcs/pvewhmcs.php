@@ -2566,7 +2566,13 @@ function pvewhmcs_prepare_noVNC($params) {
 		. '&port=' . urlencode((string) $relay_port)
 		. '&path=' . urlencode($relay_path)
 		. '&password=' . urlencode($vncstream_password)
-		. '&encrypt=true&autoconnect=true';
+		. '&encrypt=true&autoconnect=true'
+		. '&pvewhmcs_title=' . urlencode(trim(($params['domain'] ?? '') . ' - Console', ' -'))
+		. '&pvewhmcs_lang=' . (stripos(pvewhmcs_client_lang_code($params), 'portuguese') === 0 ? 'pt' : 'en');
+	// WHMCS has no favicon setting; the convention is a favicon.ico at its root.
+	if (defined('ROOTDIR') && is_file(ROOTDIR . '/favicon.ico')) {
+		$url .= '&pvewhmcs_icon=' . urlencode($whmcs_base . '/favicon.ico');
+	}
 
 	return array(
 		'url' => $url,
@@ -2600,6 +2606,10 @@ function pvewhmcs_noVNC($params) {
 		return $lang['novnc_unavailable'] ?? 'The console is unavailable right now. Please try again in a few minutes or contact support.';
 	}
 
+	// The fragment never reaches a server or a log; it lets the console page ask for a new single-use token itself.
+	if (function_exists('generate_token') && empty($_SESSION['adminid'])) {
+		$prepared['url'] .= '#pvewhmcs_reconnect=' . rawurlencode(rtrim($GLOBALS['CONFIG']['SystemURL'] ?? '', '/') . '/clientarea.php?action=productdetails&id=' . (int) $params['serviceid'] . '&modop=custom&a=noVNC&token=' . generate_token('plain'));
+	}
 	$escaped_url = htmlspecialchars($prepared['url'], ENT_QUOTES, 'UTF-8');
 	$script_url = json_encode($prepared['url'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
