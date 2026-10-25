@@ -256,12 +256,17 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 		return array();
 	}
 
-	return pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0) ? array('hideNSFields' => true) : array();
+	if (!pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0)) {
+		return array();
+	}
+	$GLOBALS['pvewhmcs_hide_ns'] = true;
+
+	return array('hideNSFields' => true);
 });
 
 // standard_cart ignores hideNSFields and WHMCS still requires the prefixes, so fill and hide them on the page.
 add_hook('ClientAreaFooterOutput', 3, function ($vars) {
-	if (($vars['templatefile'] ?? '') !== 'configureproduct' || !pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0)) {
+	if (empty($GLOBALS['pvewhmcs_hide_ns'])) {
 		return '';
 	}
 
