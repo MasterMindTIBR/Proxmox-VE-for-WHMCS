@@ -1169,6 +1169,13 @@ const UI = {
         // UI.disconnect() won't be used in those cases.
         UI.connected = false;
 
+        // pvewhmcs: the console relay closes an expired session with 4408; its token is single-use, so "Connect" cannot resume it. Re-apply on noVNC bumps.
+        if (UI.rfb && UI.rfb._pvewhmcsCloseCode === 4408) {
+            UI.showStatus(/^pt/i.test(navigator.language)
+                ? "A sessão do console expirou. Feche esta aba e abra o console de novo pela área do cliente."
+                : "The console session has expired. Close this tab and open the console again from the client area.", 'error');
+        }
+
         UI.rfb = undefined;
 
         if (!e.detail.clean) {

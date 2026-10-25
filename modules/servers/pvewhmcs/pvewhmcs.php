@@ -377,9 +377,8 @@ function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmi
 				throw new RuntimeException("Service #{$serviceId} already has a dedicated IP but no provisioning marker; allocation is blocked for investigation.");
 			}
 
-			// Revalidate this exact locked address. A terminated service reserves it
-			// only when it still has a guest row identified by the service ID; the
-			// guest's historical vms.ipaddress is never used for this decision.
+			// Terminated/Cancelled reserve the address only while their guest row exists;
+			// the guest's historical vms.ipaddress is never used for this decision.
 			$addressServices = Capsule::table('tblhosting')
 				->where('dedicatedip', '=', $ip->ipaddress)
 				->orderBy('id')
@@ -402,7 +401,7 @@ function pvewhmcs_write_provisioning_marker($poolId, $serviceId, $serverId, $vmi
 			$guestServiceIds = array_flip(array_map('intval', $guestServiceIds));
 			$reserved = false;
 			foreach ($addressServices as $addressService) {
-				if ($addressService->domainstatus === 'Terminated' && isset($guestServiceIds[(int) $addressService->id])) {
+				if (in_array($addressService->domainstatus, array('Terminated', 'Cancelled'), true) && isset($guestServiceIds[(int) $addressService->id])) {
 					$reserved = true;
 				}
 			}
@@ -729,6 +728,15 @@ function pvewhmcs_client_service_inactive(array $params) {
 	return empty($_SESSION['adminid']) && ($params['status'] ?? '') !== 'Active';
 }
 
+function pvewhmcs_client_inactive_error(array $params) {
+	if (!pvewhmcs_client_service_inactive($params)) {
+		return null;
+	}
+	$lang = pvewhmcs_load_client_lang($params);
+
+	return $lang['service_not_active'] ?? 'Service is not active.';
+}
+
 /**
  * Build a Proxmox guest name/hostname. Resolution order:
  *   1. Per-product pattern (`$params['configoption3']`, field "VM Name Pattern").
@@ -842,6 +850,11 @@ function pvewhmcs_run_tracked_action($action, $type, array $params, callable $ha
 			'action' => $action,
 			'response' => is_string($result) ? $result : 'Unexpected handler result: ' . json_encode($result),
 		));
+		// A client's power button gets no login reason (internal host/port); the history above keeps it.
+		$loginFailed = "Couldn't login to PVE.";
+		if ($failed && $type === 'power' && empty($_SESSION['adminid']) && is_string($result) && ($cut = strpos($result, $loginFailed)) !== false) {
+			return substr($result, 0, $cut + strlen($loginFailed));
+		}
 
 		return $result;
 	} catch (\Throwable $e) {
@@ -1364,6 +1377,8 @@ function pvewhmcs_clone_post_configuration(PVE2_API $proxmox, array $params, $pl
 		'kvm' => $plan->kvm, 'onboot' => $plan->onboot,
 		'nameserver' => pvewhmcs_guest_nameservers($ipv6Enabled),
 		'ipconfig0' => 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway,
+		// A protected template passes protection=1 to its clones; a sold guest must stay removable by the admin.
+		'protection' => 0,
 	);
 	if (($cloudInitUser = pvewhmcs_cloud_init_user()) !== null) {
 		$tweaks['ciuser'] = $cloudInitUser;
@@ -1707,6 +1722,13 @@ function pvewhmcs_TestConnection(array $params) {
 /**
  * PVE2_API for callbacks that receive the WHMCS server credentials in $params.
  */
+// Why login() failed (host/port/HTTP status only, never credentials), for the admin-facing error.
+function pvewhmcs_login_reason($proxmox) {
+	$reason = $proxmox->get_last_error();
+
+	return $reason ? ' ' . $reason : '';
+}
+
 function pvewhmcs_params_api(array $params) {
 	$serverip = pvewhmcs_connection_host($params['serverhostname'] ?? '', $params['serverip'] ?? '');
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
@@ -1735,7 +1757,7 @@ function pvewhmcs_SuspendAccount_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error suspending account. Couldn't login to PVE.";
+		return "Error suspending account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1804,7 +1826,7 @@ function pvewhmcs_UnsuspendAccount_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error unsuspending account. Couldn't login to PVE.";
+		return "Error unsuspending account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1880,7 +1902,7 @@ function pvewhmcs_ChangePackage_impl(array $params) {
 
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error changing package. Couldn't login to PVE.";
+		return "Error changing package. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -1953,7 +1975,7 @@ function pvewhmcs_TerminateAccount_impl(array $params) {
 	}
 	$proxmox = pvewhmcs_params_api($params);
 	if (!$proxmox->login()) {
-		return "Error cancelling account. Couldn't login to PVE.";
+		return "Error cancelling account. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
@@ -2075,7 +2097,10 @@ function pvewhmcs_load_client_lang(array $params = array()) {
 }
 
 // MODULE BUTTONS: Client Interface button regos
-function pvewhmcs_ClientAreaCustomButtonArray() {
+function pvewhmcs_ClientAreaCustomButtonArray($params = array()) {
+	if (!empty($params) && pvewhmcs_client_service_inactive($params)) {
+		return array();
+	}
 	$lang = pvewhmcs_load_client_lang();
 	$buttonarray = array(
 		"<i class='fa fa-2x fa-flag-checkered'></i> " . ($lang['btn_start'] ?? 'Start') => "vmStart",
@@ -2251,7 +2276,7 @@ function pvewhmcs_ClientArea($params) {
 	// pvewhmcs_fetch_rrd_stat() tolerates missing RRD data.
 	// ----------------------------------------------------------------
 	$vm_statistics = array();
-	$show_statistics = (($_REQUEST['a'] ?? '') === 'vmStat');
+	$show_statistics = (($_REQUEST['a'] ?? '') === 'vmStat') && !pvewhmcs_client_service_inactive($params);
 	if ($show_statistics) {
 		$rrd_sources = array('cpu' => 'cpu', 'mem' => 'mem', 'netinout' => 'netin,netout', 'diskrw' => 'diskread,diskwrite');
 		foreach ($rrd_sources as $key => $ds) {
@@ -2283,7 +2308,7 @@ function pvewhmcs_ClientArea($params) {
 
 // OUTPUT: VM Statistics/Graphs render to Client Area
 function pvewhmcs_vmStat($params) {
-	return true;
+	return pvewhmcs_client_inactive_error($params) ?? true;
 }
 
 // VNC: Console access to VM/CT via noVNC
@@ -2291,8 +2316,9 @@ function pvewhmcs_prepare_noVNC($params) {
 	pvewhmcs_ensure_schema();
 	global $CONFIG;
 
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
-		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
+	list($vncUser, $vncRealm, $vncpassword) = pvewhmcs_vnc_credentials(pvewhmcs_service_server_id($params));
+	if (strlen($vncpassword) < 15) {
+		throw new Exception("PVEWHMCS Error: VNC Secret (per-server VNC user or Module Config) either not set or not long enough. Recommend 20+ characters for security.");
 	}
 
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
@@ -2311,7 +2337,7 @@ function pvewhmcs_prepare_noVNC($params) {
 	$serverport = pvewhmcs_connection_port($params['serverport'] ?? '');
 	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox_server->login()) {
-		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
+		throw new Exception('Failed to prepare noVNC. Unable to connect to server.' . pvewhmcs_login_reason($proxmox_server));
 	}
 
 	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest);
@@ -2319,8 +2345,7 @@ function pvewhmcs_prepare_noVNC($params) {
 		throw new Exception('Failed to prepare noVNC. Unable to determine node.');
 	}
 
-	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, 'vnc', 'pve', $vncpassword, $serverport, pvewhmcs_verify_tls($params));
+	$proxmox = new PVE2_API($serverip, $vncUser, $vncRealm, $vncpassword, $serverport, pvewhmcs_verify_tls($params));
 	if (!$proxmox->login()) {
 		throw new Exception('Failed to prepare noVNC. Please contact Technical Support.');
 	}
@@ -2439,7 +2464,7 @@ function pvewhmcs_power_target(array $params) {
 
 	list($proxmox, $serverpassword) = pvewhmcs_service_server_api($params);
 	if (!$proxmox->login()) {
-		return "Error performing action. Couldn't login to PVE.";
+		return "Error performing action. Couldn't login to PVE." . pvewhmcs_login_reason($proxmox);
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest);
 	if (empty($guest_node)) {
@@ -2603,7 +2628,7 @@ function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest) {
 
 // CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
 function pvewhmcs_vmCheck($params) {
-	return "success";
+	return pvewhmcs_client_inactive_error($params) ?? "success";
 }
 
 // NETWORKING FUNCTION: Convert subnet mask to CIDR
