@@ -325,8 +325,9 @@ function pvewhmcs_refresh_client_identity($serviceId) {
 		throw new RuntimeException("Couldn't login to PVE." . pvewhmcs_login_reason($proxmox));
 	}
 	$node = pvewhmcs_find_guest_node($proxmox, $guest);
+	// Terminated services keep their row after the admin deletes the guest; nothing to update then.
 	if (empty($node)) {
-		throw new RuntimeException("Unable to determine node for VMID {$guest->vmid}.");
+		return;
 	}
 	$guestPath = pvewhmcs_guest_api_path($node, $guest);
 	$config = (array) $proxmox->get($guestPath . '/config');
