@@ -221,14 +221,21 @@ add_hook('ClientAreaFooterOutput', 2, function ($vars) {
 		? array('vmShutdown' => 'Desligar a VPS? O sistema operacional recebe o pedido de desligamento.', 'vmStop' => 'Forçar o desligamento? A VPS é cortada na hora, como tirar da tomada; dados não salvos podem se perder.')
 		: array('vmShutdown' => 'Power off the VPS? The operating system is asked to shut down.', 'vmStop' => 'Hard stop the VPS? It is cut off at once, like pulling the plug; unsaved data may be lost.');
 
+	// WHMCS client.js later swaps these hrefs for "#" and posts on click (honouring target), so the confirmation
+	// listens in the capture phase and stops that handler when the client cancels.
 	return '<script>(function () {
 	var ask = ' . json_encode($ask, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ';
 	document.querySelectorAll(\'a[href*="modop=custom"]\').forEach(function (link) {
 		var m = link.href.match(/[?&]a=(\w+)/);
 		if (!m) { return; }
-		if (m[1] === "noVNC") { link.target = "_blank"; link.rel = "noopener"; return; }
-		if (ask[m[1]]) { link.addEventListener("click", function (e) { if (!window.confirm(ask[m[1]])) { e.preventDefault(); } }); }
+		link.setAttribute("data-pvewhmcs-action", m[1]);
+		if (m[1] === "noVNC") { link.target = "_blank"; link.rel = "noopener"; }
 	});
+	document.addEventListener("click", function (e) {
+		var link = e.target.closest && e.target.closest("a[data-pvewhmcs-action]");
+		var question = link && ask[link.getAttribute("data-pvewhmcs-action")];
+		if (question && !window.confirm(question)) { e.preventDefault(); e.stopImmediatePropagation(); }
+	}, true);
 })();</script>';
 });
 
