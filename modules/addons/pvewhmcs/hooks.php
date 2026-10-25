@@ -43,8 +43,9 @@ function pvewhmcs_hook_is_pt() {
 }
 
 // Rewriting the request is safe: WHMCS only executes cancellations in the daily cron.
+// localAPI with an adminuser also sets adminid (CLI, API), so only the admin area keeps Immediate.
 add_hook('CancellationRequest', 1, function ($vars) {
-	if (!empty($_SESSION['adminid']) || ($vars['type'] ?? '') === 'End of Billing Period') {
+	if ((defined('ADMINAREA') && !empty($_SESSION['adminid'])) || ($vars['type'] ?? '') === 'End of Billing Period') {
 		return;
 	}
 	$serviceId = (int) ($vars['relid'] ?? 0);
@@ -53,7 +54,7 @@ add_hook('CancellationRequest', 1, function ($vars) {
 		return;
 	}
 	Capsule::table('tblcancelrequests')->where('id', $request->id)->update(array('type' => 'End of Billing Period'));
-	logActivity('Cancellation request changed from Immediate to End of Billing Period (client cancellations are end of period only) - Service ID: ' . $serviceId, (int) ($vars['userid'] ?? 0));
+	logActivity('Cancellation request changed from Immediate to End of Billing Period (only the admin area cancels immediately) - Service ID: ' . $serviceId, (int) ($vars['userid'] ?? 0));
 });
 
 add_hook('ClientAreaFooterOutput', 1, function ($vars) {
