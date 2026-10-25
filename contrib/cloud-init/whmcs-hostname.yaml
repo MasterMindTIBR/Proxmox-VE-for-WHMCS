@@ -1,0 +1,22 @@
+#cloud-config
+# vendor-data do WHMCS: aplica o hostname do cliente gravado em smbios1 sku. Igual para todas as VPS.
+write_files:
+  - path: /usr/local/sbin/whmcs-hostname
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      # Roda uma vez por instancia (runcmd); sem sku valido, a VM fica com o nome dado pelo cloud-init.
+      h=$(tr -d '[:space:]' < /sys/class/dmi/id/product_sku 2>/dev/null | tr 'A-Z' 'a-z')
+      case "$h" in ''|*[!a-z0-9.-]*|[.-]*|*[.-]) exit 0 ;; esac
+      old=$(hostname)
+      s=${h%%.*}
+      [ "$old" = "$h" ] || hostnamectl set-hostname "$h"
+      printf 'preserve_hostname: true\n' > /etc/cloud/cloud.cfg.d/99-whmcs-hostname.cfg
+      # O user-data do PVE traz manage_etc_hosts: true, que vence o cfg.d e regrava o /etc/hosts a cada boot; fixa o nome no template.
+      for t in /etc/cloud/templates/hosts.*.tmpl; do sed -i "s/{{fqdn}}/$h/g; s/{{hostname}}/$s/g" "$t"; done
+      if [ -n "$old" ] && [ "$old" != "$h" ] && [ "$old" != localhost ]; then
+        sed -i "/[[:space:]]$old\([[:space:]]\|\$\)/d" /etc/hosts
+      fi
+      grep -q "[[:space:]]$h\([[:space:]]\|\$\)" /etc/hosts || echo "127.0.1.1 $h $s" >> /etc/hosts
+runcmd:
+  - [/usr/local/sbin/whmcs-hostname]
