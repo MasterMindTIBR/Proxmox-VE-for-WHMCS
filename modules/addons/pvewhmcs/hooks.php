@@ -258,3 +258,12 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 
 	return pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0) ? array('hideNSFields' => true) : array();
 });
+
+// standard_cart ignores hideNSFields and WHMCS still requires the prefixes, so fill and hide them on the page.
+add_hook('ClientAreaFooterOutput', 3, function ($vars) {
+	if (($vars['templatefile'] ?? '') !== 'configureproduct' || !pvewhmcs_hook_is_vps_product($vars['productinfo']['pid'] ?? 0)) {
+		return '';
+	}
+
+	return '<script>document.addEventListener("DOMContentLoaded",function(){["ns1","ns2"].forEach(function(n){var i=document.getElementById("input"+n.charAt(0).toUpperCase()+n.slice(1)+"prefix");if(!i){return;}if(!i.value){i.value=n;}var c=i.closest(".col-sm-6,.col-md-6,.form-group")||i.parentNode;c.style.display="none";});});</script>';
+});
