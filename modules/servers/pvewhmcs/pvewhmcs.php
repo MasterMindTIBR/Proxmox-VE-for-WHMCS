@@ -200,7 +200,6 @@ function pvewhmcs_origin_settings(): array {
 	$row = Capsule::table('mod_pvewhmcs')->where('id', 1)->first();
 
 	return array(
-		'prefix' => trim((string) ($row->vm_prefix ?? '')),
 		'tag' => trim((string) ($row->origin_tag ?? '')),
 		'label' => trim((string) ($row->origin_label ?? '')),
 	);
@@ -902,7 +901,6 @@ function pvewhmcs_client_inactive_error(array $params) {
  *   3. Legacy hardcoded `<orderid-or-serviceid>-<hostname>` layout, when both (1) and (2) are blank.
  *
  * Supported pattern tokens:
- *   {prefix}      VM Name Prefix from Module Config (origin, e.g. inst).
  *   {vmid}        Proxmox VMID allocated for this guest (pass once known; see $vmid param).
  *   {node}        Proxmox node selected for creation (pass once known; see $node param).
  *   {serviceid}   WHMCS service ID (tblhosting.id).
@@ -941,7 +939,6 @@ function pvewhmcs_guest_name(array $params, ?int $vmid = null, ?string $node = n
 		);
 
 		$tokens = array(
-			'{prefix}' => pvewhmcs_dns_name_sanitize(pvewhmcs_origin_settings()['prefix']),
 			'{vmid}' => $vmid !== null ? (string) $vmid : '',
 			'{node}' => $node !== null ? pvewhmcs_dns_name_sanitize($node) : '',
 			'{serviceid}' => (string) (int) ($params['serviceid'] ?? 0),
@@ -1229,7 +1226,7 @@ function pvewhmcs_ConfigOptions() {
 			"Size" => "60",
 			"Description" => "Optional. Leave blank to use the Module Config tab's global default; leave both "
 				. "blank to keep the legacy '&lt;order/service id&gt;-&lt;hostname&gt;' name. "
-				. "Tokens: {prefix} {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
+				. "Tokens: {vmid} {node} {serviceid} {orderid} {clientid} {clientname} {hostname} {pid} {plan} {date}. "
 				. "Example: vm{vmid}-{clientname}-{hostname}"
 		),
 	);
