@@ -73,7 +73,7 @@ function pvewhmcs_rrd_image_bytes($image) {
 		: utf8_decode($image);
 }
 
-const PVEWHMCS_SCHEMA_VERSION = '1.3.9';
+const PVEWHMCS_SCHEMA_VERSION = '1.3.10';
 
 const PVEWHMCS_DEFAULT_GUEST_DNS_IPV4 = '208.67.222.222 64.6.64.6';
 const PVEWHMCS_DEFAULT_GUEST_DNS_IPV6 = '2620:119:35::35 2620:74:1b::1:1';
@@ -294,6 +294,8 @@ function pvewhmcs_ensure_schema() {
 			'guest_dns_ipv4' => "varchar(255) NOT NULL DEFAULT '208.67.222.222 64.6.64.6'",
 			'guest_dns_ipv6' => "varchar(255) NOT NULL DEFAULT '2620:119:35::35 2620:74:1b::1:1'",
 			'pve_pool' => 'varchar(64) DEFAULT NULL',
+			'vm_prefix' => 'varchar(16) DEFAULT NULL',
+			'hostname_snippet' => 'varchar(255) DEFAULT NULL',
 			'origin_tag' => 'varchar(64) DEFAULT NULL',
 			'origin_label' => 'varchar(64) DEFAULT NULL',
 		) as $column => $definition) {
