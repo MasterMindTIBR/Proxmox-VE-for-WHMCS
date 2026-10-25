@@ -202,7 +202,7 @@ add_hook('ClientAreaPrimarySidebar', 1, function ($sidebar) {
 	$icons = array(
 		'vmStart' => 'fas fa-play ls ls-arrow-play',
 		'vmReboot' => 'fas fa-sync ls ls-refresh',
-		'vmShutdown' => 'fas fa-power-off ls ls-switch',
+		'vmShutdown' => 'fas fa-power-off ls ls-sign-out',
 		'vmStop' => 'fas fa-stop ls ls-close',
 		'noVNC' => 'fas fa-terminal ls ls-input-code',
 	);
