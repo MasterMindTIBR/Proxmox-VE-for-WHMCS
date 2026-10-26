@@ -2557,6 +2557,11 @@ function pvewhmcs_ClientArea($params) {
 	$vm_config['memory_label'] = pvewhmcs_client_size_label((float) ($vm_config['memory'] ?? 0), 'M');
 	$vm_config['vcpus'] = max(1, (int) ($vm_config['cores'] ?? 1)) * max(1, (int) ($vm_config['sockets'] ?? 1));
 	$vm_config['os_label'] = pvewhmcs_service_os_label($params['serviceid']);
+	$os_info = pvewhmcs_guest_os_info($proxmox, $guest_node, $guest, $vm_status, $vm_config);
+	if ($os_info !== null) {
+		$vm_config['os_label'] = $os_info['os'];
+		$vm_config['kernel_label'] = $os_info['kernel'];
+	}
 
 	return array(
 		'templatefile' => 'clientarea',
@@ -2566,6 +2571,11 @@ function pvewhmcs_ClientArea($params) {
 			'vm_status' => $vm_status,
 			'vm_statistics' => $vm_statistics,
 			'vm_show_statistics' => $show_statistics,
+			'usage_lang' => json_encode(array(
+				'cpu' => 'CPU', 'mem' => $lang['chart_mem'] ?? 'Memory', 'net' => $lang['chart_net'] ?? 'Network', 'disk' => $lang['chart_disk'] ?? 'Disk',
+				'in' => $lang['net_in'] ?? 'In', 'out' => $lang['net_out'] ?? 'Out', 'read' => $lang['disk_read'] ?? 'Read', 'write' => $lang['disk_write'] ?? 'Write',
+				'nodata' => $lang['chart_nodata'] ?? '', 'error' => $lang['chart_error'] ?? '', 'updated' => $lang['chart_updated'] ?? '',
+			), JSON_UNESCAPED_UNICODE),
 			'lang' => $lang,
 		),
 	);
@@ -2574,6 +2584,126 @@ function pvewhmcs_ClientArea($params) {
 // OUTPUT: VM Statistics/Graphs render to Client Area
 function pvewhmcs_vmStat($params) {
 	return pvewhmcs_client_inactive_error($params) ?? true;
+}
+
+/**
+ * OS and kernel reported by the QEMU guest agent (needs VM.GuestAgent.Audit).
+ * Returns null when the guest is not a running VM with the agent enabled, or
+ * when the agent does not answer; the caller then keeps the ordered OS label.
+ */
+function pvewhmcs_guest_os_info(PVE2_API $proxmox, $node, $guest, array $status, array $config) {
+	if ($guest->vtype !== 'qemu' || ($status['status'] ?? '') !== 'running' || !preg_match('/^(1|enabled=1)\b/', (string) ($config['agent'] ?? ''))) {
+		return null;
+	}
+	// A stuck agent must not hold the page; this is the last API call of the client area.
+	$proxmox->set_timeouts(3, 5);
+	try {
+		$info = $proxmox->get(pvewhmcs_guest_api_path($node, $guest) . '/agent/get-osinfo');
+	} catch (\Throwable $e) {
+		return null;
+	}
+	$result = is_array($info['result'] ?? null) ? $info['result'] : array();
+	$os = trim((string) ($result['pretty-name'] ?? trim(($result['name'] ?? '') . ' ' . ($result['version'] ?? ''))));
+	if ($os === '') {
+		return null;
+	}
+
+	return array('os' => $os, 'kernel' => trim((string) ($result['kernel-release'] ?? '')));
+}
+
+// Client-callable functions that are not sidebar buttons (charts data, root password form).
+function pvewhmcs_ClientAreaAllowedFunctions() {
+	return array('Usage data' => 'vmRrd', 'Root password' => 'vmPassword');
+}
+
+/**
+ * JSON for the client area usage charts: GET .../rrddata (VM.Audit) for the
+ * last hour, day or week. Ends the request, so WHMCS renders no page.
+ */
+function pvewhmcs_vmRrd($params) {
+	$timeframe = in_array($_GET['tf'] ?? '', array('hour', 'day', 'week'), true) ? $_GET['tf'] : 'hour';
+	$target = pvewhmcs_power_target($params);
+	$data = array('ok' => false);
+	if (!is_string($target)) {
+		list($proxmox, $guestPath) = $target;
+		try {
+			$rows = $proxmox->get($guestPath . '/rrddata?timeframe=' . $timeframe . '&cf=AVERAGE');
+			$data = array('ok' => true, 'tf' => $timeframe, 'points' => array());
+			foreach ((array) $rows as $row) {
+				if (!isset($row['time'])) {
+					continue;
+				}
+				$point = array('t' => (int) $row['time']);
+				foreach (array('cpu', 'mem', 'maxmem', 'netin', 'netout', 'diskread', 'diskwrite') as $key) {
+					$point[$key] = isset($row[$key]) ? round((float) $row[$key], $key === 'cpu' ? 4 : 0) : null;
+				}
+				$data['points'][] = $point;
+			}
+		} catch (\Throwable $e) {
+			$data = array('ok' => false);
+		}
+	}
+	header('Content-Type: application/json; charset=utf-8');
+	header('Cache-Control: no-store');
+	echo json_encode($data);
+	exit;
+}
+
+// Same rule as the order form (addon ShoppingCartValidateProductUpdate hook).
+function pvewhmcs_root_password_error($password, array $lang) {
+	if (mb_strlen($password) < 12 || !preg_match('/\pL/u', $password) || !preg_match('/\d/', $password)) {
+		return $lang['rootpw_rule'] ?? 'The root password must be at least 12 characters long and include letters and numbers.';
+	}
+
+	return null;
+}
+
+function pvewhmcs_vmPassword($params) {
+	return pvewhmcs_run_tracked_action('vmPassword', 'power', $params, function () use ($params) {
+		return pvewhmcs_vmPassword_impl($params);
+	});
+}
+
+/**
+ * Client root password reset through cloud-init (VM.Config.Cloudinit +
+ * VM.PowerMgmt). Proxmox stores only the hash; a running VM is rebooted so
+ * cloud-init applies it, a stopped one gets it on the next start.
+ */
+function pvewhmcs_vmPassword_impl($params) {
+	$lang = pvewhmcs_load_client_lang($params);
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+		return $lang['rootpw_post_only'] ?? 'Use the form on the service page to change the root password.';
+	}
+	check_token();
+	$password = (string) ($_POST['pvewhmcs_rootpw'] ?? '');
+	if (!hash_equals($password, (string) ($_POST['pvewhmcs_rootpw2'] ?? ''))) {
+		return $lang['rootpw_mismatch'] ?? 'The passwords do not match.';
+	}
+	if (($error = pvewhmcs_root_password_error($password, $lang)) !== null) {
+		return $error;
+	}
+	$target = pvewhmcs_power_target($params);
+	if (is_string($target)) {
+		return $target;
+	}
+	list($proxmox, $guestPath, $serverpassword, $guest) = $target;
+	if ($guest->vtype !== 'qemu') {
+		return $lang['rootpw_qemu_only'] ?? 'Root password reset is only available for virtual machines.';
+	}
+
+	$proxmox->put($guestPath . '/config', array('cipassword' => $password));
+	$update = localAPI('UpdateClientProduct', array('serviceid' => (int) $params['serviceid'], 'servicepassword' => $password));
+	unset($password, $_POST['pvewhmcs_rootpw'], $_POST['pvewhmcs_rootpw2']);
+	if (($update['result'] ?? '') !== 'success') {
+		logActivity('PVEWHMCS: root password set in Proxmox but not saved in WHMCS - Service ID: ' . (int) $params['serviceid']);
+	}
+
+	$current = $proxmox->get($guestPath . '/status/current');
+	if (($current['status'] ?? '') !== 'running') {
+		return 'success';
+	}
+
+	return pvewhmcs_guest_power_action($proxmox, $guestPath, 'reboot', __FUNCTION__, $params, $serverpassword);
 }
 
 // VNC: Console access to VM/CT via noVNC
