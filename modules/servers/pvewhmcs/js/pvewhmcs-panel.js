@@ -156,6 +156,20 @@
 
 	function initRootPassword(form) {
 		var error = form.querySelector('.pve-rootpw-error');
+		var open = form.parentNode.querySelector('.pve-rootpw-open');
+		var cancel = form.querySelector('.pve-rootpw-cancel');
+		function toggle(show) {
+			form.hidden = !show;
+			open.hidden = show;
+			if (show) {
+				form.elements.pvewhmcs_rootpw.focus();
+			} else {
+				form.reset();
+				error.textContent = '';
+			}
+		}
+		open.addEventListener('click', function () { toggle(true); });
+		cancel.addEventListener('click', function () { toggle(false); });
 		form.addEventListener('submit', function (ev) {
 			csrf(form);
 			var a = form.elements.pvewhmcs_rootpw.value;
