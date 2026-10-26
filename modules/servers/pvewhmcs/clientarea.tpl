@@ -279,6 +279,72 @@
 .pve-alert-warning i {
 	margin-right: 8px;
 }
+/* Usage charts and root password form */
+.pve-usage, .pve-rootpw {
+	margin-top: 20px;
+	border: 1px solid #e5e5e5;
+	border-radius: 6px;
+	padding: 15px;
+}
+.pve-usage-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+.pve-usage-head h4, .pve-rootpw h4 {
+	margin: 0;
+}
+.pve-usage-head .btn.active {
+	background: #802DBC;
+	border-color: #802DBC;
+	color: #fff;
+}
+.pve-usage-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+	gap: 15px;
+}
+.pve-chart .pve-chart-title {
+	font-size: 13px;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+.pve-chart .pve-chart-legend {
+	font-size: 12px;
+	color: #666;
+}
+.pve-chart .pve-chart-legend span {
+	margin-right: 10px;
+	white-space: nowrap;
+}
+.pve-chart svg {
+	width: 100%;
+	height: 120px;
+	display: block;
+}
+.pve-usage-foot {
+	font-size: 12px;
+	color: #888;
+	margin-top: 8px;
+}
+.pve-rootpw p {
+	margin: 8px 0 10px;
+}
+.pve-rootpw-fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+.pve-rootpw-fields .form-control {
+	flex: 1 1 200px;
+	width: auto;
+}
+.pve-rootpw-error {
+	margin-top: 8px;
+}
 </style>
 
 <div class="pve-client-area">
@@ -421,7 +487,51 @@
 			<td><span class="spec-value">{$vm_config['os_label']}</span></td>
 		</tr>
 		{/if}
+		{if $vm_config['kernel_label']}
+		<tr>
+			<td><span class="spec-label">{$lang['kernel']}</span></td>
+			<td><span class="spec-value">{$vm_config['kernel_label']}</span></td>
+		</tr>
+		{/if}
 	</table>
+
+	{* Usage charts: data from modop=custom&a=vmRrd, drawn and refreshed by js/pvewhmcs-panel.js *}
+	<div id="pvewhmcs-usage" class="pve-usage" data-service="{$params['serviceid']|escape:'html'}"
+		data-lang="{$usage_lang|escape:'html'}">
+		<div class="pve-usage-head">
+			<h4><i class="fa fa-chart-line"></i> {$lang['usage_title']}</h4>
+			<div class="btn-group btn-group-sm" role="group">
+				<button type="button" class="btn btn-default active" data-tf="hour">{$lang['range_hour']}</button>
+				<button type="button" class="btn btn-default" data-tf="day">{$lang['range_day']}</button>
+				<button type="button" class="btn btn-default" data-tf="week">{$lang['range_week']}</button>
+			</div>
+		</div>
+		<div class="pve-usage-grid">
+			<div class="pve-chart" data-chart="cpu"></div>
+			<div class="pve-chart" data-chart="mem"></div>
+			<div class="pve-chart" data-chart="net"></div>
+			<div class="pve-chart" data-chart="disk"></div>
+		</div>
+		<div class="pve-usage-foot"></div>
+	</div>
+
+	{if $vm_config['vtype'] == 'qemu'}
+	<div class="pve-rootpw">
+		<h4><i class="fa fa-key"></i> {$lang['rootpw_title']}</h4>
+		<p>{$lang['rootpw_help']}</p>
+		<form method="post" action="clientarea.php?action=productdetails&amp;id={$params['serviceid']|escape:'html'}&amp;modop=custom&amp;a=vmPassword" autocomplete="off"
+			data-rule="{$lang['rootpw_rule']|escape:'html'}" data-mismatch="{$lang['rootpw_mismatch']|escape:'html'}" data-confirm="{if $vm_status['status'] == 'running'}{$lang['rootpw_confirm']|escape:'html'}{/if}">
+			<input type="hidden" name="token" value="{$token|escape:'html'}">
+			<div class="pve-rootpw-fields">
+				<input type="password" class="form-control" name="pvewhmcs_rootpw" placeholder="{$lang['rootpw_new']|escape:'html'}" autocomplete="new-password" minlength="12" required>
+				<input type="password" class="form-control" name="pvewhmcs_rootpw2" placeholder="{$lang['rootpw_repeat']|escape:'html'}" autocomplete="new-password" minlength="12" required>
+				<button type="submit" class="btn btn-primary">{$lang['rootpw_submit']}</button>
+			</div>
+			<div class="pve-rootpw-error text-danger"></div>
+		</form>
+	</div>
+	{/if}
+	<script src="./modules/servers/pvewhmcs/js/pvewhmcs-panel.js"></script>
 
 	{* Statistics Section *}
 	{if $vm_show_statistics}
