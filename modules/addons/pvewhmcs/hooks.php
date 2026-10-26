@@ -272,6 +272,13 @@ add_hook('ShoppingCartValidateProductUpdate', 1, function ($vars) {
 	}
 	$pt = pvewhmcs_hook_is_pt();
 	$errors = array();
+	// WHMCS accepts names like "-x" or "a..b"; the module would silently rewrite them, and Linux caps a hostname at 64 characters.
+	$hostname = trim((string) ($_POST['hostname'] ?? ''));
+	if ($hostname !== '' && (strlen($hostname) > 63 || !preg_match('/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/', $hostname))) {
+		$errors[] = $pt
+			? 'Nome do servidor inválido. Use letras, números e hífen, em partes separadas por ponto (ex.: "vps1" ou "vps1.minhaempresa.com.br"). Cada parte começa e termina com letra ou número, e o nome tem no máximo 63 caracteres.'
+			: 'Invalid server hostname. Use letters, digits and hyphens, in parts separated by dots (e.g. "vps1" or "vps1.example.com"). Each part starts and ends with a letter or digit, and the name is at most 63 characters.';
+	}
 	$password = (string) ($_POST['rootpw'] ?? '');
 	if ($password !== '' && (mb_strlen($password) < 12 || !preg_match('/\pL/u', $password) || !preg_match('/\d/', $password))) {
 		$errors[] = $pt ? 'A senha root precisa ter pelo menos 12 caracteres, com letras e números.' : 'The root password must be at least 12 characters long and include letters and numbers.';
