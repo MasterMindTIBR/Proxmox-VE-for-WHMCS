@@ -280,11 +280,19 @@
 	margin-right: 8px;
 }
 /* Usage charts and root password form */
-.pve-usage, .pve-rootpw {
+.pve-usage {
 	margin-top: 20px;
+}
+.pve-usage, .pve-rootpw form {
 	border: 1px solid #e5e5e5;
 	border-radius: 6px;
 	padding: 15px;
+}
+.pve-rootpw {
+	margin-top: 20px;
+}
+.pve-rootpw [hidden] {
+	display: none !important;
 }
 .pve-usage-head {
 	display: flex;
@@ -517,21 +525,23 @@
 
 	{if $vm_config['vtype'] == 'qemu'}
 	<div class="pve-rootpw">
-		<h4><i class="fa fa-key"></i> {$lang['rootpw_title']}</h4>
-		<p>{$lang['rootpw_help']}</p>
-		<form method="post" action="clientarea.php?action=productdetails&amp;id={$params['serviceid']|escape:'html'}&amp;modop=custom&amp;a=vmPassword" autocomplete="off"
+		<button type="button" class="btn btn-default pve-rootpw-open"><i class="fa fa-key"></i> {$lang['rootpw_open']}</button>
+		<form method="post" action="clientarea.php?action=productdetails&amp;id={$params['serviceid']|escape:'html'}&amp;modop=custom&amp;a=vmPassword" autocomplete="off" hidden
 			data-rule="{$lang['rootpw_rule']|escape:'html'}" data-mismatch="{$lang['rootpw_mismatch']|escape:'html'}" data-confirm="{if $vm_status['status'] == 'running'}{$lang['rootpw_confirm']|escape:'html'}{/if}">
 			<input type="hidden" name="token" value="{$token|escape:'html'}">
+			<h4><i class="fa fa-key"></i> {$lang['rootpw_title']}</h4>
+			<p>{$lang['rootpw_help']}</p>
 			<div class="pve-rootpw-fields">
 				<input type="password" class="form-control" name="pvewhmcs_rootpw" placeholder="{$lang['rootpw_new']|escape:'html'}" autocomplete="new-password" minlength="12" required>
 				<input type="password" class="form-control" name="pvewhmcs_rootpw2" placeholder="{$lang['rootpw_repeat']|escape:'html'}" autocomplete="new-password" minlength="12" required>
 				<button type="submit" class="btn btn-primary">{$lang['rootpw_submit']}</button>
+				<button type="button" class="btn btn-default pve-rootpw-cancel">{$lang['rootpw_cancel']}</button>
 			</div>
 			<div class="pve-rootpw-error text-danger"></div>
 		</form>
 	</div>
 	{/if}
-	<script src="./modules/servers/pvewhmcs/js/pvewhmcs-panel.js"></script>
+	<script src="./modules/servers/pvewhmcs/js/pvewhmcs-panel.js?v=2"></script>
 
 	{* Statistics Section *}
 	{if $vm_show_statistics}
