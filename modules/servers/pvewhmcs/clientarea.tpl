@@ -346,42 +346,18 @@
 	<table class="pve-specs-table">
 		<tr>
 			<td><span class="spec-label">{$lang['memory']}</span> <span class="spec-sublabel">{$lang['memory_sub']}</span></td>
-			<td><span class="spec-value">{$vm_config['memory']}MB</span></td>
+			<td><span class="spec-value">{$vm_config['memory_label']}</span></td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">{$lang['compute']}</span> <span class="spec-sublabel">{$lang['compute_sub']}</span></td>
-			<td>
-				<span class="spec-value">{$vm_config['cores']} {$lang['cores_suffix']}</span>
-				<div class="spec-detail">{$lang['sockets_on']} {$vm_config['sockets']} {$lang['sockets_suffix']}</div>
-			</td>
+			<td><span class="spec-value">{$vm_config['vcpus']} vCPU</span></td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">{$lang['storage']}</span> <span class="spec-sublabel">{$lang['storage_sub']}</span></td>
 			<td>
-				{if $vm_config['rootfs']}
-					{assign var="rootfs_parts" value=","|explode:$vm_config['rootfs']}
-					{foreach from=$rootfs_parts item=rpart}
-						{if $rpart|strpos:"size=" !== false}<span class="spec-value">{$rpart|replace:'size=':''}</span> <span class="spec-detail">(rootfs)</span>{/if}
-					{/foreach}
-				{/if}
-				{if $vm_config['ide0']}
-					{assign var="ide0_parts" value=","|explode:$vm_config['ide0']}
-					{foreach from=$ide0_parts item=ipart}
-						{if $ipart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$ipart|replace:'size=':''}</span> (ide0)</div>{/if}
-					{/foreach}
-				{/if}
-				{if $vm_config['scsi0']}
-					{assign var="scsi0_parts" value=","|explode:$vm_config['scsi0']}
-					{foreach from=$scsi0_parts item=spart}
-						{if $spart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$spart|replace:'size=':''}</span> (scsi0)</div>{/if}
-					{/foreach}
-				{/if}
-				{if $vm_config['virtio0']}
-					{assign var="virtio0_parts" value=","|explode:$vm_config['virtio0']}
-					{foreach from=$virtio0_parts item=vpart}
-						{if $vpart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$vpart|replace:'size=':''}</span> (virtio0)</div>{/if}
-					{/foreach}
-				{/if}
+				{foreach from=$vm_config['disks'] item=disk}
+					<div class="spec-detail"><span class="spec-value">{$disk}</span></div>
+				{/foreach}
 			</td>
 		</tr>
 		<tr>
@@ -407,8 +383,6 @@
 						{assign var="kv" value="="|explode:$part}
 						{if $kv[0] == 'virtio' || $kv[0] == 'e1000' || $kv[0] == 'rtl8139'}
 							<div class="spec-detail"><strong>{$kv[0]}</strong>: <code>{$kv[1]}</code></div>
-						{elseif $kv[0] == 'bridge' || $kv[0] == 'link_down' || $kv[0] == 'firewall' || $kv[0] == 'tag'}
-							<div class="spec-detail"><strong>{$kv[0]}</strong>: {$kv[1]}</div>
 						{/if}
 					{/if}
 				{/foreach}
@@ -424,8 +398,6 @@
 						{assign var="kv" value="="|explode:$part}
 						{if $kv[0] == 'virtio' || $kv[0] == 'e1000' || $kv[0] == 'rtl8139'}
 							<div class="spec-detail"><strong>{$kv[0]}</strong>: <code>{$kv[1]}</code></div>
-						{elseif $kv[0] == 'bridge' || $kv[0] == 'link_down' || $kv[0] == 'firewall' || $kv[0] == 'tag'}
-							<div class="spec-detail"><strong>{$kv[0]}</strong>: {$kv[1]}</div>
 						{/if}
 					{/if}
 				{/foreach}
@@ -438,10 +410,12 @@
 			<td><div class="spec-detail" style="word-break:break-all;">{$vm_config['sshkeys']}</div></td>
 		</tr>
 		{/if}
+		{if $vm_config['os_label']}
 		<tr>
-			<td><span class="spec-label">{$lang['kernel']}</span> <span class="spec-sublabel">{$lang['kernel_sub']}</span></td>
-			<td><span class="spec-value">{$vm_config['ostype']}</span></td>
+			<td><span class="spec-label">{$lang['os']}</span></td>
+			<td><span class="spec-value">{$vm_config['os_label']}</span></td>
 		</tr>
+		{/if}
 	</table>
 
 	{* Statistics Section *}
