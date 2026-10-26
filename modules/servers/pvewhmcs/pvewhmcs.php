@@ -280,6 +280,12 @@ function pvewhmcs_service_os_label($serviceId): string {
 	return trim($parts[1] ?? $parts[0]);
 }
 
+function pvewhmcs_client_size_label(float $size, string $unit): string {
+	$mb = $size * array('K' => 1 / 1024, 'M' => 1, 'G' => 1024, 'T' => 1048576)[$unit];
+
+	return $mb >= 1024 ? rtrim(rtrim(number_format($mb / 1024, 1, '.', ''), '0'), '.') . ' GB' : (int) round($mb) . ' MB';
+}
+
 function pvewhmcs_admin_service_url($serviceId): string {
 	// Read from the settings: getSystemURL() is empty when provisioning runs from the cron or the API.
 	$base = (string) Capsule::table('tblconfiguration')->where('setting', 'SystemURL')->value('value');
@@ -2517,6 +2523,17 @@ function pvewhmcs_ClientArea($params) {
 	$vm_config['gateway4'] = $guest->gateway ;
 	$vm_config['created'] = $guest->created ;
 	$vm_config['v6prefix'] = $guest->v6prefix ;
+	// Client view: only the guest's own disks (no cloud-init drive, EFI/TPM state), sizes in GB, vCPUs and the ordered OS.
+	$vm_config['disks'] = array();
+	foreach ($vm_config as $key => $value) {
+		if (is_string($value) && preg_match('/^(rootfs|scsi\d+|virtio\d+|sata\d+)$/', (string) $key) && strpos($value, 'media=cdrom') === false
+			&& preg_match('/(?:^|,)size=(\d+(?:\.\d+)?)([KMGT])/', $value, $m)) {
+			$vm_config['disks'][] = pvewhmcs_client_size_label((float) $m[1], $m[2]);
+		}
+	}
+	$vm_config['memory_label'] = pvewhmcs_client_size_label((float) ($vm_config['memory'] ?? 0), 'M');
+	$vm_config['vcpus'] = max(1, (int) ($vm_config['cores'] ?? 1)) * max(1, (int) ($vm_config['sockets'] ?? 1));
+	$vm_config['os_label'] = pvewhmcs_service_os_label($params['serviceid']);
 
 	return array(
 		'templatefile' => 'clientarea',
