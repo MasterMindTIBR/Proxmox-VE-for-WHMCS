@@ -264,6 +264,34 @@ add_hook('ClientAreaPageCart', 1, function ($vars) {
 	return array('hideNSFields' => true);
 });
 
+// The root password is the SSH login of a VPS (password auth is on), so the cart refuses weak ones and malformed SSH keys.
+add_hook('ShoppingCartValidateProductUpdate', 1, function ($vars) {
+	$item = $_SESSION['cart']['products'][(int) ($_POST['i'] ?? -1)] ?? null;
+	if (!is_array($item) || !pvewhmcs_hook_is_vps_product($item['pid'] ?? 0)) {
+		return array();
+	}
+	$pt = pvewhmcs_hook_is_pt();
+	$errors = array();
+	$password = (string) ($_POST['rootpw'] ?? '');
+	if ($password !== '' && (mb_strlen($password) < 12 || !preg_match('/\pL/u', $password) || !preg_match('/\d/', $password))) {
+		$errors[] = $pt ? 'A senha root precisa ter pelo menos 12 caracteres, com letras e números.' : 'The root password must be at least 12 characters long and include letters and numbers.';
+	}
+	$keyField = Capsule::table('tblcustomfields')->where('type', 'product')->where('relid', (int) $item['pid'])->where('fieldname', 'like', 'SSHKey%')->value('id');
+	$keys = trim((string) ($_POST['customfield'][$keyField] ?? ''));
+	if ($keyField && $keys !== '') {
+		if (!function_exists('pvewhmcs_ssh_public_keys')) {
+			(new \WHMCS\Module\Server())->load('pvewhmcs');
+		}
+		if (pvewhmcs_ssh_public_keys($keys) === null) {
+			$errors[] = $pt
+				? 'A chave SSH não está no formato OpenSSH. Cole a chave pública inteira, uma por linha (ex.: "ssh-ed25519 AAAA... usuario@pc"), ou deixe o campo em branco.'
+				: 'The SSH key is not in OpenSSH format. Paste the whole public key, one per line (e.g. "ssh-ed25519 AAAA... user@pc"), or leave the field empty.';
+		}
+	}
+
+	return $errors;
+});
+
 // standard_cart ignores hideNSFields and WHMCS still requires the prefixes, so fill and hide them on the page.
 add_hook('ClientAreaFooterOutput', 3, function ($vars) {
 	if (empty($GLOBALS['pvewhmcs_hide_ns'])) {
