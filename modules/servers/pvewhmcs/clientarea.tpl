@@ -287,6 +287,11 @@
 		<i class="fa fa-exclamation-triangle"></i>
 		{$pvewhmcs_error|escape:'html'}
 	</div>
+	{elseif $pvewhmcs_notice}
+	<div class="alert alert-info">
+		<i class="fa fa-info-circle"></i>
+		{$pvewhmcs_notice|escape:'html'}
+	</div>
 	{else}
 	{* Header Panel with VM Type, Status, and Gauges *}
 	<div class="pve-header-panel">

@@ -2438,6 +2438,25 @@ function pvewhmcs_client_area_error($message, array $params) {
 	);
 }
 
+function pvewhmcs_client_area_notice(array $params) {
+	$lang = pvewhmcs_load_client_lang($params);
+	$status = (string) ($params['status'] ?? '');
+	$label = class_exists('Lang') ? (string) \Lang::trans('clientarea' . strtolower($status)) : '';
+	// Lang::trans echoes the key back when the theme has no translation for it.
+	if ($label === '' || $label === 'clientarea' . strtolower($status)) {
+		$label = $status;
+	}
+
+	return array(
+		'templatefile' => 'clientarea',
+		'vars' => array(
+			'params' => $params,
+			'pvewhmcs_notice' => sprintf($lang['service_inactive_notice'] ?? 'This service is %s; the VPS details and actions are not available.', $label),
+			'lang' => $lang,
+		),
+	);
+}
+
 // OUTPUT: Module output to the Client Area
 function pvewhmcs_ClientArea($params) {
 	pvewhmcs_ensure_schema();
@@ -2446,11 +2465,15 @@ function pvewhmcs_ClientArea($params) {
 
 	// Retrieve virtual machine info from table mod_pvewhmcs_vms
 	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+	if ($guest !== null && ($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
+		return pvewhmcs_client_area_error($provisioningError, $params);
+	}
+	// A cancelled/terminated service may keep its guest row after the VM is gone; asking Proxmox only slows the page.
+	if (!in_array($params['status'] ?? '', array('Active', 'Suspended'), true)) {
+		return pvewhmcs_client_area_notice($params);
+	}
 	if ($guest === null) {
 		return pvewhmcs_client_area_error($unavailable, $params);
-	}
-	if (($provisioningError = pvewhmcs_guest_provisioning_error($guest)) !== null) {
-		return pvewhmcs_client_area_error($provisioningError, $params);
 	}
 	$conflict = pvewhmcs_vmid_conflict_error($guest, $params);
 	if ($conflict !== null) {
