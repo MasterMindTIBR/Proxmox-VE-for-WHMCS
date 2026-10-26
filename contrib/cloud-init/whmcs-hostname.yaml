@@ -1,5 +1,7 @@
 #cloud-config
 # vendor-data do WHMCS: aplica o hostname do cliente gravado em smbios1 sku. Igual para todas as VPS.
+# Trocar a senha root pelo painel muda o instance-id; sem isto o cloud-init gera chaves SSH novas para o host.
+ssh_deletekeys: false
 write_files:
   - path: /usr/local/sbin/whmcs-hostname
     permissions: '0755'
